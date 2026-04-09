@@ -1,42 +1,70 @@
-Backend Loadly
+# Loadly Backend
 
-Guía completa para el README — Flujo de trabajo con GitHub
-1. Clonar el proyecto (solo la primera vez)
-bashgit clone https://github.com/marioSaico/loadly-backend.git
+Backend del sistema Loadly para la gestión y planificación de rutas de maletas - Tasf.B2B
+
+## Requisitos previos
+
+- Java 21
+- Git
+
+## Configuración inicial (solo la primera vez)
+
+### Clonar el proyecto
+```bash
+git clone https://github.com/marioSaico/loadly-backend.git
 cd loadly-backend
-2. Antes de empezar a trabajar cada día
-Siempre jalar los últimos cambios antes de tocar código:
-bashgit pull
-3. Crear una rama para trabajar
-Nunca trabajar directamente en main. Cada funcionalidad o algoritmo va en su propia rama:
-bashgit checkout -b nombre-de-la-rama
-Por ejemplo:
-bashgit checkout -b feature/algoritmo-genetico
-git checkout -b feature/algoritmo-aco
-git checkout -b feature/modelo-aeropuerto
-4. Guardar cambios en tu rama
-bashgit add .
-git commit -m "descripción breve de lo que hiciste"
+```
+
+### Levantar el proyecto
+```bash
+mvnw spring-boot:run
+```
+
+## Flujo de trabajo diario
+
+### 1. Antes de empezar a trabajar, siempre jalar cambios
+```bash
+git pull
+```
+
+### 2. Crear una rama para tu funcionalidad
+```bash
+git checkout -b feature/nombre-de-lo-que-vas-a-hacer
+```
+
+### 3. Guardar tus cambios
+```bash
+git add .
+git commit -m "feat: descripción de lo que hiciste"
 git push origin nombre-de-la-rama
-5. Fusionar tu rama con main cuando termines
-bashgit checkout main
+```
+
+### 4. Fusionar tu rama con main cuando termines
+```bash
+git checkout main
 git pull
 git merge nombre-de-la-rama
 git push
-6. Eliminar la rama una vez fusionada
-bashgit branch -d nombre-de-la-rama
+```
 
-Convención de nombres para commits
-Para que todos escriban commits de manera consistente, te recomiendo usar estos prefijos:
+### 5. Eliminar la rama una vez fusionada
+```bash
+git branch -d nombre-de-la-rama
+```
 
-feat: cuando agregas algo nuevo → feat: agregar modelo PlanVuelo
-fix: cuando corriges un error → fix: corregir parseo de hora en PlanVuelo
-refactor: cuando reorganizas código → refactor: mover clases a paquete algoritmo
-docs: cuando actualizas documentación → docs: actualizar README
+## Convención de commits
 
+| Prefijo | Cuándo usarlo | Ejemplo |
+|---|---|---|
+| feat: | Cuando agregas algo nuevo | feat: agregar modelo PlanVuelo |
+| fix: | Cuando corriges un error | fix: corregir parseo de hora |
+| refactor: | Cuando reorganizas código | refactor: mover clases a paquete algoritmo |
+| docs: | Cuando actualizas documentación | docs: actualizar README |
 
-Convención de nombres para ramas
+## Convención de ramas
 
-feature/nombre → para nuevas funcionalidades
-fix/nombre → para correcciones
-docs/nombre → para documentación
+| Prefijo | Cuándo usarlo |
+|---|---|
+| feature/ | Para nuevas funcionalidades |
+| fix/ | Para correcciones |
+| docs/ | Para documentación |
