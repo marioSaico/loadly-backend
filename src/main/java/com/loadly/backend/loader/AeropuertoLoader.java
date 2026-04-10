@@ -17,39 +17,49 @@ public class AeropuertoLoader {
         try (BufferedReader br = new BufferedReader(new FileReader(rutaArchivo))) {
             String linea;
             while ((linea = br.readLine()) != null) {
-                linea = linea.trim();
-                if (linea.isEmpty() || linea.startsWith("*") || 
-                    linea.startsWith("America") || linea.startsWith("Europa") || 
-                    linea.startsWith("Asia") || linea.startsWith("PDDS")) {
-                    continue;
-                }
 
-                String[] partes = linea.trim().split("\\s+");
+                // Eliminar BOM y caracteres extraños al inicio
+                linea = linea.replace("\uFEFF", "")
+                             .replace("\u0000", "")
+                             .trim();
+
+                if (linea.isEmpty()) continue;
+
+                // Ignorar líneas que no son datos
+                if (!Character.isDigit(linea.charAt(0))) continue;
+
+                // Separar por múltiples espacios
+                String[] partes = linea.trim().split("\\s{2,}");
+
                 if (partes.length < 7) continue;
 
-                Aeropuerto aeropuerto = new Aeropuerto();
-                aeropuerto.setId(Integer.parseInt(partes[0]));
-                aeropuerto.setCodigo(partes[1]);
-                aeropuerto.setCiudad(partes[2]);
-                aeropuerto.setPais(partes[3]);
-                aeropuerto.setAbreviatura(partes[4]);
-                aeropuerto.setGmt(Integer.parseInt(partes[5]));
-                aeropuerto.setCapacidad(Integer.parseInt(partes[6]));
+                try {
+                    Aeropuerto aeropuerto = new Aeropuerto();
+                    aeropuerto.setId(Integer.parseInt(partes[0].trim()));
+                    aeropuerto.setCodigo(partes[1].trim());
+                    aeropuerto.setCiudad(partes[2].trim());
+                    aeropuerto.setPais(partes[3].trim());
+                    aeropuerto.setAbreviatura(partes[4].trim());
+                    aeropuerto.setGmt(Integer.parseInt(partes[5].trim()));
+                    aeropuerto.setCapacidad(Integer.parseInt(partes[6].trim()));
 
-                // Latitud y longitud son el resto de la línea
-                if (partes.length > 7) {
-                    StringBuilder coords = new StringBuilder();
-                    for (int i = 7; i < partes.length; i++) {
-                        coords.append(partes[i]).append(" ");
+                    // Latitud y longitud
+                    if (partes.length > 7) {
+                        String coords = partes[7].trim();
+                        String[] coordSplit = coords.split("Longitude:");
+                        aeropuerto.setLatitud(
+                            coordSplit[0].replace("Latitude:", "").trim()
+                        );
+                        if (coordSplit.length > 1) {
+                            aeropuerto.setLongitud(coordSplit[1].trim());
+                        }
                     }
-                    String[] coordSplit = coords.toString().split("Longitude:");
-                    aeropuerto.setLatitud(coordSplit[0].replace("Latitude:", "").trim());
-                    if (coordSplit.length > 1) {
-                        aeropuerto.setLongitud(coordSplit[1].trim());
-                    }
+
+                    aeropuertos.add(aeropuerto);
+
+                } catch (NumberFormatException e) {
+                    System.err.println("Error parseando línea: " + linea);
                 }
-
-                aeropuertos.add(aeropuerto);
             }
         } catch (Exception e) {
             System.err.println("Error al leer archivo de aeropuertos: " + e.getMessage());
