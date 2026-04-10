@@ -37,11 +37,13 @@ Por ejemplo:
     │   ├── PlanVuelo.java         → representa un vuelo disponible
     │   ├── Envio.java             → representa un pedido de maletas
     │   ├── Ruta.java              → representa una ruta completa (secuencia de vuelos)
-    │   └── EstadoRuta.java        → enum con los posibles estados de una ruta (PLANIFICADA, EN_TRANSITO, ENTREGADA, RETRASADA, SIN_RUTA)
+    │   └── EstadoRuta.java        → enum: PLANIFICADA, EN_TRANSITO, ENTREGADA, RETRASADA, SIN_RUTA
     ├── loader
     │   ├── AeropuertoLoader.java  → lee y parsea el archivo de aeropuertos
     │   ├── PlanVueloLoader.java   → lee y parsea el archivo de planes de vuelo
-    │   └── EnvioLoader.java       → lee y parsea los archivos de envíos
+    │   └── EnvioLoader.java       → lee envíos filtrados por fecha/hora límite (Sc)
+    ├── service
+    │   └── DataService.java       → carga aeropuertos y vuelos al inicio, provee envíos por Sc
     ├── algoritmo
     │   ├── genetico
     │   │   ├── Individuo.java         → cromosoma (conjunto de rutas para todos los envíos)
