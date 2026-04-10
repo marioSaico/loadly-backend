@@ -14,9 +14,20 @@ Backend del sistema Loadly para la gestión y planificación de rutas de maletas
     git clone https://github.com/marioSaico/loadly-backend.git
     cd loadly-backend
 
-### Levantar el proyecto
+### Levantar el proyecto (cuando quieras correr lo que codees)
 
     mvnw spring-boot:run
+### Crear tu rama personal
+
+    git checkout -b feature/tu-nombre
+
+Por ejemplo:
+
+    git checkout -b feature/mario
+    git checkout -b feature/diego
+    git checkout -b feature/marcos
+
+---
 
 ## Estructura del proyecto
 
@@ -46,25 +57,10 @@ Backend del sistema Loadly para la gestión y planificación de rutas de maletas
 
 ## Flujo de trabajo
 
-### Primera vez (configuración inicial de tu rama)
-
-1. Clonar el proyecto
-    git clone https://github.com/marioSaico/loadly-backend.git
-    cd loadly-backend
-
-2. Crear tu rama personal
-    git checkout -b feature/tu-nombre
-
-Por ejemplo:
-    git checkout -b feature/mario
-    git checkout -b feature/diego
-    git checkout -b feature/marcos
-
----
-
 ### Desde la segunda vez en adelante
 
-1. Jalar los últimos cambios de main por si tus compañeros fusionaron algo
+Jalar los últimos cambios de main por si alguno de nosotros fusiono algo:
+    
     git checkout main
     git pull origin main
     git checkout feature/tu-nombre
