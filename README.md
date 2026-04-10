@@ -61,7 +61,9 @@ Por ejemplo:
 
 ### Desde la segunda vez en adelante
 
-Jalar los últimos cambios de main por si alguno de nosotros fusiono algo:
+Jalar los últimos cambios de main por si alguno de nosotros fusiono algo: (se hace cada vez que quieras emepezar a codear)
+
+Cada vez que empieces a trabajar, por si algún compañero hizo un merge mientras tú no estabas trabajando. Así evitas conflictos.
     
     git checkout main
     git pull origin main
