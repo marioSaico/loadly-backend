@@ -12,7 +12,7 @@ public class Aeropuerto {
     private String abreviatura;
     private int gmt;
     private int capacidad;
-    private String latitud;
-    private String longitud;
+    private double latitud;
+    private double longitud;
 
 }
