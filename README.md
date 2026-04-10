@@ -14,72 +14,65 @@ Backend del sistema Loadly para la gestión y planificación de rutas de maletas
     git clone https://github.com/marioSaico/loadly-backend.git
     cd loadly-backend
 
-### Levantar el proyecto
+### Levantar el proyecto (cuando quieras correr lo que codees)
 
     mvnw spring-boot:run
+### Crear tu rama personal
 
-## Estructura del proyecto
-
-com.loadly.backend
-├── model
-│   ├── Aeropuerto.java        → representa un aeropuerto de la red
-│   ├── PlanVuelo.java         → representa un vuelo disponible
-│   ├── Envio.java             → representa un pedido de maletas
-│   ├── Ruta.java              → representa una ruta completa (secuencia de vuelos)
-│   └── EstadoRuta.java        → enum con los posibles estados de una ruta
-│                                (PLANIFICADA, EN_TRANSITO, ENTREGADA, RETRASADA, SIN_RUTA)
-├── loader
-│   ├── AeropuertoLoader.java  → lee y parsea el archivo de aeropuertos
-│   ├── PlanVueloLoader.java   → lee y parsea el archivo de planes de vuelo
-│   └── EnvioLoader.java       → lee y parsea los archivos de envíos
-├── algoritmo
-│   ├── genetico
-│   │   ├── Individuo.java         → cromosoma (conjunto de rutas para todos los envíos)
-│   │   ├── Poblacion.java         → conjunto de individuos
-│   │   ├── Fitness.java           → calcula qué tan buena es una solución
-│   │   └── AlgoritmoGenetico.java → motor principal del GA
-│   └── aco
-│       └── AlgoritmoACO.java      → motor principal del ACO
-├── planificador
-│   └── Planificador.java      → orquesta todo usando planificación programada fija
-└── controller
-    └── PlanificadorController.java → API REST para conectar con el frontend
-
-## Flujo de trabajo
-
-## Flujo de trabajo
-
-### Primera vez (configuración inicial de tu rama)
-
-1. Clonar el proyecto
-    git clone https://github.com/marioSaico/loadly-backend.git
-    cd loadly-backend
-
-2. Crear tu rama personal
     git checkout -b feature/tu-nombre
 
 Por ejemplo:
+
     git checkout -b feature/mario
     git checkout -b feature/diego
     git checkout -b feature/marcos
 
 ---
 
+## Estructura del proyecto
+
+    com.loadly.backend
+    ├── model
+    │   ├── Aeropuerto.java        → representa un aeropuerto de la red
+    │   ├── PlanVuelo.java         → representa un vuelo disponible
+    │   ├── Envio.java             → representa un pedido de maletas
+    │   ├── Ruta.java              → representa una ruta completa (secuencia de vuelos)
+    │   └── EstadoRuta.java        → enum con los posibles estados de una ruta (PLANIFICADA, EN_TRANSITO, ENTREGADA, RETRASADA, SIN_RUTA)
+    ├── loader
+    │   ├── AeropuertoLoader.java  → lee y parsea el archivo de aeropuertos
+    │   ├── PlanVueloLoader.java   → lee y parsea el archivo de planes de vuelo
+    │   └── EnvioLoader.java       → lee y parsea los archivos de envíos
+    ├── algoritmo
+    │   ├── genetico
+    │   │   ├── Individuo.java         → cromosoma (conjunto de rutas para todos los envíos)
+    │   │   ├── Poblacion.java         → conjunto de individuos
+    │   │   ├── Fitness.java           → calcula qué tan buena es una solución
+    │   │   └── AlgoritmoGenetico.java → motor principal del GA
+    │   └── aco
+    │       └── AlgoritmoACO.java      → motor principal del ACO
+    ├── planificador
+    │   └── Planificador.java      → orquesta todo usando planificación programada fija
+    └── controller
+        └── PlanificadorController.java → API REST para conectar con el frontend
+
+## Flujo de trabajo
+
 ### Desde la segunda vez en adelante
 
-1. Jalar los últimos cambios de main por si tus compañeros fusionaron algo
+Jalar los últimos cambios de main por si alguno de nosotros fusiono algo:
+    
     git checkout main
     git pull origin main
     git checkout feature/tu-nombre
     git merge main
 
-### 5. Guardar tus cambios en tu rama
+### Guardar tus cambios en tu rama
 
     git add .
     git commit -m "feat: descripción de lo que hiciste"
     git push origin feature/tu-nombre
 
-### 6. Fusionar tu rama con main cuando termines una funcionalidad
+### Fusionar tu rama con main cuando termines una funcionalidad
 
 Una vez que hayas hecho el push de tus cambios, ve al repositorio en GitHub.
 Aparecerá un mensaje que dice "feature/tu-nombre had recent pushes".
