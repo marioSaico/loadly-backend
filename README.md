@@ -78,12 +78,13 @@ Verás un asterisco * en la rama activa. Por ejemplo:
     git commit -m "feat: descripción de lo que hiciste"
     git push origin feature/tu-nombre
 
-### 6. Fusionar tu rama con main cuando termines
+### 6. Fusionar tu rama con main cuando termines una funcionalidad
 
-    git checkout main
-    git pull
-    git merge feature/tu-nombre
-    git push
+Una vez que hayas hecho el push de tus cambios, ve al repositorio en GitHub.
+Aparecerá un mensaje que dice "feature/tu-nombre had recent pushes".
+Haz clic en "Compare & pull request", escribe una descripción de lo que hiciste
+y luego haz clic en "Create pull request". Finalmente haz clic en "Merge pull request"
+y confirmas. Listo, tus cambios ya están en main.
 
 ## Convención de commits
 
