@@ -44,21 +44,24 @@ public class AeropuertoLoader {
                     aeropuerto.setCapacidad(Integer.parseInt(partes[6].trim()));
 
                     // Latitud y longitud
-                    if (partes.length > 7) {
-                        String coords = partes[7].trim();
-                        String[] coordSplit = coords.split("Longitude:");
-                        aeropuerto.setLatitud(
-                            coordSplit[0].replace("Latitude:", "").trim()
-                        );
-                        if (coordSplit.length > 1) {
-                            aeropuerto.setLongitud(coordSplit[1].trim());
+                    if (linea.contains("Latitude:")) {
+
+                        String latStr = linea.split("Latitude:")[1].split("Longitude:")[0].trim();
+                        double lat = convertirDecimal(latStr);
+                        aeropuerto.setLatitud(lat);
+
+                        if (linea.contains("Longitude:")) {
+                            String lonStr = linea.split("Longitude:")[1].trim();
+                            double lon = convertirDecimal(lonStr);
+                            aeropuerto.setLongitud(lon);
                         }
                     }
 
                     aeropuertos.add(aeropuerto);
 
-                } catch (NumberFormatException e) {
-                    System.err.println("Error parseando línea: " + linea);
+                } catch (Exception e) {
+                    System.err.println("Error en línea: " + linea);
+                    System.err.println("Motivo: " + e.getMessage());
                 }
             }
         } catch (Exception e) {
@@ -66,5 +69,36 @@ public class AeropuertoLoader {
         }
 
         return aeropuertos;
+    }
+
+    private double convertirDecimal(String coord) {
+
+        try {
+            // 🔥 extraer SOLO números
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("(\\d+)")
+                    .matcher(coord);
+
+            double grados = 0, minutos = 0, segundos = 0;
+
+            if (m.find()) grados = Double.parseDouble(m.group());
+            if (m.find()) minutos = Double.parseDouble(m.group());
+            if (m.find()) segundos = Double.parseDouble(m.group());
+
+            // 🔹 dirección (última letra válida)
+            char direccion = coord.toUpperCase().replaceAll("[^NSEW]", "")
+                                                .charAt(0);
+
+            double decimal = grados + (minutos / 60.0) + (segundos / 3600.0);
+
+            if (direccion == 'S' || direccion == 'W') {
+                decimal *= -1;
+            }
+
+            return decimal;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error convirtiendo: " + coord);
+        }
     }
 }
