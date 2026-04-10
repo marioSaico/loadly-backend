@@ -61,7 +61,7 @@ Por ejemplo:
 
 ### Desde la segunda vez en adelante
 
-Jalar los últimos cambios de main por si alguno de nosotros fusiono algo: (se hace cada vez que quieras emepezar a codear)
+Jalar los últimos cambios de main por si alguno de nosotros fusiono algo: (se hace cada vez que quieras empezar a codear)
 
 Cada vez que empieces a trabajar, por si algún compañero hizo un merge mientras tú no estabas trabajando. Así evitas conflictos.
     
