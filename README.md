@@ -45,32 +45,31 @@ Backend del sistema Loadly para la gestión y planificación de rutas de maletas
 
 ## Flujo de trabajo
 
-### 1. Antes de empezar a trabajar, siempre jalar cambios
+## Flujo de trabajo
 
-    git pull
+### Primera vez (configuración inicial de tu rama)
 
-### 2. Crear tu rama personal (solo la primera vez)
+1. Clonar el proyecto
+    git clone https://github.com/marioSaico/loadly-backend.git
+    cd loadly-backend
 
+2. Crear tu rama personal
     git checkout -b feature/tu-nombre
 
 Por ejemplo:
-
     git checkout -b feature/mario
     git checkout -b feature/diego
     git checkout -b feature/marcos
 
-### 3. Cambiarte a tu rama antes de trabajar
+---
 
+### Desde la segunda vez en adelante
+
+1. Jalar los últimos cambios de main por si tus compañeros fusionaron algo
+    git checkout main
+    git pull origin main
     git checkout feature/tu-nombre
-
-### 4. Verificar en qué rama estás
-
-    git branch
-
-Verás un asterisco * en la rama activa. Por ejemplo:
-
-    * feature/mario
-      main
+    git merge main
 
 ### 5. Guardar tus cambios en tu rama
 
@@ -85,10 +84,3 @@ Aparecerá un mensaje que dice "feature/tu-nombre had recent pushes".
 Haz clic en "Compare & pull request", escribe una descripción de lo que hiciste
 y luego haz clic en "Create pull request". Finalmente haz clic en "Merge pull request"
 y confirmas. Listo, tus cambios ya están en main.
-
-## Convención de commits
-
-- feat: cuando agregas algo nuevo. Ejemplo: feat: agregar modelo PlanVuelo
-- fix: cuando corriges un error. Ejemplo: fix: corregir parseo de hora
-- refactor: cuando reorganizas código. Ejemplo: refactor: mover clases a paquete algoritmo
-- docs: cuando actualizas documentación. Ejemplo: docs: actualizar README
