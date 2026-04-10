@@ -84,10 +84,3 @@ Aparecerá un mensaje que dice "feature/tu-nombre had recent pushes".
 Haz clic en "Compare & pull request", escribe una descripción de lo que hiciste
 y luego haz clic en "Create pull request". Finalmente haz clic en "Merge pull request"
 y confirmas. Listo, tus cambios ya están en main.
-
-## Convención de commits
-
-- feat: cuando agregas algo nuevo. Ejemplo: feat: agregar modelo PlanVuelo
-- fix: cuando corriges un error. Ejemplo: fix: corregir parseo de hora
-- refactor: cuando reorganizas código. Ejemplo: refactor: mover clases a paquete algoritmo
-- docs: cuando actualizas documentación. Ejemplo: docs: actualizar README
