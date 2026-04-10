@@ -43,8 +43,8 @@ public class EnvioLoader {
                     Envio envio = new Envio();
                     envio.setIdEnvio(partes[0]);
                     envio.setFechaRegistro(partes[1]);
-                    envio.setHoraRegistro(partes[2]);
-                    envio.setMinutoRegistro(partes[3]);
+                    envio.setHoraRegistro(Integer.parseInt(partes[2]));
+                    envio.setMinutoRegistro(Integer.parseInt(partes[3]));
                     envio.setAeropuertoOrigen(codigoOrigen);
                     envio.setAeropuertoDestino(partes[4]);
                     envio.setCantidadMaletas(Integer.parseInt(partes[5]));

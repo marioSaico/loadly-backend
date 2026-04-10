@@ -7,8 +7,8 @@ public class Envio {
 
     private String idEnvio;
     private String fechaRegistro;
-    private String horaRegistro;
-    private String minutoRegistro;
+    private int horaRegistro;
+    private int minutoRegistro;
     private String aeropuertoOrigen;
     private String aeropuertoDestino;
     private int cantidadMaletas;
