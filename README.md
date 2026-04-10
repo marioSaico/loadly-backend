@@ -20,28 +20,30 @@ Backend del sistema Loadly para la gestión y planificación de rutas de maletas
 
 ## Estructura del proyecto
 
-    com.loadly.backend
-    ├── model
-    │   ├── Aeropuerto.java
-    │   ├── PlanVuelo.java
-    │   ├── Envio.java
-    │   └── Ruta.java
-    ├── loader
-    │   ├── AeropuertoLoader.java
-    │   ├── PlanVueloLoader.java
-    │   └── EnvioLoader.java
-    ├── algoritmo
-    │   ├── genetico
-    │   │   ├── Individuo.java
-    │   │   ├── Poblacion.java
-    │   │   ├── Fitness.java
-    │   │   └── AlgoritmoGenetico.java
-    │   └── aco
-    │       └── AlgoritmoACO.java
-    ├── planificador
-    │   └── Planificador.java
-    └── controller
-        └── PlanificadorController.java
+com.loadly.backend
+├── model
+│   ├── Aeropuerto.java        → representa un aeropuerto de la red
+│   ├── PlanVuelo.java         → representa un vuelo disponible
+│   ├── Envio.java             → representa un pedido de maletas
+│   ├── Ruta.java              → representa una ruta completa (secuencia de vuelos)
+│   └── EstadoRuta.java        → enum con los posibles estados de una ruta
+│                                (PLANIFICADA, EN_TRANSITO, ENTREGADA, RETRASADA, SIN_RUTA)
+├── loader
+│   ├── AeropuertoLoader.java  → lee y parsea el archivo de aeropuertos
+│   ├── PlanVueloLoader.java   → lee y parsea el archivo de planes de vuelo
+│   └── EnvioLoader.java       → lee y parsea los archivos de envíos
+├── algoritmo
+│   ├── genetico
+│   │   ├── Individuo.java         → cromosoma (conjunto de rutas para todos los envíos)
+│   │   ├── Poblacion.java         → conjunto de individuos
+│   │   ├── Fitness.java           → calcula qué tan buena es una solución
+│   │   └── AlgoritmoGenetico.java → motor principal del GA
+│   └── aco
+│       └── AlgoritmoACO.java      → motor principal del ACO
+├── planificador
+│   └── Planificador.java      → orquesta todo usando planificación programada fija
+└── controller
+    └── PlanificadorController.java → API REST para conectar con el frontend
 
 ## Flujo de trabajo
 
