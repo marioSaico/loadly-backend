@@ -14,5 +14,6 @@ public class Aeropuerto {
     private int capacidad;
     private double latitud;
     private double longitud;
+    private String continente; // "America del Sur", "Europa", "Asia"
 
 }
