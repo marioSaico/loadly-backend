@@ -13,6 +13,7 @@ public class AeropuertoLoader {
 
     public List<Aeropuerto> cargar(String rutaArchivo) {
         List<Aeropuerto> aeropuertos = new ArrayList<>();
+        String continenteActual = "";
 
         try (BufferedReader br = new BufferedReader(new FileReader(rutaArchivo))) {
             String linea;
@@ -24,6 +25,18 @@ public class AeropuertoLoader {
                              .trim();
 
                 if (linea.isEmpty()) continue;
+
+                // Detectar el continente actual
+                if (linea.contains("America") || linea.contains("América")) {
+                    continenteActual = "America";
+                    continue;
+                } else if (linea.contains("Europa")) {
+                    continenteActual = "Europa";
+                    continue;
+                } else if (linea.contains("Asia")) {
+                    continenteActual = "Asia";
+                    continue;
+                }
 
                 // Ignorar líneas que no son datos
                 if (!Character.isDigit(linea.charAt(0))) continue;
@@ -42,6 +55,7 @@ public class AeropuertoLoader {
                     aeropuerto.setAbreviatura(partes[4].trim());
                     aeropuerto.setGmt(Integer.parseInt(partes[5].trim()));
                     aeropuerto.setCapacidad(Integer.parseInt(partes[6].trim()));
+                    aeropuerto.setContinente(continenteActual);
 
                     // Latitud y longitud
                     if (linea.contains("Latitude:")) {
