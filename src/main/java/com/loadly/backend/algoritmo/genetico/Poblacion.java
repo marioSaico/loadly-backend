@@ -10,17 +10,29 @@ public class Poblacion {
 
     private List<Individuo> individuos;
     private int tamanio;
+
     // Probabilidad de usar vuelo directo si existe (70%)
+    // El 30% restante genera diversidad buscando rutas con escalas
     private static final double PROB_VUELO_DIRECTO = 0.7;
-    // Máximo de escalas permitidas
+
+    // Máximo de escalas permitidas por ruta
     private static final int MAX_ESCALAS = 3;
+
+    // Tiempo mínimo de escala en minutos (parámetro del problema)
     private static final int TIEMPO_MINIMO_ESCALA = 10;
+
+    // Tiempo de espera en destino final antes de ser recogida (parámetro)
+    private static final int TIEMPO_RECOJO_DESTINO = 10;
 
     public Poblacion(int tamanio) {
         this.tamanio = tamanio;
         this.individuos = new ArrayList<>();
     }
 
+    /**
+     * Genera la población inicial con N individuos.
+     * Cada individuo es un conjunto de rutas válidas para todos los envíos.
+     */
     public void inicializar(List<Envio> envios,
                             List<PlanVuelo> vuelos,
                             Map<String, Aeropuerto> mapaAeropuertos) {
@@ -32,6 +44,10 @@ public class Poblacion {
         }
     }
 
+    /**
+     * Genera un conjunto de rutas aleatorias válidas para todos los envíos.
+     * Mantiene mapas de capacidades de vuelos y almacenes para no excederlos.
+     */
     private List<Ruta> generarRutasAleatorias(
             List<Envio> envios,
             List<PlanVuelo> vuelos,
@@ -40,15 +56,25 @@ public class Poblacion {
         List<Ruta> rutas = new ArrayList<>();
         Random random = new Random();
 
-        Map<String, Integer> capacidadesDisponibles = new HashMap<>();
+        // Inicializar capacidades disponibles de vuelos
+        // Clave: "ORIG-DEST-HH:MM", Valor: capacidad restante del vuelo
+        Map<String, Integer> capacidadesVuelos = new HashMap<>();
         for (PlanVuelo v : vuelos) {
-            capacidadesDisponibles.put(claveVuelo(v), v.getCapacidad());
+            capacidadesVuelos.put(claveVuelo(v), v.getCapacidad());
         }
 
+        // Inicializar capacidades disponibles de almacenes
+        // Clave: código del aeropuerto, Valor: capacidad restante del almacén
+        Map<String, Integer> capacidadesAlmacenes = new HashMap<>();
+        for (Aeropuerto a : mapaAeropuertos.values()) {
+            capacidadesAlmacenes.put(a.getCodigo(), a.getCapacidad());
+        }
+
+        // Generar una ruta válida para cada envío
         for (Envio envio : envios) {
             Ruta ruta = generarRutaAleatoria(
                 envio, vuelos, mapaAeropuertos,
-                capacidadesDisponibles, random
+                capacidadesVuelos, capacidadesAlmacenes, random
             );
             rutas.add(ruta);
         }
@@ -56,36 +82,65 @@ public class Poblacion {
         return rutas;
     }
 
+    /**
+     * Genera una ruta válida para un envío específico.
+     * Primero intenta vuelo directo, si no busca con escalas.
+     * Valida: capacidad de vuelos, capacidad de almacenes,
+     * tiempo mínimo de escala y plazo máximo de entrega.
+     */
     private Ruta generarRutaAleatoria(
             Envio envio,
             List<PlanVuelo> todosLosVuelos,
             Map<String, Aeropuerto> mapaAeropuertos,
-            Map<String, Integer> capacidadesDisponibles,
+            Map<String, Integer> capacidadesVuelos,
+            Map<String, Integer> capacidadesAlmacenes,
             Random random) {
 
+        // Inicializar ruta vacía
         Ruta ruta = new Ruta();
         ruta.setEnvio(envio);
         ruta.setEstado(EstadoRuta.SIN_RUTA);
         ruta.setIndiceVueloActual(0);
 
-        Aeropuerto origen = mapaAeropuertos.get(envio.getAeropuertoOrigen());
-        Aeropuerto destino = mapaAeropuertos.get(envio.getAeropuertoDestino());
-        long plazoMaximoMinutos = 48 * 60;
+        // Determinar plazo máximo según continente de origen y destino
+        // Mismo continente: 1 día (1440 min), distinto: 2 días (2880 min)
+        Aeropuerto aeropOrigen = mapaAeropuertos.get(
+            envio.getAeropuertoOrigen()
+        );
+        Aeropuerto aeropDestino = mapaAeropuertos.get(
+            envio.getAeropuertoDestino()
+        );
 
-        if (origen != null && destino != null) {
-            if (origen.getContinente().equals(destino.getContinente())) {
-                plazoMaximoMinutos = 24 * 60;
+        // Por defecto 2 días si no se encuentra el aeropuerto
+        long plazoMaximoMinutos = 48 * 60;
+        if (aeropOrigen != null && aeropDestino != null) {
+            if (aeropOrigen.getContinente()
+                    .equals(aeropDestino.getContinente())) {
+                plazoMaximoMinutos = 24 * 60; // 1 día mismo continente
             }
         }
 
-        // Buscar vuelos directos disponibles
+        // Restar los 10 minutos de recojo en destino del plazo disponible
+        // ya que ese tiempo siempre se consume al final
+        long plazoDisponible = plazoMaximoMinutos - TIEMPO_RECOJO_DESTINO;
+
+        // ── INTENTO 1: Vuelo directo ──────────────────────────────────────
+        // Buscar vuelos que vayan directamente del origen al destino
+        // y que cumplan con capacidad de vuelo y almacén de destino
         List<PlanVuelo> vuelosDirectos = todosLosVuelos.stream()
-            .filter(v -> v.getOrigen().equals(envio.getAeropuertoOrigen())
+            .filter(v ->
+                v.getOrigen().equals(envio.getAeropuertoOrigen())
                 && v.getDestino().equals(envio.getAeropuertoDestino())
                 && !v.isCancelado()
-                && capacidadesDisponibles.getOrDefault(
+                // Verificar capacidad del vuelo
+                && capacidadesVuelos.getOrDefault(
                     claveVuelo(v), v.getCapacidad()
-                ) >= envio.getCantidadMaletas())
+                ) >= envio.getCantidadMaletas()
+                // Verificar capacidad del almacén de destino
+                && capacidadesAlmacenes.getOrDefault(
+                    v.getDestino(), 0
+                ) >= envio.getCantidadMaletas()
+            )
             .collect(Collectors.toList());
 
         // Con probabilidad PROB_VUELO_DIRECTO usar vuelo directo si existe
@@ -95,31 +150,52 @@ public class Poblacion {
             PlanVuelo vueloDirecto = vuelosDirectos
                 .get(random.nextInt(vuelosDirectos.size()));
 
+            // Calcular duración del vuelo directo
             long duracion = calcularDuracionMinutos(
                 vueloDirecto.getHoraSalida(),
                 vueloDirecto.getHoraLlegada()
             );
 
-            if (duracion <= plazoMaximoMinutos) {
-                String clave = claveVuelo(vueloDirecto);
-                capacidadesDisponibles.put(
-                    clave,
-                    capacidadesDisponibles.getOrDefault(
-                        clave, vueloDirecto.getCapacidad()
+            // Verificar que la duración no exceda el plazo disponible
+            if (duracion <= plazoDisponible) {
+
+                // Descontar capacidad del vuelo usado
+                String claveV = claveVuelo(vueloDirecto);
+                capacidadesVuelos.put(
+                    claveV,
+                    capacidadesVuelos.getOrDefault(
+                        claveV, vueloDirecto.getCapacidad()
                     ) - envio.getCantidadMaletas()
                 );
-                ruta.setVuelos(List.of(vueloDirecto));
-                ruta.setTiempoTotalMinutos(duracion);
+
+                // Descontar capacidad del almacén de destino
+                // (las maletas llegan y esperan 10 min hasta ser recogidas)
+                capacidadesAlmacenes.put(
+                    vueloDirecto.getDestino(),
+                    capacidadesAlmacenes.getOrDefault(
+                        vueloDirecto.getDestino(), 0
+                    ) - envio.getCantidadMaletas()
+                );
+
+                // Tiempo total = duración vuelo + 10 min recojo destino
+                long tiempoTotal = duracion + TIEMPO_RECOJO_DESTINO;
+
+                ruta.setVuelos(new ArrayList<>(List.of(vueloDirecto)));
+                ruta.setTiempoTotalMinutos(tiempoTotal);
                 ruta.setEstado(EstadoRuta.PLANIFICADA);
                 return ruta;
             }
         }
 
-        // Buscar con escalas
+        // ── INTENTO 2: Ruta con escalas ───────────────────────────────────
         List<PlanVuelo> vuelosRuta = new ArrayList<>();
         String aeropuertoActual = envio.getAeropuertoOrigen();
         int escalas = 0;
+
+        // tiempoAcumulado incluye: duración vuelos + esperas en escalas
         long tiempoAcumulado = 0;
+
+        // Conjunto de aeropuertos ya visitados para evitar ciclos
         Set<String> aeropuertosVisitados = new HashSet<>();
         aeropuertosVisitados.add(aeropuertoActual);
 
@@ -127,57 +203,104 @@ public class Poblacion {
                 && escalas < MAX_ESCALAS) {
 
             final String actual = aeropuertoActual;
-            final List<PlanVuelo> vuelosRutaFinal = vuelosRuta;
+            final List<PlanVuelo> vuelosActuales = vuelosRuta;
 
+            // Buscar vuelos disponibles desde el aeropuerto actual
             List<PlanVuelo> vuelosDisponibles = todosLosVuelos.stream()
-                .filter(v -> v.getOrigen().equals(actual)
+                .filter(v ->
+                    v.getOrigen().equals(actual)
                     && !v.isCancelado()
-                    && capacidadesDisponibles.getOrDefault(
+                    // No visitar aeropuertos ya visitados (evitar ciclos)
+                    && !aeropuertosVisitados.contains(v.getDestino())
+                    // Verificar capacidad del vuelo
+                    && capacidadesVuelos.getOrDefault(
                         claveVuelo(v), v.getCapacidad()
                     ) >= envio.getCantidadMaletas()
-                    && !aeropuertosVisitados.contains(v.getDestino())
-                    // Verificar tiempo mínimo de escala con el vuelo anterior
-                    && (vuelosRutaFinal.isEmpty() || cumpleTiempoEscala(
-                        vuelosRutaFinal.get(vuelosRutaFinal.size() - 1), v
-                    )))
+                    // Verificar capacidad del almacén del aeropuerto destino
+                    && capacidadesAlmacenes.getOrDefault(
+                        v.getDestino(), 0
+                    ) >= envio.getCantidadMaletas()
+                    // Si hay vuelo anterior, verificar tiempo mínimo de escala
+                    && (vuelosActuales.isEmpty() || cumpleTiempoEscala(
+                        vuelosActuales.get(vuelosActuales.size() - 1), v
+                    ))
+                )
                 .collect(Collectors.toList());
 
             if (vuelosDisponibles.isEmpty()) break;
 
+            // Elegir un vuelo al azar de los disponibles
             PlanVuelo vueloElegido = vuelosDisponibles
                 .get(random.nextInt(vuelosDisponibles.size()));
 
-            long duracion = calcularDuracionMinutos(
+            // Calcular duración del vuelo elegido
+            long duracionVuelo = calcularDuracionMinutos(
                 vueloElegido.getHoraSalida(),
                 vueloElegido.getHoraLlegada()
             );
-            tiempoAcumulado += duracion;
 
-            if (tiempoAcumulado > plazoMaximoMinutos) break;
+            // Calcular tiempo de espera en escala (tiempo entre llegada
+            // del vuelo anterior y salida del vuelo elegido)
+            long tiempoEspera = 0;
+            if (!vuelosRuta.isEmpty()) {
+                PlanVuelo ultimoVuelo = vuelosRuta.get(
+                    vuelosRuta.size() - 1
+                );
+                tiempoEspera = calcularTiempoEspera(
+                    ultimoVuelo.getHoraLlegada(),
+                    vueloElegido.getHoraSalida()
+                );
+            }
 
+            // Sumar duración del vuelo + tiempo de espera en escala
+            long tiempoSegmento = duracionVuelo + tiempoEspera;
+
+            // Verificar que el tiempo acumulado no exceda el plazo disponible
+            if (tiempoAcumulado + tiempoSegmento > plazoDisponible) break;
+
+            // Agregar el vuelo a la ruta
             vuelosRuta.add(vueloElegido);
             aeropuertosVisitados.add(vueloElegido.getDestino());
             aeropuertoActual = vueloElegido.getDestino();
+            tiempoAcumulado += tiempoSegmento;
             escalas++;
         }
 
+        // Verificar si la ruta llegó al destino
         if (aeropuertoActual.equals(envio.getAeropuertoDestino())
                 && !vuelosRuta.isEmpty()) {
 
+            // Descontar capacidades de vuelos y almacenes usados
             for (PlanVuelo v : vuelosRuta) {
-                String clave = claveVuelo(v);
-                capacidadesDisponibles.put(
-                    clave,
-                    capacidadesDisponibles.getOrDefault(
-                        clave, v.getCapacidad()
+                // Descontar capacidad del vuelo
+                String claveV = claveVuelo(v);
+                capacidadesVuelos.put(
+                    claveV,
+                    capacidadesVuelos.getOrDefault(
+                        claveV, v.getCapacidad()
+                    ) - envio.getCantidadMaletas()
+                );
+
+                // Descontar capacidad del almacén de cada aeropuerto
+                // que la maleta pasa (escala o destino final)
+                // porque al aterrizar siempre ingresa al almacén
+                capacidadesAlmacenes.put(
+                    v.getDestino(),
+                    capacidadesAlmacenes.getOrDefault(
+                        v.getDestino(), 0
                     ) - envio.getCantidadMaletas()
                 );
             }
 
+            // Tiempo total = tiempo acumulado + 10 min recojo en destino
+            long tiempoTotal = tiempoAcumulado + TIEMPO_RECOJO_DESTINO;
+
             ruta.setVuelos(vuelosRuta);
-            ruta.setTiempoTotalMinutos(tiempoAcumulado);
+            ruta.setTiempoTotalMinutos(tiempoTotal);
             ruta.setEstado(EstadoRuta.PLANIFICADA);
+
         } else {
+            // No se encontró ruta válida para este envío
             ruta.setVuelos(new ArrayList<>());
             ruta.setTiempoTotalMinutos(0);
             ruta.setEstado(EstadoRuta.SIN_RUTA);
@@ -186,11 +309,16 @@ public class Poblacion {
         return ruta;
     }
 
+    /**
+     * Verifica que el tiempo entre la llegada del vuelo anterior
+     * y la salida del vuelo siguiente sea al menos TIEMPO_MINIMO_ESCALA.
+     */
     private boolean cumpleTiempoEscala(PlanVuelo vueloAnterior,
                                         PlanVuelo vueloSiguiente) {
         int minLlegada = convertirAMinutos(vueloAnterior.getHoraLlegada());
         int minSalida = convertirAMinutos(vueloSiguiente.getHoraSalida());
 
+        // Si el vuelo siguiente sale al día siguiente
         if (minSalida < minLlegada) {
             minSalida += 24 * 60;
         }
@@ -198,27 +326,52 @@ public class Poblacion {
         return (minSalida - minLlegada) >= TIEMPO_MINIMO_ESCALA;
     }
 
+    /**
+     * Calcula el tiempo de espera en minutos entre la llegada
+     * de un vuelo y la salida del siguiente.
+     * Maneja el caso en que el vuelo siguiente sale al día siguiente.
+     */
+    private long calcularTiempoEspera(String horaLlegada,
+                                       String horaSalida) {
+        int minLlegada = convertirAMinutos(horaLlegada);
+        int minSalida = convertirAMinutos(horaSalida);
+
+        // Si la salida es anterior a la llegada, cruza la medianoche
+        if (minSalida < minLlegada) {
+            minSalida += 24 * 60;
+        }
+
+        return minSalida - minLlegada;
+    }
+
+    /**
+     * Convierte una hora en formato "HH:MM" a minutos totales.
+     */
     private int convertirAMinutos(String hora) {
         String[] partes = hora.split(":");
         return Integer.parseInt(partes[0]) * 60
              + Integer.parseInt(partes[1]);
     }
 
+    /**
+     * Genera una clave única para identificar un vuelo específico.
+     * Formato: "ORIG-DEST-HH:MM"
+     */
     private String claveVuelo(PlanVuelo vuelo) {
         return vuelo.getOrigen() + "-" + vuelo.getDestino()
              + "-" + vuelo.getHoraSalida();
     }
 
+    /**
+     * Calcula la duración de un vuelo en minutos.
+     * Maneja el caso en que el vuelo cruza la medianoche.
+     */
     private long calcularDuracionMinutos(String horaSalida,
                                           String horaLlegada) {
-        String[] salida = horaSalida.split(":");
-        String[] llegada = horaLlegada.split(":");
+        int minSalida = convertirAMinutos(horaSalida);
+        int minLlegada = convertirAMinutos(horaLlegada);
 
-        int minSalida = Integer.parseInt(salida[0]) * 60
-                      + Integer.parseInt(salida[1]);
-        int minLlegada = Integer.parseInt(llegada[0]) * 60
-                       + Integer.parseInt(llegada[1]);
-
+        // Si la hora de llegada es menor que la de salida, cruza medianoche
         if (minLlegada < minSalida) {
             minLlegada += 24 * 60;
         }
@@ -226,6 +379,10 @@ public class Poblacion {
         return minLlegada - minSalida;
     }
 
+    /**
+     * Obtener el mejor individuo de la población actual
+     * basándose en el valor de fitness más alto.
+     */
     public Individuo getMejorIndividuo() {
         return individuos.stream()
             .max(Comparator.comparingDouble(Individuo::getFitness))
