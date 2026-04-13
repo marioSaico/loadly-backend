@@ -46,7 +46,7 @@ public class BackendApplication {
             for (Ruta ruta : resultado.getRutas()) {
                 Envio envio = ruta.getEnvio();
                 
-                System.out.printf("Envío: %s | Origen: %s → Destino: %s | Estado: %s | Tiempo Total: %d min\n",
+                System.out.printf("Envío: %s | Origen: %s -> Destino: %s | Estado: %s | Tiempo Total: %d min\n",
                         envio.getIdEnvio(), 
                         envio.getAeropuertoOrigen(), 
                         envio.getAeropuertoDestino(),
