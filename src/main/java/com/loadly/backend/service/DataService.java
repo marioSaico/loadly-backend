@@ -42,10 +42,16 @@ public class DataService {
     public List<Envio> obtenerEnviosPendientes(String fechaHoraLimite) {
         return envioLoader.cargarPendientes(
             "src/main/resources/data/envios",
-            fechaHoraLimite
+            fechaHoraLimite,
+            this.aeropuertos // 💡 NUEVO: Le mandamos los aeropuertos para que sepa los GMT
         );
     }
 
-    public List<Aeropuerto> getAeropuertos() { return aeropuertos; }
-    public List<PlanVuelo> getVuelos() { return vuelos; }
+    public List<Aeropuerto> getAeropuertos() {
+        return aeropuertos;
+    }
+
+    public List<PlanVuelo> getVuelos() {
+        return vuelos;
+    }
 }

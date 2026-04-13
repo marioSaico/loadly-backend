@@ -16,32 +16,18 @@ public class Planificador {
     private final DataService dataService;
     private final AlgoritmoGenetico algoritmoGenetico;
 
-    // 🛠️ CORRECCIÓN DE PARÁMETROS DEL PROFESOR
-    // Sa: intervalo entre ejecuciones del algoritmo en minutos (Vida real)
-    private static final int SA = 5;
-    
-    // K: factor de aceleración. Si K=14, por cada 5 minutos reales procesamos 70 min.
-    private static final int K = 14; 
-    
-    // Sc: salto de consumo de datos = K * Sa (14 * 5 = 70 minutos)
-    private static final int SC = K * SA;
+    // 💡 Ya no necesitamos SA, K, SC fijos aquí porque el Orquestador (Main) los controla dinámicamente.
 
-    public Planificador(DataService dataService,
-                         AlgoritmoGenetico algoritmoGenetico) {
+    public Planificador(DataService dataService, AlgoritmoGenetico algoritmoGenetico) {
         this.dataService = dataService;
         this.algoritmoGenetico = algoritmoGenetico;
     }
 
     /**
-     * Ejecuta una planificación con los envíos pendientes
-     * hasta la fechaHoraLimite dada.
-     * Este método se llamará cada Sa minutos.
+     * Ejecuta una planificación con los envíos pendientes hasta la fechaHoraLimite dada.
+     * Ahora recibe los parámetros del Algoritmo Genético para adaptarse al escenario.
      */
-    public Individuo planificar(String fechaHoraLimite) {
-
-        System.out.println("=== Ejecutando planificación ===");
-        System.out.println("Consumiendo datos hasta: " + fechaHoraLimite);
-        System.out.println("Salto de consumo (SC): " + SC + " minutos"); // 🛠️ Nuevo log
+    public Individuo planificar(String fechaHoraLimite, int tamanoPoblacion, int maxGeneraciones) {
 
         // Obtener datos en memoria
         List<PlanVuelo> vuelos = dataService.getVuelos();
@@ -51,18 +37,14 @@ public class Planificador {
                 Aeropuerto::getCodigo, a -> a
             ));
 
-        // Obtener envíos pendientes hasta el instante simulado (Ventana de 70 min)
-        List<Envio> enviosPendientes = dataService
-            .obtenerEnviosPendientes(fechaHoraLimite);
-
-        System.out.println("Envíos pendientes: " + enviosPendientes.size());
+        // Obtener envíos pendientes hasta el instante simulado dictado por el Orquestador
+        List<Envio> enviosPendientes = dataService.obtenerEnviosPendientes(fechaHoraLimite);
 
         if (enviosPendientes.isEmpty()) {
-            System.out.println("No hay envíos pendientes.");
-            return null;
+            return null; // El Main interpretará esto como "No hay pedidos nuevos"
         }
 
-        // Ejecutar el algoritmo genético pasándole los datos necesarios
-        return algoritmoGenetico.ejecutar(enviosPendientes, vuelos, mapaAeropuertos);
+        // Ejecutar el algoritmo genético pasándole los datos y la configuración adaptativa
+        return algoritmoGenetico.ejecutar(enviosPendientes, vuelos, mapaAeropuertos, tamanoPoblacion, maxGeneraciones);
     }
 }
