@@ -25,9 +25,9 @@ public class Planificador {
 
     /**
      * Ejecuta una planificación con los envíos pendientes hasta la fechaHoraLimite dada.
-     * Ahora recibe los parámetros del Algoritmo Genético para adaptarse al escenario.
+     * Ahora recibe el tiempo límite de ejecución real (Ta) en milisegundos.
      */
-    public Individuo planificar(String fechaHoraLimite, int tamanoPoblacion, int maxGeneraciones) {
+    public Individuo planificar(String fechaHoraLimite, int tamanoPoblacion, long tiempoLimiteMs) {
 
         // Obtener datos en memoria
         List<PlanVuelo> vuelos = dataService.getVuelos();
@@ -37,14 +37,14 @@ public class Planificador {
                 Aeropuerto::getCodigo, a -> a
             ));
 
-        // Obtener envíos pendientes hasta el instante simulado dictado por el Orquestador
+        // Obtener envíos pendientes hasta el instante simulado (El Sc dictado por el Orquestador)
         List<Envio> enviosPendientes = dataService.obtenerEnviosPendientes(fechaHoraLimite);
 
         if (enviosPendientes.isEmpty()) {
-            return null; // El Main interpretará esto como "No hay pedidos nuevos"
+            return null; // El Main interpretará esto como "No hay pedidos nuevos en esta ventana de tiempo"
         }
 
-        // Ejecutar el algoritmo genético pasándole los datos y la configuración adaptativa
-        return algoritmoGenetico.ejecutar(enviosPendientes, vuelos, mapaAeropuertos, tamanoPoblacion, maxGeneraciones);
+        // 💡 CAMBIO CRUCIAL: Pasamos 'tiempoLimiteMs' en lugar de 'maxGeneraciones'
+        return algoritmoGenetico.ejecutar(enviosPendientes, vuelos, mapaAeropuertos, tamanoPoblacion, tiempoLimiteMs);
     }
 }
