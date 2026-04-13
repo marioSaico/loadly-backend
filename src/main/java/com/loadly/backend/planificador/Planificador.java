@@ -16,12 +16,14 @@ public class Planificador {
     private final DataService dataService;
     private final AlgoritmoGenetico algoritmoGenetico;
 
-    // Parámetros de la Planificación Programada Fija
-    // Sa: intervalo entre ejecuciones en minutos
+    // 🛠️ CORRECCIÓN DE PARÁMETROS DEL PROFESOR
+    // Sa: intervalo entre ejecuciones del algoritmo en minutos (Vida real)
     private static final int SA = 5;
-    // K: factor de aceleración (K=1 día a día, K=14 simulación 3 días)
-    private static final int K = 1;
-    // Sc: salto de consumo de datos = K * Sa
+    
+    // K: factor de aceleración. Si K=14, por cada 5 minutos reales procesamos 70 min.
+    private static final int K = 14; 
+    
+    // Sc: salto de consumo de datos = K * Sa (14 * 5 = 70 minutos)
     private static final int SC = K * SA;
 
     public Planificador(DataService dataService,
@@ -39,6 +41,7 @@ public class Planificador {
 
         System.out.println("=== Ejecutando planificación ===");
         System.out.println("Consumiendo datos hasta: " + fechaHoraLimite);
+        System.out.println("Salto de consumo (SC): " + SC + " minutos"); // 🛠️ Nuevo log
 
         // Obtener datos en memoria
         List<PlanVuelo> vuelos = dataService.getVuelos();
@@ -48,7 +51,7 @@ public class Planificador {
                 Aeropuerto::getCodigo, a -> a
             ));
 
-        // Obtener envíos pendientes hasta el instante simulado
+        // Obtener envíos pendientes hasta el instante simulado (Ventana de 70 min)
         List<Envio> enviosPendientes = dataService
             .obtenerEnviosPendientes(fechaHoraLimite);
 
@@ -59,9 +62,7 @@ public class Planificador {
             return null;
         }
 
-        // Ejecutar el algoritmo genético
-        return algoritmoGenetico.ejecutar(
-            enviosPendientes, vuelos, mapaAeropuertos
-        );
+        // Ejecutar el algoritmo genético pasándole los datos necesarios
+        return algoritmoGenetico.ejecutar(enviosPendientes, vuelos, mapaAeropuertos);
     }
 }
