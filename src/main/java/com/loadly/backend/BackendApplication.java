@@ -39,22 +39,23 @@ public class BackendApplication {
 
         // =========================================================================================
         // 🚀 PANEL DE CONTROL DE ESCENARIOS
-        // Parámetros: (Nombre, Inicio, Fin, Ta(segundos), Sa(min), K, TamañoPoblacion, planificador, dataService)
+        // Parametros: (Nombre, Inicio, Fin, Ta(segundos), Sa(min), K, TamanoPoblacion, planificador, dataService)
         // =========================================================================================
 
-        // 1️⃣ ESCENARIO: DÍA A DÍA
-        // Ta = 2 segundos reales de procesamiento por iteración
+        // 1️⃣ ESCENARIO: DIA A DIA
+        // Ta = 2 segundos reales de procesamiento por iteracion
         // Sa = 10 minutos (cada 10 min despierta la IA)
         // K = 1 (Por lo tanto, Sc = 10 minutos de datos a leer)
-        ejecutarEscenario("DÍA A DÍA", "20260101-00-00", "20260102-00-00", 2, 10, 1, 50, planificador, dataService);
+        // NOTA: Fecha fin ajustada a 23:59 para simular exactamente 1 dia.
+        // ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260101-23-59", 2, 10, 1, 50, planificador, dataService);
 
-        // 2️⃣ ESCENARIO: PERIODO (Ejemplo)
-        // Ta = 5 segundos, Sa = 60 minutos, K = 24 (Lee datos de 24 horas hacia el futuro)
-        // ejecutarEscenario("PERIODO (5 DÍAS)", "20260101-00-00", "20260105-23-59", 5, 60, 24, 100, planificador, dataService);
+        // 2️⃣ ESCENARIO: PERIODO 5 DIAS
+        // Configuracion matematica: Ta=30s | Sa=60min | K=24 | Poblacion=300
+        ejecutarEscenario("PERIODO (5 DIAS)", "20260101-00-00", "20260105-23-59", 45, 60, 24, 100, planificador, dataService);
 
         // 3️⃣ ESCENARIO: COLAPSO (Ejemplo)
         // Ta = 3 segundos, Sa = 10 minutos, K = 50 (Sobrecarga extrema de lectura para forzar el colapso)
-        // ejecutarEscenario("COLAPSO", "20260101-00-00", "20260130-00-00", 3, 10, 50, 100, planificador, dataService);
+        // ejecutarEscenario("COLAPSO", "20260101-00-00", "20260130-23-59", 3, 10, 50, 100, planificador, dataService);
     }
 
     public static void ejecutarEscenario(String nombre, String inicioStr, String finStr, 
@@ -67,15 +68,17 @@ public class BackendApplication {
         LocalDateTime relojSimulado = LocalDateTime.parse(inicioStr, fmtInput);
         LocalDateTime finSimulacion = LocalDateTime.parse(finStr, fmtInput);
         
-        // 💡 CÁLCULOS TEÓRICOS
+        // CÁLCULOS TEÓRICOS
         int sc = sa * k; // Salto de consumo
-        long tiempoLimiteMs = taSegundos * 1000L; // Ta convertido a milisegundos para el cronómetro
+        long tiempoLimiteMs = taSegundos * 1000L; // Ta convertido a milisegundos para el cronometro
 
         System.out.println("\n" + "=".repeat(80));
         System.out.println(" 📊 INICIANDO ESCENARIO: " + nombre);
-        System.out.println(" ⚙️  Parámetros -> Ta: " + taSegundos + "s | Sa: " + sa + " min | K: " + k + " | Sc: " + sc + " min");
-        long diasSimulacion = ChronoUnit.DAYS.between(relojSimulado, finSimulacion);
-        System.out.println(" ⏱️  Tiempo a simular: " + diasSimulacion + " días (De " + inicioStr + " a " + finStr + ")");
+        System.out.println(" ⚙️  Parametros -> Ta: " + taSegundos + "s | Sa: " + sa + " min | K: " + k + " | Sc: " + sc + " min");
+        
+        // 💡 CORRECCIÓN: Sumamos 1 para que el calculo de dias (ej. 01 al 05) de exactamente 5
+        long diasSimulacion = ChronoUnit.DAYS.between(relojSimulado, finSimulacion) + 1;
+        System.out.println(" ⏱️  Tiempo a simular: " + diasSimulacion + " dias (De " + inicioStr + " a " + finStr + ")");
         System.out.println("=".repeat(80));
 
         Map<String, Integer> capacidadOriginal = dataService.getAeropuertos().stream()
@@ -86,44 +89,41 @@ public class BackendApplication {
         List<EventoSimulacion> bitacoraGlobal = new ArrayList<>();
         boolean colapsoDetectado = false;
         
-        // 💡 NUEVO: El "Plan Maestro" guarda el último resultado exitoso para evitar contar envíos múltiples veces
         Individuo mejorPlanGlobal = null;
 
-        // --- BUCLE PRINCIPAL DE SIMULACIÓN ---
+        // --- BUCLE PRINCIPAL DE SIMULACION ---
         while (relojSimulado.isBefore(finSimulacion) && !colapsoDetectado) {
             
-            // La IA lee datos hasta el instante actual + Sc
             LocalDateTime limiteLecturaDatos = relojSimulado.plusMinutes(sc);
             String limiteLecturaStr = limiteLecturaDatos.format(fmtInput);
             
             System.out.println("\n>>> [RELOJ: " + relojSimulado.format(fmtLog) + "] Planificando pedidos acumulados hasta las " + limiteLecturaDatos.format(fmtLog) + "...");
 
-            // Llamamos a la IA pasándole el Ta en milisegundos
             Individuo resultado = planificador.planificar(limiteLecturaStr, tamanoPoblacion, tiempoLimiteMs);
 
             if (resultado != null && !resultado.getRutas().isEmpty()) {
                 
-                // Actualizamos nuestro Plan Maestro
                 mejorPlanGlobal = resultado;
 
-                // ⚠️ VERIFICACIÓN DE COLAPSO
+                // ⚠️ VERIFICACION DE COLAPSO
                 long maletasSinRuta = resultado.getRutas().stream().filter(r -> r.getEstado() == EstadoRuta.SIN_RUTA).count();
                 if (maletasSinRuta > 0) {
-                    System.out.println("    [!] ¡ALERTA DE COLAPSO! El sistema no pudo encontrar ruta para " + maletasSinRuta + " envíos.");
+                    System.out.println("    [!] ¡ALERTA DE COLAPSO! El sistema no pudo encontrar ruta para " + maletasSinRuta + " envios.");
                     colapsoDetectado = true;
+                    // 💡 CORRECCIÓN: Rompemos el bucle inmediatamente para que el reloj no avance
+                    break;
                 } else {
-                    System.out.println("    [OK] IA ejecutada por " + taSegundos + "s. " + resultado.getRutas().size() + " envíos asegurados en el plan maestro.");
+                    System.out.println("    [OK] El GA ejecutado por " + taSegundos + "s. " + resultado.getRutas().size() + " envios asegurados en el plan maestro.");
                 }
             } else {
-                System.out.println("    [-] No hay envíos en este intervalo.");
+                System.out.println("    [-] No hay envios en este intervalo.");
             }
 
-            // El reloj avanza Sa minutos
+            // El reloj avanza Sa minutos solo si no hubo colapso
             relojSimulado = relojSimulado.plusMinutes(sa);
         }
 
-        // --- CONSTRUCCIÓN DE LA BITÁCORA (SE HACE FUERA DEL BUCLE) ---
-        // 💡 Así evitamos el error de los 474 envíos. Solo se procesa el resultado final una vez.
+        // --- CONSTRUCCION DE LA BITACORA ---
         int totalEnviosProcesados = 0;
         if (mejorPlanGlobal != null) {
             for (Ruta ruta : mejorPlanGlobal.getRutas()) {
@@ -152,7 +152,7 @@ public class BackendApplication {
         LocalDateTime finGMT = regGMT.plusMinutes(ruta.getTiempoTotalMinutos());
 
         // 1. Registro
-        bitacora.add(new EventoSimulacion(regGMT, envio.getAeropuertoOrigen(), -envio.getCantidadMaletas(), "[CHECK-IN]   Envío " + envio.getIdEnvio()));
+        bitacora.add(new EventoSimulacion(regGMT, envio.getAeropuertoOrigen(), -envio.getCantidadMaletas(), "[CHECK-IN]   Envio " + envio.getIdEnvio()));
 
         // 2. Vuelos
         LocalDateTime cursor = regGMT;
@@ -176,12 +176,12 @@ public class BackendApplication {
         }
 
         // 3. Recojo
-        bitacora.add(new EventoSimulacion(finGMT, envio.getAeropuertoDestino(), envio.getCantidadMaletas(), "[RECOJO]     Envío " + envio.getIdEnvio()));
+        bitacora.add(new EventoSimulacion(finGMT, envio.getAeropuertoDestino(), envio.getCantidadMaletas(), "[RECOJO]     Envio " + envio.getIdEnvio()));
     }
 
     private static void imprimirBitacoraFinal(List<EventoSimulacion> bitacora, Map<String, Integer> capsOrig, int total, boolean colapso, LocalDateTime relojParada, DateTimeFormatter fmt) {
         System.out.println("\n\n" + "=".repeat(80));
-        System.out.println("       BITÁCORA CRONOLÓGICA DE ALMACENES - RESULTADO FINAL");
+        System.out.println("       BITACORA CRONOLOGICA DE ALMACENES - RESULTADO FINAL");
         System.out.println("=".repeat(80));
         
         bitacora.sort(Comparator.comparing(e -> e.tiempoGMT));
@@ -190,18 +190,18 @@ public class BackendApplication {
         for (EventoSimulacion e : bitacora) {
             int nueva = capsDin.getOrDefault(e.aeropuerto, 0) + e.variacionCapacidad;
             capsDin.put(e.aeropuerto, nueva);
-            System.out.printf("[%s GMT] %-35s | %s %d | Almacén %s: %d/%d\n",
+            System.out.printf("[%s GMT] %-35s | %s %d | Almacen %s: %d/%d\n",
                     e.tiempoGMT.format(fmt), e.mensaje, (e.variacionCapacidad > 0 ? "LIBERA":"OCUPA "), 
                     Math.abs(e.variacionCapacidad), e.aeropuerto, nueva, capsOrig.get(e.aeropuerto));
         }
 
         System.out.println("\n" + "=".repeat(80));
         System.out.println(" RESUMEN DEL ESCENARIO");
-        System.out.println(" - Envíos únicos exitosamente planificados: " + total);
+        System.out.println(" - Envios unicos exitosamente planificados: " + total);
         if (colapso) {
             System.out.println(" - [!] ESTADO: COLAPSO. El sistema se detuvo en: " + relojParada.format(fmt));
         } else {
-            System.out.println(" - [OK] La simulación completó su periodo sin colapsos.");
+            System.out.println(" - [OK] La simulacion completo su periodo sin colapsos.");
         }
         System.out.println("=".repeat(80) + "\n");
     }
