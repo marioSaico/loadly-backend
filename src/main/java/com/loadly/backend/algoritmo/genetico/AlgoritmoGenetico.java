@@ -9,93 +9,101 @@ import java.util.stream.Collectors;
 @Component
 public class AlgoritmoGenetico {
 
-    // ── Parámetros del GA (Ahora los de tamaño son dinámicos) ──────────────
-    private static final double PROB_CRUCE = 0.8;
-    private static final double PROB_MUTACION = 0.1;
+    // ── Parámetros de la Metaheurística ─────────────────────────────────
+    private static final double PROB_CRUCE = 0.85; // Un poco más alto para explorar más
+    private static final double PROB_MUTACION = 0.15; 
     private static final int TAMANIO_TORNEO = 3;
-    private static final int ELITISMO = 2;
+    private static final int ELITISMO = 2; // Mantenemos a los 2 mejores de cada generación
 
-    // 💡 NUEVO: El método ahora recibe tamanoPoblacion y maxGeneraciones
-    public Individuo ejecutar(List<Envio> envios, List<PlanVuelo> vuelos, Map<String, Aeropuerto> mapaAeropuertos, int tamanoPoblacion, int maxGeneraciones) {
-        System.out.println("=== Iniciando Algoritmo Genético ===");
-        System.out.println("Envíos a planificar (Tamaño original del Cromosoma): " + envios.size());
-        System.out.println("⚙️  Población: " + tamanoPoblacion + " | Generaciones máximas: " + maxGeneraciones);
+    /**
+     * Ejecuta el Algoritmo Genético basándose en un presupuesto de tiempo real (Ta).
+     * * @param envios           Lista de envíos que necesitan ser planificados.
+     * @param vuelos           Catálogo completo de vuelos disponibles.
+     * @param mapaAeropuertos  Mapa para acceso rápido a datos de aeropuertos (capacidad, GMT).
+     * @param tamanoPoblacion  Número de individuos (soluciones) en cada generación.
+     * @param tiempoLimiteMs   Tiempo máximo de ejecución en MILISEGUNDOS (El Ta real).
+     * @return El mejor Individuo (solución) encontrado en el tiempo dado.
+     */
+    public Individuo ejecutar(List<Envio> envios, List<PlanVuelo> vuelos, Map<String, Aeropuerto> mapaAeropuertos, int tamanoPoblacion, long tiempoLimiteMs) {
+        System.out.println("=== [GA] Iniciando Optimización ===");
+        System.out.println("📦 Envíos a procesar: " + envios.size());
+        System.out.println("⚙️  Configuración: Población=" + tamanoPoblacion + " | Ta Máximo=" + tiempoLimiteMs + "ms");
 
-        // 1. Inicializar la población con el tamaño dinámico
+        // 1. Inicialización de la Población
         Poblacion poblacion = new Poblacion(tamanoPoblacion);
         poblacion.inicializar(envios, vuelos, mapaAeropuertos);
 
-        // Instanciar el evaluador de Fitness
         Fitness evaluadorFitness = new Fitness();
-
-        // Evaluar la población inicial
         evaluadorFitness.evaluarPoblacion(poblacion, mapaAeropuertos, vuelos);
         
         Individuo mejorIndividuo = obtenerMejorIndividuo(poblacion);
-        System.out.printf("Fitness inicial mejor: %.4f\n", mejorIndividuo.getFitness());
-
+        
         Random random = new Random();
+        long tiempoInicio = System.currentTimeMillis();
+        int generacionesContadas = 0;
 
-        // 💡 NUEVO: Calcular cada cuánto imprimir para no saturar la consola en escenarios grandes
-        int intervaloImpresion = Math.max(1, maxGeneraciones / 10);
-
-        // 2. Bucle principal de generaciones
-        for (int gen = 0; gen < maxGeneraciones; gen++) {
+        // 2. Bucle Evolutivo: Se detiene cuando se agota el tiempo real (Ta)
+        while ((System.currentTimeMillis() - tiempoInicio) < tiempoLimiteMs) {
             List<Individuo> nuevaGeneracion = new ArrayList<>();
 
-            // 🛠️ ELITISMO: Guardar a los mejores directamente
+            // --- ELITISMO ---
             List<Individuo> poblacionOrdenada = new ArrayList<>(poblacion.getIndividuos());
             poblacionOrdenada.sort((i1, i2) -> Double.compare(i2.getFitness(), i1.getFitness()));
             
-            for (int i = 0; i < ELITISMO; i++) {
+            for (int i = 0; i < ELITISMO && i < tamanoPoblacion; i++) {
                 nuevaGeneracion.add(copiarIndividuo(poblacionOrdenada.get(i)));
             }
 
-            // Llenar el resto de la población con Selección, Cruce y Mutación
+            // --- REPRODUCCIÓN (Selección, Cruce y Mutación) ---
             while (nuevaGeneracion.size() < tamanoPoblacion) {
-                // Selección por Torneo
+                // Selección
                 Individuo padre1 = seleccionTorneo(poblacion, random);
                 Individuo padre2 = seleccionTorneo(poblacion, random);
 
-                Individuo hijo = padre1; // Por defecto el hijo es igual al padre 1
-
-                // 🛠️ CRUCE
+                // Cruce (Si no ocurre, se clona al padre 1)
+                Individuo hijo;
                 if (random.nextDouble() < PROB_CRUCE) {
                     hijo = cruzar(padre1, padre2, random);
+                } else {
+                    hijo = copiarIndividuo(padre1);
                 }
 
-                // 🛠️ MUTACIÓN
+                // Mutación
                 mutar(hijo, vuelos, mapaAeropuertos, random);
 
                 nuevaGeneracion.add(hijo);
             }
 
+            // Actualizar población y evaluar
             poblacion.setIndividuos(nuevaGeneracion);
             evaluadorFitness.evaluarPoblacion(poblacion, mapaAeropuertos, vuelos);
 
-            mejorIndividuo = obtenerMejorIndividuo(poblacion);
+            // Guardar el mejor histórico
+            Individuo mejorActual = obtenerMejorIndividuo(poblacion);
+            if (mejorActual.getFitness() > mejorIndividuo.getFitness()) {
+                mejorIndividuo = copiarIndividuo(mejorActual);
+            }
+
+            generacionesContadas++;
             
-            // Imprimir progreso dinámico
-            if (gen % intervaloImpresion == 0) {
-                System.out.printf("Generación %d -> Mejor fitness: %.4f\n", gen, mejorIndividuo.getFitness());
+            // Log de progreso cada 50 generaciones para no saturar la consola
+            if (generacionesContadas % 50 == 0) {
+                System.out.printf("Gen %d | Mejor Fitness: %.6f\n", generacionesContadas, mejorIndividuo.getFitness());
             }
         }
 
-        System.out.println("=== GA finalizado ===");
-        System.out.printf("Mejor fitness final: %.4f\n", mejorIndividuo.getFitness());
+        System.out.println("=== [GA] Finalizado ===");
+        System.out.println("⏱️  Tiempo real agotado. Generaciones procesadas: " + generacionesContadas);
         imprimirResumen(mejorIndividuo);
 
         return mejorIndividuo;
     }
 
-    /**
-     * Selección por torneo: elige N individuos al azar y se queda con el mejor.
-     */
     private Individuo seleccionTorneo(Poblacion poblacion, Random random) {
         Individuo mejorTorneo = null;
         for (int i = 0; i < TAMANIO_TORNEO; i++) {
-            int idxAleatorio = random.nextInt(poblacion.getIndividuos().size());
-            Individuo competidor = poblacion.getIndividuos().get(idxAleatorio);
+            int idx = random.nextInt(poblacion.getIndividuos().size());
+            Individuo competidor = poblacion.getIndividuos().get(idx);
             if (mejorTorneo == null || competidor.getFitness() > mejorTorneo.getFitness()) {
                 mejorTorneo = competidor;
             }
@@ -103,13 +111,10 @@ public class AlgoritmoGenetico {
         return mejorTorneo;
     }
 
-    /**
-     * 🛠️ CRUCE CORREGIDO (Uniform Crossover)
-     */
     private Individuo cruzar(Individuo padre1, Individuo padre2, Random random) {
         List<Ruta> rutasHijo = new ArrayList<>();
-        
         for (int i = 0; i < padre1.getRutas().size(); i++) {
+            // Uniform Crossover: elige gen del padre 1 o padre 2 al azar
             if (random.nextBoolean()) {
                 rutasHijo.add(copiarRuta(padre1.getRutas().get(i)));
             } else {
@@ -119,20 +124,17 @@ public class AlgoritmoGenetico {
         return new Individuo(rutasHijo);
     }
 
-    /**
-     * 🛠️ MUTACIÓN CORREGIDA CON GESTIÓN DE ALMACENES
-     */
     private void mutar(Individuo individuo, List<PlanVuelo> vuelos, Map<String, Aeropuerto> mapaAeropuertos, Random random) {
-        
-        Map<String, Integer> capacidadesAlmacenes = new HashMap<>();
-        for (Aeropuerto a : mapaAeropuertos.values()) {
-            capacidadesAlmacenes.put(a.getCodigo(), a.getCapacidad());
-        }
+        // Mapa temporal para no exceder capacidades de almacén durante la mutación
+        Map<String, Integer> capacidadesMomento = new HashMap<>();
+        mapaAeropuertos.forEach((k, v) -> capacidadesMomento.put(k, v.getCapacidad()));
+
+        // Restar lo que ya ocupan las rutas actuales del individuo
         for (Ruta r : individuo.getRutas()) {
             if (r.getEstado() == EstadoRuta.PLANIFICADA) {
                 Envio e = r.getEnvio();
-                capacidadesAlmacenes.put(e.getAeropuertoOrigen(), capacidadesAlmacenes.getOrDefault(e.getAeropuertoOrigen(), 0) - e.getCantidadMaletas());
-                capacidadesAlmacenes.put(e.getAeropuertoDestino(), capacidadesAlmacenes.getOrDefault(e.getAeropuertoDestino(), 0) - e.getCantidadMaletas());
+                capacidadesMomento.merge(e.getAeropuertoOrigen(), -e.getCantidadMaletas(), Integer::sum);
+                capacidadesMomento.merge(e.getAeropuertoDestino(), -e.getCantidadMaletas(), Integer::sum);
             }
         }
 
@@ -141,16 +143,19 @@ public class AlgoritmoGenetico {
                 Ruta rutaActual = individuo.getRutas().get(i);
                 Envio envio = rutaActual.getEnvio();
                 
+                // Liberar capacidad de la ruta vieja antes de generar la nueva
                 if (rutaActual.getEstado() == EstadoRuta.PLANIFICADA) {
-                    capacidadesAlmacenes.put(envio.getAeropuertoOrigen(), capacidadesAlmacenes.getOrDefault(envio.getAeropuertoOrigen(), 0) + envio.getCantidadMaletas());
-                    capacidadesAlmacenes.put(envio.getAeropuertoDestino(), capacidadesAlmacenes.getOrDefault(envio.getAeropuertoDestino(), 0) + envio.getCantidadMaletas());
+                    capacidadesMomento.merge(envio.getAeropuertoOrigen(), envio.getCantidadMaletas(), Integer::sum);
+                    capacidadesMomento.merge(envio.getAeropuertoDestino(), envio.getCantidadMaletas(), Integer::sum);
                 }
 
-                Ruta rutaMutada = generarRutaAleatoriaValida(envio, vuelos, mapaAeropuertos, capacidadesAlmacenes, random);
+                // Generar nueva ruta aleatoria
+                Ruta rutaMutada = generarRutaAleatoriaValida(envio, vuelos, mapaAeropuertos, capacidadesMomento, random);
                 
+                // Ocupar capacidad de la nueva ruta
                 if (rutaMutada.getEstado() == EstadoRuta.PLANIFICADA) {
-                    capacidadesAlmacenes.put(envio.getAeropuertoOrigen(), capacidadesAlmacenes.getOrDefault(envio.getAeropuertoOrigen(), 0) - envio.getCantidadMaletas());
-                    capacidadesAlmacenes.put(envio.getAeropuertoDestino(), capacidadesAlmacenes.getOrDefault(envio.getAeropuertoDestino(), 0) - envio.getCantidadMaletas());
+                    capacidadesMomento.merge(envio.getAeropuertoOrigen(), -envio.getCantidadMaletas(), Integer::sum);
+                    capacidadesMomento.merge(envio.getAeropuertoDestino(), -envio.getCantidadMaletas(), Integer::sum);
                 }
 
                 individuo.getRutas().set(i, rutaMutada); 
@@ -158,123 +163,92 @@ public class AlgoritmoGenetico {
         }
     }
 
-    /**
-     * Método auxiliar para la mutación: Crea una ruta aleatoria (Origen -> Destino)
-     */
-    private Ruta generarRutaAleatoriaValida(Envio envio, List<PlanVuelo> todosLosVuelos, Map<String, Aeropuerto> mapaAeropuertos, Map<String, Integer> capacidadesAlmacenes, Random random) {
+    private Ruta generarRutaAleatoriaValida(Envio envio, List<PlanVuelo> todosLosVuelos, Map<String, Aeropuerto> mapaAeropuertos, Map<String, Integer> caps, Random random) {
         Ruta nuevaRuta = new Ruta();
         nuevaRuta.setEnvio(envio);
         nuevaRuta.setEstado(EstadoRuta.SIN_RUTA);
-        List<PlanVuelo> vuelosAsignados = new ArrayList<>();
         
         String origen = envio.getAeropuertoOrigen();
         String destino = envio.getAeropuertoDestino();
 
-        if (capacidadesAlmacenes.getOrDefault(origen, 0) < envio.getCantidadMaletas()) {
-            return nuevaRuta; 
-        }
+        // Si el almacén de origen está lleno, ni siquiera intentamos buscar vuelos
+        if (caps.getOrDefault(origen, 0) < envio.getCantidadMaletas()) return nuevaRuta;
 
-        // 1. Intentar buscar un vuelo directo
-        List<PlanVuelo> vuelosDirectos = todosLosVuelos.stream()
+        // Intentar Vuelo Directo
+        List<PlanVuelo> directos = todosLosVuelos.stream()
                 .filter(v -> v.getOrigen().equals(origen) && v.getDestino().equals(destino) && !v.isCancelado())
                 .collect(Collectors.toList());
 
-        if (!vuelosDirectos.isEmpty()) {
-            PlanVuelo vElegido = vuelosDirectos.get(random.nextInt(vuelosDirectos.size()));
-            vuelosAsignados.add(vElegido);
-            nuevaRuta.setVuelos(vuelosAsignados);
+        if (!directos.isEmpty()) {
+            PlanVuelo v = directos.get(random.nextInt(directos.size()));
+            nuevaRuta.setVuelos(Collections.singletonList(v));
             nuevaRuta.setEstado(EstadoRuta.PLANIFICADA);
-            
-            long tiempoEsperaOrigen = calcularTiempoEsperaOrigen(envio, vElegido.getHoraSalida());
-            long duracion = calcularDuracionMinutos(vElegido, mapaAeropuertos);
-            
-            nuevaRuta.setTiempoTotalMinutos(tiempoEsperaOrigen + duracion + 10);
+            nuevaRuta.setTiempoTotalMinutos(calcularTiempoEsperaOrigen(envio, v.getHoraSalida()) + calcularDuracionMinutos(v, mapaAeropuertos) + 10);
             return nuevaRuta;
         }
 
-        // 2. Si no hay directo, intentar buscar con 1 escala
-        List<PlanVuelo> vuelosDesdeOrigen = todosLosVuelos.stream()
+        // Si no, intentar 1 escala (Simplificado para eficiencia)
+        List<PlanVuelo> desdeOrigen = todosLosVuelos.stream()
                 .filter(v -> v.getOrigen().equals(origen) && !v.isCancelado())
-                .collect(Collectors.toList());
+                .limit(20).collect(Collectors.toList()); // Limitar búsqueda para velocidad
 
-        Collections.shuffle(vuelosDesdeOrigen, random);
-
-        for (PlanVuelo vuelo1 : vuelosDesdeOrigen) {
-            String aeropuertoEscala = vuelo1.getDestino();
+        Collections.shuffle(desdeOrigen);
+        for (PlanVuelo v1 : desdeOrigen) {
+            Optional<PlanVuelo> v2Opt = todosLosVuelos.stream()
+                    .filter(v -> v.getOrigen().equals(v1.getDestino()) && v.getDestino().equals(destino) && !v.isCancelado())
+                    .findAny();
             
-            List<PlanVuelo> vuelosDesdeEscala = todosLosVuelos.stream()
-                    .filter(v -> v.getOrigen().equals(aeropuertoEscala) && v.getDestino().equals(destino) && !v.isCancelado())
-                    .collect(Collectors.toList());
-                    
-            if (!vuelosDesdeEscala.isEmpty()) {
-                PlanVuelo vuelo2 = vuelosDesdeEscala.get(random.nextInt(vuelosDesdeEscala.size()));
-                vuelosAsignados.add(vuelo1);
-                vuelosAsignados.add(vuelo2);
-                
-                nuevaRuta.setVuelos(vuelosAsignados);
+            if (v2Opt.isPresent()) {
+                PlanVuelo v2 = v2Opt.get();
+                nuevaRuta.setVuelos(Arrays.asList(v1, v2));
                 nuevaRuta.setEstado(EstadoRuta.PLANIFICADA);
-                
-                long tiempoEsperaOrigen = calcularTiempoEsperaOrigen(envio, vuelo1.getHoraSalida());
-                long duracion1 = calcularDuracionMinutos(vuelo1, mapaAeropuertos);
-                long tiempoEspera = calcularTiempoEspera(vuelo1.getHoraLlegada(), vuelo2.getHoraSalida());
-                long duracion2 = calcularDuracionMinutos(vuelo2, mapaAeropuertos);
-                
-                nuevaRuta.setTiempoTotalMinutos(tiempoEsperaOrigen + duracion1 + tiempoEspera + duracion2 + 10);
+                long total = calcularTiempoEsperaOrigen(envio, v1.getHoraSalida()) + 
+                             calcularDuracionMinutos(v1, mapaAeropuertos) + 
+                             calcularTiempoEspera(v1.getHoraLlegada(), v2.getHoraSalida()) + 
+                             calcularDuracionMinutos(v2, mapaAeropuertos) + 10;
+                nuevaRuta.setTiempoTotalMinutos(total);
                 return nuevaRuta;
             }
         }
 
-        nuevaRuta.setVuelos(vuelosAsignados);
-        nuevaRuta.setTiempoTotalMinutos(0);
         return nuevaRuta;
     }
 
-    // =====================================================================
-    // MÉTODOS MATEMÁTICOS PARA CALCULAR EL TIEMPO CON HUSOS HORARIOS (GMT)
-    // =====================================================================
+    // ── Cálculos de Tiempo con GMT ──────────────────────────────────────
 
     private long calcularTiempoEsperaOrigen(Envio envio, String horaSalidaVuelo) {
         int minRegistro = (envio.getHoraRegistro() * 60) + envio.getMinutoRegistro();
-        int minSalidaVuelo = convertirAMinutos(horaSalidaVuelo);
-
-        if (minSalidaVuelo < minRegistro) {
-            minSalidaVuelo += 24 * 60; 
-        }
-        return minSalidaVuelo - minRegistro;
+        int minSalida = convertirAMinutos(horaSalidaVuelo);
+        if (minSalida < minRegistro) minSalida += 1440; // 24h * 60m
+        return minSalida - minRegistro;
     }
 
     private long calcularDuracionMinutos(PlanVuelo vuelo, Map<String, Aeropuerto> mapaAeropuertos) {
-        int minSalidaLocal = convertirAMinutos(vuelo.getHoraSalida());
-        int minLlegadaLocal = convertirAMinutos(vuelo.getHoraLlegada());
+        int minSalidaLoc = convertirAMinutos(vuelo.getHoraSalida());
+        int minLlegadaLoc = convertirAMinutos(vuelo.getHoraLlegada());
+        int gmtO = mapaAeropuertos.get(vuelo.getOrigen()).getGmt();
+        int gmtD = mapaAeropuertos.get(vuelo.getDestino()).getGmt();
 
-        int gmtOrigen = mapaAeropuertos.get(vuelo.getOrigen()).getGmt();
-        int gmtDestino = mapaAeropuertos.get(vuelo.getDestino()).getGmt();
+        int minSalidaGMT = minSalidaLoc - (gmtO * 60);
+        int minLlegadaGMT = minLlegadaLoc - (gmtD * 60);
 
-        int minSalidaGMT = minSalidaLocal - (gmtOrigen * 60);
-        int minLlegadaGMT = minLlegadaLocal - (gmtDestino * 60);
-
-        while (minLlegadaGMT < minSalidaGMT) {
-            minLlegadaGMT += 24 * 60;
-        }
-
+        while (minLlegadaGMT < minSalidaGMT) minLlegadaGMT += 1440;
         return minLlegadaGMT - minSalidaGMT;
     }
 
     private long calcularTiempoEspera(String horaLlegada, String horaSalida) {
-        int minLlegada = convertirAMinutos(horaLlegada);
-        int minSalida = convertirAMinutos(horaSalida);
-        if (minSalida < minLlegada) {
-            minSalida += 24 * 60;
-        }
-        return minSalida - minLlegada;
+        int minLleg = convertirAMinutos(horaLlegada);
+        int minSal = convertirAMinutos(horaSalida);
+        if (minSal < minLleg) minSal += 1440;
+        return minSal - minLleg;
     }
 
     private int convertirAMinutos(String hora) {
-        String[] partes = hora.split(":");
-        return Integer.parseInt(partes[0]) * 60 + Integer.parseInt(partes[1]);
+        String[] p = hora.split(":");
+        return Integer.parseInt(p[0]) * 60 + Integer.parseInt(p[1]);
     }
     
-    // =====================================================================
+    // ── Utilidades de Población e Individuo ─────────────────────────────
 
     private Individuo obtenerMejorIndividuo(Poblacion poblacion) {
         return poblacion.getIndividuos().stream()
@@ -284,8 +258,7 @@ public class AlgoritmoGenetico {
 
     private Individuo copiarIndividuo(Individuo original) {
         List<Ruta> rutasCopia = original.getRutas().stream()
-                .map(this::copiarRuta)
-                .collect(Collectors.toList());
+                .map(this::copiarRuta).collect(Collectors.toList());
         Individuo copia = new Individuo(rutasCopia);
         copia.setFitness(original.getFitness());
         return copia;
@@ -302,13 +275,7 @@ public class AlgoritmoGenetico {
     }
 
     private void imprimirResumen(Individuo mejor) {
-        long sinRuta = mejor.getRutas().stream()
-            .filter(r -> r.getEstado() == EstadoRuta.SIN_RUTA).count();
-        long planificadas = mejor.getRutas().stream()
-            .filter(r -> r.getEstado() == EstadoRuta.PLANIFICADA).count();
-
-        System.out.println("Total envíos al final (Debe ser igual al original): " + mejor.getRutas().size());
-        System.out.println("Planificados: " + planificadas);
-        System.out.println("Sin ruta: " + sinRuta);
+        long planificadas = mejor.getRutas().stream().filter(r -> r.getEstado() == EstadoRuta.PLANIFICADA).count();
+        System.out.println("✅ Planificados: " + planificadas + " | ❌ Sin ruta: " + (mejor.getRutas().size() - planificadas));
     }
 }
