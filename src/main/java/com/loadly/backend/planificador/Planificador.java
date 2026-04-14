@@ -31,11 +31,8 @@ public class Planificador {
 
         // Obtener datos en memoria
         List<PlanVuelo> vuelos = dataService.getVuelos();
-        Map<String, Aeropuerto> mapaAeropuertos = dataService
-            .getAeropuertos().stream()
-            .collect(Collectors.toMap(
-                Aeropuerto::getCodigo, a -> a
-            ));
+        Map<String, Aeropuerto> mapaAeropuertos = dataService.getMapaAeropuertos();
+        Map<String, List<PlanVuelo>> mapaVuelosPorOrigen = dataService.getMapaVuelosPorOrigen();            
 
         // Obtener envíos pendientes hasta el instante simulado (El Sc dictado por el Orquestador)
         List<Envio> enviosPendientes = dataService.obtenerEnviosPendientes(fechaHoraLimite);
@@ -45,6 +42,6 @@ public class Planificador {
         }
 
         // 💡 CAMBIO CRUCIAL: Pasamos 'tiempoLimiteMs' en lugar de 'maxGeneraciones'
-        return algoritmoGenetico.ejecutar(enviosPendientes, vuelos, mapaAeropuertos, tamanoPoblacion, tiempoLimiteMs);
+        return algoritmoGenetico.ejecutar(enviosPendientes, vuelos, mapaAeropuertos, mapaVuelosPorOrigen, tamanoPoblacion, tiempoLimiteMs);
     }
 }
