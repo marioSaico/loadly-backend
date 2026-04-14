@@ -4,7 +4,11 @@ import com.loadly.backend.loader.*;
 import com.loadly.backend.model.*;
 import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
+
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class DataService {
@@ -15,6 +19,12 @@ public class DataService {
 
     private List<Aeropuerto> aeropuertos;
     private List<PlanVuelo> vuelos;
+    // Arriba declaras los mapas
+    private Map<String, Aeropuerto> mapaAeropuertos;
+    private Map<String, List<PlanVuelo>> mapaVuelosPorOrigen;
+
+    // 🚀 NUEVO: La "Bolsa" global en la Memoria RAM
+    private List<Envio> enviosAcumuladosGlobal = new ArrayList<>();
 
     public DataService(AeropuertoLoader aeropuertoLoader,
                        PlanVueloLoader planVueloLoader,
@@ -26,25 +36,35 @@ public class DataService {
 
     @PostConstruct
     public void inicializar() {
-        // Solo aeropuertos y vuelos se cargan una sola vez
-        this.aeropuertos = aeropuertoLoader.cargar(
-            "src/main/resources/data/aeropuertos.txt"
-        );
-        this.vuelos = planVueloLoader.cargar(
-            "src/main/resources/data/planes_vuelo.txt"
-        );
-        System.out.println("Aeropuertos cargados: " + aeropuertos.size());
-        System.out.println("Vuelos cargados: " + vuelos.size());
+        this.aeropuertos = aeropuertoLoader.cargar("src/main/resources/data/aeropuertos.txt");
+        this.vuelos = planVueloLoader.cargar("src/main/resources/data/planes_vuelo.txt");
+        
+        // 💡 CREAS LOS MAPAS UNA SOLA VEZ AQUÍ
+        this.mapaAeropuertos = aeropuertos.stream().collect(Collectors.toMap(Aeropuerto::getCodigo, a -> a));
+        this.mapaVuelosPorOrigen = vuelos.stream().filter(v -> !v.isCancelado()).collect(Collectors.groupingBy(PlanVuelo::getOrigen));
+        
+        System.out.println("Aeropuertos cargados e indexados: " + aeropuertos.size());
+        System.out.println("Vuelos cargados e indexados: " + vuelos.size());
     }
 
     // Este método lo llamará el planificador cada Sa minutos
     // pasándole el instante simulado hasta donde debe leer
     public List<Envio> obtenerEnviosPendientes(String fechaHoraLimite) {
-        return envioLoader.cargarPendientes(
+        
+        // 1. El Loader usa el "Cursor" para traer SOLO los envíos nuevos en milisegundos
+        List<Envio> enviosRecienLlegados = envioLoader.cargarPendientes(
             "src/main/resources/data/envios",
             fechaHoraLimite,
-            this.aeropuertos // 💡 NUEVO: Le mandamos los aeropuertos para que sepa los GMT
+            this.aeropuertos 
         );
+
+        // 2. 🚀 Metemos los nuevos a nuestra bolsa acumulada
+        if (!enviosRecienLlegados.isEmpty()) {
+            this.enviosAcumuladosGlobal.addAll(enviosRecienLlegados);
+        }
+
+        // 3. 🚀 Le entregamos al Planificador la bolsa COMPLETA para que no rompa la Planificación
+        return this.enviosAcumuladosGlobal;
     }
 
     public List<Aeropuerto> getAeropuertos() {
@@ -53,5 +73,13 @@ public class DataService {
 
     public List<PlanVuelo> getVuelos() {
         return vuelos;
+    }
+
+    public Map<String, Aeropuerto> getMapaAeropuertos() {
+        return mapaAeropuertos;
+    }
+
+    public Map<String, List<PlanVuelo>> getMapaVuelosPorOrigen() {
+        return mapaVuelosPorOrigen;
     }
 }

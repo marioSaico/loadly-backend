@@ -14,22 +14,16 @@ public class AlgoritmoGenetico {
     private static final double PROB_MUTACION = 0.15; 
     private static final int TAMANIO_TORNEO = 3;
     private static final int ELITISMO = 2; 
-    private static final int MAX_ESCALAS = 3; // Ahora permitimos hasta 3 escalas
+    private static final int MAX_ESCALAS = 3; 
 
-    public Individuo ejecutar(List<Envio> envios, List<PlanVuelo> vuelos, Map<String, Aeropuerto> mapaAeropuertos, int tamanoPoblacion, long tiempoLimiteMs) {
-        // --- OPTIMIZACIÓN 1: Indexar vuelos por origen para búsqueda O(1) ---
-        Map<String, List<PlanVuelo>> mapaVuelosPorOrigen = vuelos.stream()
-                .filter(v -> !v.isCancelado())
-                .collect(Collectors.groupingBy(PlanVuelo::getOrigen));
+    public Individuo ejecutar(List<Envio> envios, List<PlanVuelo> vuelos, Map<String, Aeropuerto> mapaAeropuertos,  Map<String, List<PlanVuelo>> mapaVuelosPorOrigen , int tamanoPoblacion, long tiempoLimiteMs) {
 
         System.out.println("=== GA - Iniciando Optimizacion ===");
         System.out.println("    Envios a procesar: " + envios.size());
-        System.out.println("    Vuelos activos indexados: " + vuelos.size());
 
-        // 1. Inicializacion de la Poblacion
+        // 1. Inicializacion de la Poblacion (Usando nuestra clase estricta)
         Poblacion poblacion = new Poblacion(tamanoPoblacion);
-        // Modificamos el inicializar para que use el mapa y la nueva lógica
-        inicializarPoblacionOptimizado(poblacion, envios, mapaVuelosPorOrigen, mapaAeropuertos, tamanoPoblacion);
+        poblacion.inicializar(envios, vuelos, mapaAeropuertos); 
 
         Fitness evaluadorFitness = new Fitness();
         evaluadorFitness.evaluarPoblacion(poblacion, mapaAeropuertos, vuelos);
@@ -86,7 +80,18 @@ public class AlgoritmoGenetico {
         return mejorIndividuo;
     }
 
-    // --- LÓGICA DE BÚSQUEDA DE RUTAS MULTI-ESCALA ---
+    // --- LÓGICA DE MUTACIÓN Y BÚSQUEDA ---
+    
+    private void mutarOptimizado(Individuo individuo, Map<String, List<PlanVuelo>> mapaVuelos, Map<String, Aeropuerto> mapaAeropuertos, Random random) {
+        for (int i = 0; i < individuo.getRutas().size(); i++) {
+            if (random.nextDouble() < PROB_MUTACION) {
+                Envio envio = individuo.getRutas().get(i).getEnvio();
+                // 💡 Al mutar, generamos una ruta cronológicamente válida
+                individuo.getRutas().set(i, generarRutaMultiEscala(envio, mapaVuelos, mapaAeropuertos, random));
+            }
+        }
+    }
+
     private Ruta generarRutaMultiEscala(Envio envio, Map<String, List<PlanVuelo>> mapaVuelos, Map<String, Aeropuerto> mapaAeropuertos, Random random) {
         Ruta ruta = new Ruta();
         ruta.setEnvio(envio);
@@ -95,8 +100,8 @@ public class AlgoritmoGenetico {
         String origen = envio.getAeropuertoOrigen();
         String destino = envio.getAeropuertoDestino();
 
-        // Intentamos encontrar una ruta mediante una búsqueda aleatorizada de profundidad limitada
-        List<PlanVuelo> camino = encontrarCaminoAleatorio(origen, destino, 0, new HashSet<>(), mapaVuelos, random);
+        // 💡 Pasamos "null" como vuelo anterior porque estamos en el aeropuerto de origen
+        List<PlanVuelo> camino = encontrarCaminoAleatorio(origen, destino, 0, new HashSet<>(), mapaVuelos, random, null);
 
         if (camino != null && !camino.isEmpty()) {
             ruta.setVuelos(camino);
@@ -107,15 +112,20 @@ public class AlgoritmoGenetico {
         return ruta;
     }
 
-    private List<PlanVuelo> encontrarCaminoAleatorio(String actual, String destino, int profundidad, Set<String> visitados, Map<String, List<PlanVuelo>> mapaVuelos, Random random) {
+    // 💡 AHORA RECIBE "vueloAnterior"
+    private List<PlanVuelo> encontrarCaminoAleatorio(String actual, String destino, int profundidad, Set<String> visitados, Map<String, List<PlanVuelo>> mapaVuelos, Random random, PlanVuelo vueloAnterior) {
         if (profundidad > MAX_ESCALAS) return null;
         if (!mapaVuelos.containsKey(actual)) return null;
 
         List<PlanVuelo> opciones = new ArrayList<>(mapaVuelos.get(actual));
-        Collections.shuffle(opciones); // Aleatoriedad para el Algoritmo Genético
+        Collections.shuffle(opciones); 
 
         // Primero intentar vuelos directos al destino desde aquí
         for (PlanVuelo v : opciones) {
+            // 💡 VALIDACIÓN CRUCIAL: Respetar 10 min de escala y evitar viajes al pasado
+            if (vueloAnterior != null && !cumpleTiempoEscala(vueloAnterior, v)) {
+                continue; 
+            }
             if (v.getDestino().equals(destino)) {
                 List<PlanVuelo> r = new ArrayList<>();
                 r.add(v);
@@ -126,8 +136,14 @@ public class AlgoritmoGenetico {
         // Si no hay directo, intentar escalas
         visitados.add(actual);
         for (PlanVuelo v : opciones) {
+            // 💡 OTRA VEZ: Validar tiempo antes de probar este camino
+            if (vueloAnterior != null && !cumpleTiempoEscala(vueloAnterior, v)) {
+                continue; 
+            }
+
             if (!visitados.contains(v.getDestino())) {
-                List<PlanVuelo> subCamino = encontrarCaminoAleatorio(v.getDestino(), destino, profundidad + 1, visitados, mapaVuelos, random);
+                // 💡 PASAMOS "v" COMO EL VUELO ANTERIOR PARA LA SIGUIENTE LLAMADA
+                List<PlanVuelo> subCamino = encontrarCaminoAleatorio(v.getDestino(), destino, profundidad + 1, visitados, mapaVuelos, random, v);
                 if (subCamino != null) {
                     List<PlanVuelo> resultado = new ArrayList<>();
                     resultado.add(v);
@@ -136,7 +152,21 @@ public class AlgoritmoGenetico {
                 }
             }
         }
+        visitados.remove(actual); // Buena práctica: retroceder (backtracking)
         return null;
+    }
+
+    // --- MÉTODOS DE APOYO DE TIEMPOS ---
+
+    // 💡 NUEVO MÉTODO IMPORTADO PARA BLOQUEAR VIAJES EN EL TIEMPO
+    private boolean cumpleTiempoEscala(PlanVuelo vueloAnterior, PlanVuelo vueloSiguiente) {
+        int minLlegada = convertirAMinutos(vueloAnterior.getHoraLlegada());
+        int minSalida = convertirAMinutos(vueloSiguiente.getHoraSalida());
+
+        if (minSalida < minLlegada) {
+            minSalida += 1440; // Cruzó la medianoche
+        }
+        return (minSalida - minLlegada) >= 10;
     }
 
     private long calcularTiempoTotalRuta(Envio envio, List<PlanVuelo> vuelos, Map<String, Aeropuerto> mapaAeropuertos) {
@@ -153,32 +183,9 @@ public class AlgoritmoGenetico {
             tiempo += calcularDuracionMinutos(v, mapaAeropuertos);
             horaReferencia = v.getHoraLlegada();
         }
-        return tiempo + 10; // +10 por margen de seguridad
+        return tiempo + 10; // +10 por recojo en destino
     }
 
-    // --- MÉTODOS DE APOYO OPTIMIZADOS ---
-
-    private void inicializarPoblacionOptimizado(Poblacion poblacion, List<Envio> envios, Map<String, List<PlanVuelo>> mapaVuelos, Map<String, Aeropuerto> mapaAeropuertos, int tamano) {
-        Random random = new Random();
-        for (int i = 0; i < tamano; i++) {
-            List<Ruta> rutas = new ArrayList<>();
-            for (Envio e : envios) {
-                rutas.add(generarRutaMultiEscala(e, mapaVuelos, mapaAeropuertos, random));
-            }
-            poblacion.getIndividuos().add(new Individuo(rutas));
-        }
-    }
-
-    private void mutarOptimizado(Individuo individuo, Map<String, List<PlanVuelo>> mapaVuelos, Map<String, Aeropuerto> mapaAeropuertos, Random random) {
-        for (int i = 0; i < individuo.getRutas().size(); i++) {
-            if (random.nextDouble() < PROB_MUTACION) {
-                Envio envio = individuo.getRutas().get(i).getEnvio();
-                individuo.getRutas().set(i, generarRutaMultiEscala(envio, mapaVuelos, mapaAeropuertos, random));
-            }
-        }
-    }
-
-    // (Tus métodos de cálculo de tiempo se mantienen igual por precisión)
     private long calcularTiempoEsperaOrigen(Envio envio, String horaSalidaVuelo) {
         int minRegistro = (envio.getHoraRegistro() * 60) + envio.getMinutoRegistro();
         int minSalida = convertirAMinutos(horaSalidaVuelo);
@@ -208,6 +215,8 @@ public class AlgoritmoGenetico {
         String[] p = hora.split(":");
         return Integer.parseInt(p[0]) * 60 + Integer.parseInt(p[1]);
     }
+
+    // --- OPERADORES GENÉTICOS ---
 
     private Individuo seleccionTorneo(Poblacion poblacion, Random random) {
         Individuo mejorTorneo = null;

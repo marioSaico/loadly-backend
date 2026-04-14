@@ -47,11 +47,11 @@ public class BackendApplication {
         // Sa = 10 minutos (cada 10 min despierta la IA)
         // K = 1 (Por lo tanto, Sc = 10 minutos de datos a leer)
         // NOTA: Fecha fin ajustada a 23:59 para simular exactamente 1 dia.
-        // ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260101-23-59", 2, 10, 1, 50, planificador, dataService);
+        //ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260102-00-00", 2, 10, 1, 50, planificador, dataService);
 
         // 2️⃣ ESCENARIO: PERIODO 5 DIAS
         // Configuracion matematica: Ta=30s | Sa=60min | K=24 | Poblacion=300
-        ejecutarEscenario("PERIODO (5 DIAS)", "20260101-00-00", "20260105-23-59", 45, 60, 24, 100, planificador, dataService);
+        ejecutarEscenario("PERIODO (5 DIAS)", "20260101-00-00", "20260106-00-00", 45, 60, 24, 100, planificador, dataService);
 
         // 3️⃣ ESCENARIO: COLAPSO (Ejemplo)
         // Ta = 3 segundos, Sa = 10 minutos, K = 50 (Sobrecarga extrema de lectura para forzar el colapso)
@@ -73,12 +73,12 @@ public class BackendApplication {
         long tiempoLimiteMs = taSegundos * 1000L; // Ta convertido a milisegundos para el cronometro
 
         System.out.println("\n" + "=".repeat(80));
-        System.out.println(" 📊 INICIANDO ESCENARIO: " + nombre);
-        System.out.println(" ⚙️  Parametros -> Ta: " + taSegundos + "s | Sa: " + sa + " min | K: " + k + " | Sc: " + sc + " min");
+        System.out.println("   INICIANDO ESCENARIO: " + nombre);
+        System.out.println("   Parametros -> Ta: " + taSegundos + "s | Sa: " + sa + " min | K: " + k + " | Sc: " + sc + " min");
         
         // 💡 CORRECCIÓN: Sumamos 1 para que el calculo de dias (ej. 01 al 05) de exactamente 5
-        long diasSimulacion = ChronoUnit.DAYS.between(relojSimulado, finSimulacion) + 1;
-        System.out.println(" ⏱️  Tiempo a simular: " + diasSimulacion + " dias (De " + inicioStr + " a " + finStr + ")");
+        long diasSimulacion = ChronoUnit.DAYS.between(relojSimulado, finSimulacion);
+        System.out.println("   Tiempo a simular: " + diasSimulacion + " dias (De " + inicioStr + " a " + finStr + ")");
         System.out.println("=".repeat(80));
 
         Map<String, Integer> capacidadOriginal = dataService.getAeropuertos().stream()
@@ -113,7 +113,8 @@ public class BackendApplication {
                     // 💡 CORRECCIÓN: Rompemos el bucle inmediatamente para que el reloj no avance
                     break;
                 } else {
-                    System.out.println("    [OK] El GA ejecutado por " + taSegundos + "s. " + resultado.getRutas().size() + " envios asegurados en el plan maestro.");
+                    System.out.printf("    [OK] El GA ejecutado por %ds. %d envíos asegurados. | Fitness del plan: %.6f\n", 
+                                      taSegundos, resultado.getRutas().size(), resultado.getFitness());
                 }
             } else {
                 System.out.println("    [-] No hay envios en este intervalo.");
@@ -135,7 +136,7 @@ public class BackendApplication {
         }
 
         // --- REPORTE FINAL DEL ESCENARIO ---
-        imprimirBitacoraFinal(bitacoraGlobal, capacidadOriginal, totalEnviosProcesados, colapsoDetectado, relojSimulado, fmtLog);
+        imprimirBitacoraFinal(bitacoraGlobal, capacidadOriginal, totalEnviosProcesados, colapsoDetectado, relojSimulado, fmtLog, mejorPlanGlobal);
     }
 
     private static void procesarRutaEnBitacora(Ruta ruta, Map<String, Integer> mapaGmt, List<EventoSimulacion> bitacora) {
@@ -179,7 +180,24 @@ public class BackendApplication {
         bitacora.add(new EventoSimulacion(finGMT, envio.getAeropuertoDestino(), envio.getCantidadMaletas(), "[RECOJO]     Envio " + envio.getIdEnvio()));
     }
 
-    private static void imprimirBitacoraFinal(List<EventoSimulacion> bitacora, Map<String, Integer> capsOrig, int total, boolean colapso, LocalDateTime relojParada, DateTimeFormatter fmt) {
+    private static void imprimirBitacoraFinal(List<EventoSimulacion> bitacora, Map<String, Integer> capsOrig, int total, boolean colapso, LocalDateTime relojParada, DateTimeFormatter fmt, Individuo mejorPlanGlobal) {
+        
+        // Bloque que imprime la ruta humana legible por cada envío
+        if (mejorPlanGlobal != null && !mejorPlanGlobal.getRutas().isEmpty()) {
+            System.out.println("\n" + "=".repeat(80));
+            System.out.println("   MAPA DE RUTAS ASIGNADAS POR EL GA.");
+            System.out.println("=".repeat(80));
+            for (Ruta r : mejorPlanGlobal.getRutas()) {
+                if (r.getEstado() == EstadoRuta.PLANIFICADA) {
+                    String itinerario = r.getVuelos().stream()
+                            .map(v -> String.format("[%s -> %s | Salida: %s | Llegada: %s]", v.getOrigen(), v.getDestino(), v.getHoraSalida(), v.getHoraLlegada()))
+                            .collect(Collectors.joining(" -> "));
+                    System.out.printf("  Envío %-4s (%d maletas) | Tiempo total: %d min | Ruta: %s\n", 
+                                      r.getEnvio().getIdEnvio(), r.getEnvio().getCantidadMaletas(), r.getTiempoTotalMinutos(), itinerario);
+                }
+            }
+        }
+
         System.out.println("\n\n" + "=".repeat(80));
         System.out.println("       BITACORA CRONOLOGICA DE ALMACENES - RESULTADO FINAL");
         System.out.println("=".repeat(80));
