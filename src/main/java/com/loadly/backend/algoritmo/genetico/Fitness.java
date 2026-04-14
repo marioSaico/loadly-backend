@@ -25,7 +25,7 @@ public class Fitness {
                                  Map<String, Aeropuerto> mapaAeropuertos,
                                  List<PlanVuelo> todosLosVuelos) {
                                      
-        // 🚀 Construimos el mapa UNA SOLA VEZ, no 100,000 veces
+        // Construimos el mapa UNA SOLA VEZ, no 100,000 veces
         Map<String, Integer> capacidadesOriginalesVuelos = new HashMap<>();
         for (PlanVuelo v : todosLosVuelos) {
             capacidadesOriginalesVuelos.put(claveVuelo(v), v.getCapacidad());
@@ -41,7 +41,7 @@ public class Fitness {
      */
     public void evaluar(Individuo individuo,
                         Map<String, Aeropuerto> mapaAeropuertos,
-                        Map<String, Integer> capacidadesOriginalesVuelos) { // 🚀 Ahora recibe el mapa ya armado
+                        Map<String, Integer> capacidadesOriginalesVuelos) { 
 
         int enviosSinRuta = 0;
         long minutosTotalesRetraso = 0;
@@ -56,7 +56,7 @@ public class Fitness {
             Envio envio = ruta.getEnvio();
             String codigoOrigen = envio.getAeropuertoOrigen();
 
-            // 💡 CORRECCIÓN LÓGICA: Sumamos las maletas al almacén de origen ANTES de evaluar si tiene ruta.
+            // Sumamos las maletas al almacén de origen ANTES de evaluar si tiene ruta.
             // Si el envío se queda varado, igual está ocupando espacio en el mostrador.
             maletasPorAeropuerto.put(
                 codigoOrigen,

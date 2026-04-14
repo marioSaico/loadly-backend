@@ -43,19 +43,16 @@ public class BackendApplication {
         // =========================================================================================
 
         // 1️⃣ ESCENARIO: DIA A DIA
-        // Ta = 2 segundos reales de procesamiento por iteracion
-        // Sa = 10 minutos (cada 10 min despierta la IA)
-        // K = 1 (Por lo tanto, Sc = 10 minutos de datos a leer)
-        // NOTA: Fecha fin ajustada a 23:59 para simular exactamente 1 dia.
-        //ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260102-00-00", 2, 10, 1, 50, planificador, dataService);
+        // Configuracion : Ta=2s | Sa=10min | K=1 | Poblacion=50
+        ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260102-00-00", 2, 10, 1, 50, planificador, dataService);
 
         // 2️⃣ ESCENARIO: PERIODO 5 DIAS
-        // Configuracion matematica: Ta=30s | Sa=60min | K=24 | Poblacion=300
-        ejecutarEscenario("PERIODO (5 DIAS)", "20260101-00-00", "20260106-00-00", 45, 60, 24, 100, planificador, dataService);
+        // Configuracion : Ta=25s | Sa=40min | K=6 | Poblacion=100
+        //ejecutarEscenario("PERIODO (5 DIAS)", "20260101-00-00", "20260106-00-00", 25, 40, 6, 100, planificador, dataService);
 
-        // 3️⃣ ESCENARIO: COLAPSO (Ejemplo)
-        // Ta = 3 segundos, Sa = 10 minutos, K = 50 (Sobrecarga extrema de lectura para forzar el colapso)
-        // ejecutarEscenario("COLAPSO", "20260101-00-00", "20260130-23-59", 3, 10, 50, 100, planificador, dataService);
+        // 3️⃣ ESCENARIO: COLAPSO
+        // Configuracion: Ta=15s | Sa=40min | K=6  | Poblacion=100
+        // ejecutarEscenario("COLAPSO", "20260101-00-00", "20260106-00-00", 15, 40, 6, 100, planificador, dataService);
     }
 
     public static void ejecutarEscenario(String nombre, String inicioStr, String finStr, 
@@ -76,7 +73,6 @@ public class BackendApplication {
         System.out.println("   INICIANDO ESCENARIO: " + nombre);
         System.out.println("   Parametros -> Ta: " + taSegundos + "s | Sa: " + sa + " min | K: " + k + " | Sc: " + sc + " min");
         
-        // 💡 CORRECCIÓN: Sumamos 1 para que el calculo de dias (ej. 01 al 05) de exactamente 5
         long diasSimulacion = ChronoUnit.DAYS.between(relojSimulado, finSimulacion);
         System.out.println("   Tiempo a simular: " + diasSimulacion + " dias (De " + inicioStr + " a " + finStr + ")");
         System.out.println("=".repeat(80));
@@ -90,27 +86,31 @@ public class BackendApplication {
         boolean colapsoDetectado = false;
         
         Individuo mejorPlanGlobal = null;
+        
+        LocalDateTime limiteLecturaDatos = relojSimulado;
 
         // --- BUCLE PRINCIPAL DE SIMULACION ---
-        while (relojSimulado.isBefore(finSimulacion) && !colapsoDetectado) {
+        while ((relojSimulado.isBefore(finSimulacion) || (relojSimulado.isEqual(finSimulacion))) && !colapsoDetectado) {
             
-            LocalDateTime limiteLecturaDatos = relojSimulado.plusMinutes(sc);
             String limiteLecturaStr = limiteLecturaDatos.format(fmtInput);
             
             System.out.println("\n>>> [RELOJ: " + relojSimulado.format(fmtLog) + "] Planificando pedidos acumulados hasta las " + limiteLecturaDatos.format(fmtLog) + "...");
 
             Individuo resultado = planificador.planificar(limiteLecturaStr, tamanoPoblacion, tiempoLimiteMs);
+            
+            // Se consume Sc minutos más   
+            limiteLecturaDatos = limiteLecturaDatos.plusMinutes(sc);
 
             if (resultado != null && !resultado.getRutas().isEmpty()) {
                 
                 mejorPlanGlobal = resultado;
 
-                // ⚠️ VERIFICACION DE COLAPSO
+                //  VERIFICACION DE COLAPSO
                 long maletasSinRuta = resultado.getRutas().stream().filter(r -> r.getEstado() == EstadoRuta.SIN_RUTA).count();
                 if (maletasSinRuta > 0) {
                     System.out.println("    [!] ¡ALERTA DE COLAPSO! El sistema no pudo encontrar ruta para " + maletasSinRuta + " envios.");
                     colapsoDetectado = true;
-                    // 💡 CORRECCIÓN: Rompemos el bucle inmediatamente para que el reloj no avance
+                    //  Rompemos el bucle inmediatamente para que el reloj no avance
                     break;
                 } else {
                     System.out.printf("    [OK] El GA ejecutado por %ds. %d envíos asegurados. | Fitness del plan: %.6f\n", 

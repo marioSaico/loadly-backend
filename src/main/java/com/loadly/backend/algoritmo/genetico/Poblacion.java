@@ -85,7 +85,7 @@ public class Poblacion {
         ruta.setEstado(EstadoRuta.SIN_RUTA);
         ruta.setIndiceVueloActual(0);
 
-        // 1. Verificar si el almacén de origen tiene capacidad al registrar el envío
+        // Verificar si el almacén de origen tiene capacidad al registrar el envío
         if (capacidadesAlmacenes.getOrDefault(envio.getAeropuertoOrigen(), 0) < envio.getCantidadMaletas()) {
             ruta.setVuelos(new ArrayList<>());
             ruta.setTiempoTotalMinutos(0);
