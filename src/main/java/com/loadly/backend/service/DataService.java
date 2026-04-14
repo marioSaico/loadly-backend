@@ -19,11 +19,10 @@ public class DataService {
 
     private List<Aeropuerto> aeropuertos;
     private List<PlanVuelo> vuelos;
-    // Arriba declaras los mapas
+
     private Map<String, Aeropuerto> mapaAeropuertos;
     private Map<String, List<PlanVuelo>> mapaVuelosPorOrigen;
 
-    // 🚀 NUEVO: La "Bolsa" global en la Memoria RAM
     private List<Envio> enviosAcumuladosGlobal = new ArrayList<>();
 
     public DataService(AeropuertoLoader aeropuertoLoader,
@@ -50,20 +49,20 @@ public class DataService {
     // Este método lo llamará el planificador cada Sa minutos
     // pasándole el instante simulado hasta donde debe leer
     public List<Envio> obtenerEnviosPendientes(String fechaHoraLimite) {
-        
-        // 1. El Loader usa el "Cursor" para traer SOLO los envíos nuevos en milisegundos
+    
+        // El Loader usa el "Cursor" para traer SOLO los envíos nuevos en milisegundos
         List<Envio> enviosRecienLlegados = envioLoader.cargarPendientes(
             "src/main/resources/data/envios",
             fechaHoraLimite,
             this.aeropuertos 
         );
 
-        // 2. 🚀 Metemos los nuevos a nuestra bolsa acumulada
+        // Metemos los nuevos a nuestra bolsa acumulada
         if (!enviosRecienLlegados.isEmpty()) {
             this.enviosAcumuladosGlobal.addAll(enviosRecienLlegados);
         }
 
-        // 3. 🚀 Le entregamos al Planificador la bolsa COMPLETA para que no rompa la Planificación
+        // Le entregamos al Planificador la bolsa COMPLETA para que no rompa la Planificación
         return this.enviosAcumuladosGlobal;
     }
 

@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 @Component
 public class EnvioLoader {
 
-    // 🚀 NUEVO: Memoria caché para saber en qué línea nos quedamos en cada archivo
+    // Memoria caché para saber en qué línea nos quedamos en cada archivo
     // Clave: Nombre del archivo, Valor: Número de línea donde nos detuvimos la última vez
     private final Map<String, Integer> cursorLineasPorArchivo = new HashMap<>();
 
@@ -80,7 +80,7 @@ public class EnvioLoader {
                     LocalDateTime tiempoLocal = LocalDateTime.of(fechaLocal, LocalTime.of(horaLocal, minLocal));
                     LocalDateTime tiempoGMT = tiempoLocal.minusHours(gmtOrigen);
 
-                    // 💡 LÓGICA DE FRENO: Si encontramos un envío del futuro, paramos de leer este archivo
+                    //  LÓGICA DE FRENO: Si encontramos un envío del futuro, paramos de leer este archivo
                     if (tiempoGMT.isAfter(relojGlobalGMT) || tiempoGMT.isEqual(relojGlobalGMT)) {
                         break; // Salimos del while de lectura de este archivo en particular
                     }
@@ -100,7 +100,7 @@ public class EnvioLoader {
                     lineasLeidasEnEstaRonda++;
                 }
                 
-                // 🚀 Guardamos en la libreta hasta qué línea avanzamos para el siguiente salto de reloj
+                //  Guardamos en la libreta hasta qué línea avanzamos para el siguiente salto de reloj
                 cursorLineasPorArchivo.put(nombreArchivo, lineaInicio + lineasLeidasEnEstaRonda);
 
             } catch (Exception e) {

@@ -100,7 +100,7 @@ public class AlgoritmoGenetico {
         String origen = envio.getAeropuertoOrigen();
         String destino = envio.getAeropuertoDestino();
 
-        // 💡 Pasamos "null" como vuelo anterior porque estamos en el aeropuerto de origen
+        //  Pasamos "null" como vuelo anterior porque estamos en el aeropuerto de origen
         List<PlanVuelo> camino = encontrarCaminoAleatorio(origen, destino, 0, new HashSet<>(), mapaVuelos, random, null);
 
         if (camino != null && !camino.isEmpty()) {
@@ -112,7 +112,6 @@ public class AlgoritmoGenetico {
         return ruta;
     }
 
-    // 💡 AHORA RECIBE "vueloAnterior"
     private List<PlanVuelo> encontrarCaminoAleatorio(String actual, String destino, int profundidad, Set<String> visitados, Map<String, List<PlanVuelo>> mapaVuelos, Random random, PlanVuelo vueloAnterior) {
         if (profundidad > MAX_ESCALAS) return null;
         if (!mapaVuelos.containsKey(actual)) return null;
@@ -136,13 +135,13 @@ public class AlgoritmoGenetico {
         // Si no hay directo, intentar escalas
         visitados.add(actual);
         for (PlanVuelo v : opciones) {
-            // 💡 OTRA VEZ: Validar tiempo antes de probar este camino
+            //  Validar tiempo antes de probar este camino
             if (vueloAnterior != null && !cumpleTiempoEscala(vueloAnterior, v)) {
                 continue; 
             }
 
             if (!visitados.contains(v.getDestino())) {
-                // 💡 PASAMOS "v" COMO EL VUELO ANTERIOR PARA LA SIGUIENTE LLAMADA
+                //  PASAMOS "v" COMO EL VUELO ANTERIOR PARA LA SIGUIENTE LLAMADA
                 List<PlanVuelo> subCamino = encontrarCaminoAleatorio(v.getDestino(), destino, profundidad + 1, visitados, mapaVuelos, random, v);
                 if (subCamino != null) {
                     List<PlanVuelo> resultado = new ArrayList<>();
@@ -152,13 +151,13 @@ public class AlgoritmoGenetico {
                 }
             }
         }
-        visitados.remove(actual); // Buena práctica: retroceder (backtracking)
+        visitados.remove(actual); 
         return null;
     }
 
     // --- MÉTODOS DE APOYO DE TIEMPOS ---
 
-    // 💡 NUEVO MÉTODO IMPORTADO PARA BLOQUEAR VIAJES EN EL TIEMPO
+    //  MÉTODO PARA BLOQUEAR VIAJES EN EL TIEMPO
     private boolean cumpleTiempoEscala(PlanVuelo vueloAnterior, PlanVuelo vueloSiguiente) {
         int minLlegada = convertirAMinutos(vueloAnterior.getHoraLlegada());
         int minSalida = convertirAMinutos(vueloSiguiente.getHoraSalida());
