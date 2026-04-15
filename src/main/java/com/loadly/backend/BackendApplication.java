@@ -44,7 +44,7 @@ public class BackendApplication {
 
         // 1️⃣ ESCENARIO: DIA A DIA
         // Configuracion : Ta=2s | Sa=10min | K=1 | Poblacion=50
-        ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260102-00-00", 2, 10, 1, 50, planificador, dataService);
+        ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260101-20-00", 2, 10, 1, 50, planificador, dataService);
 
         // 2️⃣ ESCENARIO: PERIODO 5 DIAS
         // Configuracion : Ta=25s | Sa=40min | K=6 | Poblacion=100
@@ -105,10 +105,62 @@ public class BackendApplication {
                 
                 mejorPlanGlobal = resultado;
 
-                //  VERIFICACION DE COLAPSO
+                // 💡 VERIFICACION DE COLAPSO ABSOLUTO (Rutas, Plazos y Capacidad Física)
                 long maletasSinRuta = resultado.getRutas().stream().filter(r -> r.getEstado() == EstadoRuta.SIN_RUTA).count();
-                if (maletasSinRuta > 0) {
-                    System.out.println("    [!] ¡ALERTA DE COLAPSO! El sistema no pudo encontrar ruta para " + maletasSinRuta + " envios.");
+                long maletasFueraDePlazo = 0;
+                boolean colapsoPorCapacidadFisica = false;
+                
+                Map<String, Integer> auditoriaAlmacenes = new HashMap<>();
+                Map<String, Integer> auditoriaVuelos = new HashMap<>();
+
+                for (Ruta r : resultado.getRutas()) {
+                    if (r.getEstado() == EstadoRuta.PLANIFICADA) {
+                        Envio env = r.getEnvio();
+                        
+                        // 1. Validar Plazos
+                        long plazoMaximo = 48 * 60; 
+                        Aeropuerto origen = dataService.getMapaAeropuertos().get(env.getAeropuertoOrigen());
+                        Aeropuerto destino = dataService.getMapaAeropuertos().get(env.getAeropuertoDestino());
+                        if (origen != null && destino != null && origen.getContinente().equals(destino.getContinente())) {
+                            plazoMaximo = 24 * 60; 
+                        }
+                        if (r.getTiempoTotalMinutos() > plazoMaximo) {
+                            maletasFueraDePlazo++;
+                        }
+
+                        // 2. Acumular capacidades para auditoría física
+                        auditoriaAlmacenes.put(env.getAeropuertoOrigen(), auditoriaAlmacenes.getOrDefault(env.getAeropuertoOrigen(), 0) + env.getCantidadMaletas());
+                        for (PlanVuelo v : r.getVuelos()) {
+                            auditoriaAlmacenes.put(v.getDestino(), auditoriaAlmacenes.getOrDefault(v.getDestino(), 0) + env.getCantidadMaletas());
+                            String claveV = v.getOrigen() + "-" + v.getDestino() + "-" + v.getHoraSalida();
+                            auditoriaVuelos.put(claveV, auditoriaVuelos.getOrDefault(claveV, 0) + env.getCantidadMaletas());
+                        }
+                    }
+                }
+
+                // 3. Revisar si la auditoría explotó los límites
+                for (Map.Entry<String, Integer> entry : auditoriaAlmacenes.entrySet()) {
+                    Aeropuerto a = dataService.getMapaAeropuertos().get(entry.getKey());
+                    if (a != null && entry.getValue() > a.getCapacidad()) {
+                        colapsoPorCapacidadFisica = true;
+                    }
+                }
+                for (Map.Entry<String, Integer> entry : auditoriaVuelos.entrySet()) {
+                    int capOriginal = dataService.getVuelos().stream()
+                            .filter(v -> (v.getOrigen() + "-" + v.getDestino() + "-" + v.getHoraSalida()).equals(entry.getKey()))
+                            .map(PlanVuelo::getCapacidad).findFirst().orElse(Integer.MAX_VALUE);
+                    if (entry.getValue() > capOriginal) {
+                        colapsoPorCapacidadFisica = true;
+                    }
+                }
+
+                // 💥 BASTA CON QUE FALLE UNA SOLA REGLA PARA DECLARAR COLAPSO
+                if (maletasSinRuta > 0 || maletasFueraDePlazo > 0 || colapsoPorCapacidadFisica) {
+                    System.out.println("    [!] ¡ALERTA DE COLAPSO LOGÍSTICO!");
+                    if (maletasSinRuta > 0) System.out.println("        -> " + maletasSinRuta + " envíos sin ruta disponible.");
+                    if (maletasFueraDePlazo > 0) System.out.println("        -> " + maletasFueraDePlazo + " envíos excedieron el plazo límite (24h/48h).");
+                    if (colapsoPorCapacidadFisica) System.out.println("        -> [Auditoría] El GA propuso un plan que sobrepasa la capacidad física real de almacenes o vuelos.");
+                    
                     colapsoDetectado = true;
                     //  Rompemos el bucle inmediatamente para que el reloj no avance
                     break;
