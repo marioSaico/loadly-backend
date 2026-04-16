@@ -15,8 +15,6 @@ public class Planificador {
     private final DataService dataService;
     private final AlgoritmoGenetico algoritmoGenetico;
 
-    // 💡 Ya no necesitamos SA, K, SC fijos aquí porque el Orquestador (Main) los controla dinámicamente.
-
     public Planificador(DataService dataService, AlgoritmoGenetico algoritmoGenetico) {
         this.dataService = dataService;
         this.algoritmoGenetico = algoritmoGenetico;
@@ -24,23 +22,37 @@ public class Planificador {
 
     /**
      * Ejecuta una planificación con los envíos pendientes hasta la fechaHoraLimite dada.
-     * Ahora recibe el tiempo límite de ejecución real (Ta) en milisegundos.
      */
     public Individuo planificar(String fechaHoraLimite, int tamanoPoblacion, long tiempoLimiteMs) {
 
-        // Obtener datos en memoria
+        // 1. Obtener datos estáticos
         List<PlanVuelo> vuelos = dataService.getVuelos();
         Map<String, Aeropuerto> mapaAeropuertos = dataService.getMapaAeropuertos();
         Map<String, List<PlanVuelo>> mapaVuelosPorOrigen = dataService.getMapaVuelosPorOrigen();            
 
-        // Obtener envíos pendientes hasta el instante simulado (El Sc dictado por el Orquestador)
+        // 2. Obtener envíos pendientes (Nuevos + Rezagados del backlog)
         List<Envio> enviosPendientes = dataService.obtenerEnviosPendientes(fechaHoraLimite);
 
         if (enviosPendientes.isEmpty()) {
-            return null; // El Main interpretará esto como "No hay pedidos nuevos en esta ventana de tiempo"
+            return null; // El Main interpretará esto como "No hay pedidos nuevos en esta ventana"
         }
 
-        // 💡 CAMBIO CRUCIAL: Pasamos 'tiempoLimiteMs' en lugar de 'maxGeneraciones'
-        return algoritmoGenetico.ejecutar(enviosPendientes, vuelos, mapaAeropuertos, mapaVuelosPorOrigen, tamanoPoblacion, tiempoLimiteMs);
+        // 3. 💡 CAMBIO CLAVE: Obtener las capacidades reales/dinámicas en este minuto del tiempo
+        Map<String, Integer> capDinamicaVuelos = dataService.getCapacidadDinamicaVuelos();
+        Map<String, Integer> capDinamicaAlmacenes = dataService.getCapacidadDinamicaAlmacenes();
+
+        // 4. Ejecutar el GA pasándole las capacidades actuales para que no sobreescriba vuelos llenos
+        Individuo mejorPlan = algoritmoGenetico.ejecutar(
+                enviosPendientes, vuelos, mapaAeropuertos, mapaVuelosPorOrigen, 
+                capDinamicaVuelos, capDinamicaAlmacenes, // <-- NUEVOS PARÁMETROS
+                tamanoPoblacion, tiempoLimiteMs
+        );
+
+        // 5. 💡 CONFIRMAR EL PLAN: Bloquear espacios y agendar eventos de liberación
+        if (mejorPlan != null) {
+            dataService.confirmarPlanYActualizarCapacidades(mejorPlan, fechaHoraLimite);
+        }
+
+        return mejorPlan;
     }
 }

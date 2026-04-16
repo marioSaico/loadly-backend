@@ -16,17 +16,17 @@ public class AlgoritmoGenetico {
     private static final int ELITISMO = 2; 
     private static final int MAX_ESCALAS = 3; 
 
-    public Individuo ejecutar(List<Envio> envios, List<PlanVuelo> vuelos, Map<String, Aeropuerto> mapaAeropuertos,  Map<String, List<PlanVuelo>> mapaVuelosPorOrigen , int tamanoPoblacion, long tiempoLimiteMs) {
+    public Individuo ejecutar(List<Envio> envios, List<PlanVuelo> vuelos, Map<String, Aeropuerto> mapaAeropuertos,  Map<String, List<PlanVuelo>> mapaVuelosPorOrigen, Map<String, Integer> capVuelos, Map<String, Integer> capAlmacenes, int tamanoPoblacion, long tiempoLimiteMs) {
 
         System.out.println("=== GA - Iniciando Optimizacion ===");
         System.out.println("    Envios a procesar: " + envios.size());
 
         // 1. Inicializacion de la Poblacion (Usando nuestra clase estricta)
         Poblacion poblacion = new Poblacion(tamanoPoblacion);
-        poblacion.inicializar(envios, vuelos, mapaAeropuertos); 
+        poblacion.inicializar(envios, vuelos, mapaAeropuertos, capVuelos, capAlmacenes); 
 
         Fitness evaluadorFitness = new Fitness();
-        evaluadorFitness.evaluarPoblacion(poblacion, mapaAeropuertos, vuelos);
+        evaluadorFitness.evaluarPoblacion(poblacion, mapaAeropuertos, capVuelos);
         
         Individuo mejorIndividuo = obtenerMejorIndividuo(poblacion);
         
@@ -63,7 +63,7 @@ public class AlgoritmoGenetico {
             }
 
             poblacion.setIndividuos(nuevaGeneracion);
-            evaluadorFitness.evaluarPoblacion(poblacion, mapaAeropuertos, vuelos);
+            evaluadorFitness.evaluarPoblacion(poblacion, mapaAeropuertos, capVuelos);
 
             Individuo mejorActual = obtenerMejorIndividuo(poblacion);
             if (mejorActual.getFitness() > mejorIndividuo.getFitness()) {
@@ -82,107 +82,144 @@ public class AlgoritmoGenetico {
 
     // --- LÓGICA DE MUTACIÓN Y BÚSQUEDA ---
     
-    private void mutarOptimizado(Individuo individuo, Map<String, List<PlanVuelo>> mapaVuelos, Map<String, Aeropuerto> mapaAeropuertos, Random random) {
+    private void mutarOptimizado(Individuo individuo, Map<String, List<PlanVuelo>> mapaVuelosPorOrigen, Map<String, Aeropuerto> mapaAeropuertos, Random random) {
         for (int i = 0; i < individuo.getRutas().size(); i++) {
             if (random.nextDouble() < PROB_MUTACION) {
                 Envio envio = individuo.getRutas().get(i).getEnvio();
-                // 💡 Al mutar, generamos una ruta cronológicamente válida
-                individuo.getRutas().set(i, generarRutaMultiEscala(envio, mapaVuelos, mapaAeropuertos, random));
+                // 💡 NUEVO: En vez de un camino aleatorio ciego, mutamos usando el motor A* relajado
+                individuo.getRutas().set(i, buscarRutaAStarMutacion(envio, mapaVuelosPorOrigen, mapaAeropuertos, random));
             }
         }
     }
 
-    private Ruta generarRutaMultiEscala(Envio envio, Map<String, List<PlanVuelo>> mapaVuelos, Map<String, Aeropuerto> mapaAeropuertos, Random random) {
+    // ❌ ELIMINADO: generarRutaMultiEscala y encontrarCaminoAleatorio (Eran DFS ciegas y lentas)
+    // 💡 NUEVO: Motor A* exclusivo para mutación (Ignora capacidades para fomentar diversidad, el Fitness penalizará si se satura)
+    private Ruta buscarRutaAStarMutacion(Envio envio, Map<String, List<PlanVuelo>> mapaVuelosPorOrigen, Map<String, Aeropuerto> mapaAeropuertos, Random random) {
         Ruta ruta = new Ruta();
         ruta.setEnvio(envio);
-        ruta.setEstado(EstadoRuta.SIN_RUTA);
+        ruta.setIndiceVueloActual(0);
 
-        String origen = envio.getAeropuertoOrigen();
-        String destino = envio.getAeropuertoDestino();
+        Aeropuerto aeropOrigen = mapaAeropuertos.get(envio.getAeropuertoOrigen());
+        Aeropuerto aeropDestino = mapaAeropuertos.get(envio.getAeropuertoDestino());
 
-        //  Pasamos "null" como vuelo anterior porque estamos en el aeropuerto de origen
-        List<PlanVuelo> camino = encontrarCaminoAleatorio(origen, destino, 0, new HashSet<>(), mapaVuelos, random, null);
-
-        if (camino != null && !camino.isEmpty()) {
-            ruta.setVuelos(camino);
-            ruta.setEstado(EstadoRuta.PLANIFICADA);
-            ruta.setTiempoTotalMinutos(calcularTiempoTotalRuta(envio, camino, mapaAeropuertos));
+        long plazoMaximoMinutos = 48 * 60;
+        if (aeropOrigen != null && aeropDestino != null) {
+            if (aeropOrigen.getContinente().equals(aeropDestino.getContinente())) plazoMaximoMinutos = 24 * 60; 
         }
+        long plazoDisponible = plazoMaximoMinutos - 10; // -10 por recojo
 
-        return ruta;
-    }
+        class NodoAStar implements Comparable<NodoAStar> {
+            String aeropuertoCodigo;
+            int escalas;
+            List<PlanVuelo> rutaAcumulada;
+            long g; 
+            double f; 
+            String horaLlegadaAnterior;
 
-    private List<PlanVuelo> encontrarCaminoAleatorio(String actual, String destino, int profundidad, Set<String> visitados, Map<String, List<PlanVuelo>> mapaVuelos, Random random, PlanVuelo vueloAnterior) {
-        if (profundidad > MAX_ESCALAS) return null;
-        if (!mapaVuelos.containsKey(actual)) return null;
-
-        List<PlanVuelo> opciones = new ArrayList<>(mapaVuelos.get(actual));
-        Collections.shuffle(opciones); 
-
-        // Primero intentar vuelos directos al destino desde aquí
-        for (PlanVuelo v : opciones) {
-            // 💡 VALIDACIÓN CRUCIAL: Respetar 10 min de escala y evitar viajes al pasado
-            if (vueloAnterior != null && !cumpleTiempoEscala(vueloAnterior, v)) {
-                continue; 
+            public NodoAStar(String aeropuertoCodigo, int escalas, List<PlanVuelo> rutaAcumulada, long g, double f, String horaLlegadaAnterior) {
+                this.aeropuertoCodigo = aeropuertoCodigo;
+                this.escalas = escalas;
+                this.rutaAcumulada = rutaAcumulada;
+                this.g = g;
+                this.f = f;
+                this.horaLlegadaAnterior = horaLlegadaAnterior;
             }
-            if (v.getDestino().equals(destino)) {
-                List<PlanVuelo> r = new ArrayList<>();
-                r.add(v);
-                return r;
+
+            @Override
+            public int compareTo(NodoAStar otro) {
+                return Double.compare(this.f, otro.f);
             }
         }
 
-        // Si no hay directo, intentar escalas
-        visitados.add(actual);
-        for (PlanVuelo v : opciones) {
-            //  Validar tiempo antes de probar este camino
-            if (vueloAnterior != null && !cumpleTiempoEscala(vueloAnterior, v)) {
-                continue; 
+        PriorityQueue<NodoAStar> openSet = new PriorityQueue<>();
+        Map<String, Long> bestG = new HashMap<>();
+
+        openSet.add(new NodoAStar(envio.getAeropuertoOrigen(), -1, new ArrayList<>(), 0, 0.0, null));
+        bestG.put(envio.getAeropuertoOrigen(), 0L);
+
+        while (!openSet.isEmpty()) {
+            NodoAStar actual = openSet.poll();
+
+            if (actual.aeropuertoCodigo.equals(envio.getAeropuertoDestino())) {
+                ruta.setVuelos(actual.rutaAcumulada);
+                ruta.setTiempoTotalMinutos(actual.g + 10);
+                ruta.setEstado(EstadoRuta.PLANIFICADA);
+                return ruta;
             }
 
-            if (!visitados.contains(v.getDestino())) {
-                //  PASAMOS "v" COMO EL VUELO ANTERIOR PARA LA SIGUIENTE LLAMADA
-                List<PlanVuelo> subCamino = encontrarCaminoAleatorio(v.getDestino(), destino, profundidad + 1, visitados, mapaVuelos, random, v);
-                if (subCamino != null) {
-                    List<PlanVuelo> resultado = new ArrayList<>();
-                    resultado.add(v);
-                    resultado.addAll(subCamino);
-                    return resultado;
+            if (actual.escalas >= MAX_ESCALAS) continue;
+
+            // 💡 OPTIMIZACIÓN: Usar el HashMap de vuelos por origen en lugar de recorrer todos los vuelos
+            List<PlanVuelo> vuelosDesdeAqui = mapaVuelosPorOrigen.getOrDefault(actual.aeropuertoCodigo, new ArrayList<>());
+            
+            for (PlanVuelo vuelo : vuelosDesdeAqui) {
+                if (vuelo.isCancelado()) continue;
+
+                if (!actual.rutaAcumulada.isEmpty()) {
+                    if (!cumpleTiempoEscalaInterno(actual.horaLlegadaAnterior, vuelo.getHoraSalida())) continue;
+                }
+
+                long tiempoEspera = actual.rutaAcumulada.isEmpty() 
+                        ? calcularTiempoEsperaOrigen(envio, vuelo.getHoraSalida())
+                        : calcularTiempoEspera(actual.horaLlegadaAnterior, vuelo.getHoraSalida());
+                long duracionVuelo = calcularDuracionMinutos(vuelo, mapaAeropuertos);
+                long newG = actual.g + tiempoEspera + duracionVuelo;
+
+                if (newG > plazoDisponible) continue;
+
+                long bestKnown = bestG.getOrDefault(vuelo.getDestino(), Long.MAX_VALUE);
+
+                if (bestKnown == Long.MAX_VALUE || newG <= bestKnown + 300) { 
+                    if (newG < bestKnown) bestG.put(vuelo.getDestino(), newG);
+                    
+                    List<PlanVuelo> nuevaRuta = new ArrayList<>(actual.rutaAcumulada);
+                    nuevaRuta.add(vuelo);
+                    
+                    Aeropuerto destAeropuerto = mapaAeropuertos.get(vuelo.getDestino());
+                    double h = calcularHeuristicaGeografica(destAeropuerto, aeropDestino);
+                    
+                    // Alta mutación de factor diversidad (0% a 50%)
+                    double factorDiversidad = 1.0 + (random.nextDouble() * 0.50); 
+                    double newF = (newG + h) * factorDiversidad;
+
+                    openSet.add(new NodoAStar(vuelo.getDestino(), actual.escalas + 1, nuevaRuta, newG, newF, vuelo.getHoraLlegada()));
                 }
             }
         }
-        visitados.remove(actual); 
-        return null;
+
+        // Si muta y no encuentra camino, lo marca como inalcanzable
+        ruta.setVuelos(new ArrayList<>());
+        ruta.setTiempoTotalMinutos(0);
+        ruta.setEstado(EstadoRuta.INALCANZABLE);
+        return ruta;
     }
 
-    // --- MÉTODOS DE APOYO DE TIEMPOS ---
+    // --- MÉTODOS DE APOYO DE TIEMPOS Y GEOGRAFÍA ---
 
-    //  MÉTODO PARA BLOQUEAR VIAJES EN EL TIEMPO
-    private boolean cumpleTiempoEscala(PlanVuelo vueloAnterior, PlanVuelo vueloSiguiente) {
-        int minLlegada = convertirAMinutos(vueloAnterior.getHoraLlegada());
-        int minSalida = convertirAMinutos(vueloSiguiente.getHoraSalida());
+    // 💡 NUEVO: Heurística Haversine para que la mutación sepa hacia dónde volar
+    private double calcularHeuristicaGeografica(Aeropuerto origen, Aeropuerto destino) {
+        if (origen == null || destino == null) return 0.0;
+        final int RADIO_TIERRA_KM = 6371; 
+        
+        double latDist = Math.toRadians(destino.getLatitud() - origen.getLatitud());
+        double lonDist = Math.toRadians(destino.getLongitud() - origen.getLongitud());
+        
+        double a = Math.sin(latDist / 2) * Math.sin(latDist / 2)
+                 + Math.cos(Math.toRadians(origen.getLatitud())) 
+                 * Math.cos(Math.toRadians(destino.getLatitud()))
+                 * Math.sin(lonDist / 2) * Math.sin(lonDist / 2);
+                 
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        double distanciaKm = RADIO_TIERRA_KM * c;
+        
+        return distanciaKm / 13.33; 
+    }
 
-        if (minSalida < minLlegada) {
-            minSalida += 1440; // Cruzó la medianoche
-        }
+    private boolean cumpleTiempoEscalaInterno(String horaLlegadaAnterior, String horaSalidaSiguiente) {
+        int minLlegada = convertirAMinutos(horaLlegadaAnterior);
+        int minSalida = convertirAMinutos(horaSalidaSiguiente);
+        if (minSalida < minLlegada) minSalida += 1440;
         return (minSalida - minLlegada) >= 10;
-    }
-
-    private long calcularTiempoTotalRuta(Envio envio, List<PlanVuelo> vuelos, Map<String, Aeropuerto> mapaAeropuertos) {
-        long tiempo = 0;
-        String horaReferencia = null;
-
-        for (int i = 0; i < vuelos.size(); i++) {
-            PlanVuelo v = vuelos.get(i);
-            if (i == 0) {
-                tiempo += calcularTiempoEsperaOrigen(envio, v.getHoraSalida());
-            } else {
-                tiempo += calcularTiempoEspera(horaReferencia, v.getHoraSalida());
-            }
-            tiempo += calcularDuracionMinutos(v, mapaAeropuertos);
-            horaReferencia = v.getHoraLlegada();
-        }
-        return tiempo + 10; // +10 por recojo en destino
     }
 
     private long calcularTiempoEsperaOrigen(Envio envio, String horaSalidaVuelo) {

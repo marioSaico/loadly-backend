@@ -4,14 +4,13 @@ import com.loadly.backend.model.*;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Component
 public class Fitness {
 
     // Pesos de penalización
-    private static final double ALPHA = 10000.0; // Peso envío sin ruta
+    private static final double ALPHA = 10000.0; // Peso envío sin ruta o inalcanzable
     private static final double BETA  = 10.0;    // Peso por CADA MINUTO de retraso
     private static final double GAMMA = 50.0;    // Peso por CADA MALETA extra en almacén
     private static final double DELTA = 50.0;    // Peso por CADA MALETA extra en vuelo
@@ -21,18 +20,10 @@ public class Fitness {
      * Evalúa a toda la población.
      * OPTIMIZACIÓN: Precalculamos las capacidades originales aquí una sola vez por generación.
      */
-    public void evaluarPoblacion(Poblacion poblacion,
-                                 Map<String, Aeropuerto> mapaAeropuertos,
-                                 List<PlanVuelo> todosLosVuelos) {
-                                     
-        // Construimos el mapa UNA SOLA VEZ, no 100,000 veces
-        Map<String, Integer> capacidadesOriginalesVuelos = new HashMap<>();
-        for (PlanVuelo v : todosLosVuelos) {
-            capacidadesOriginalesVuelos.put(claveVuelo(v), v.getCapacidad());
-        }
-
+    public void evaluarPoblacion(Poblacion poblacion, Map<String, Aeropuerto> mapaAeropuertos, Map<String, Integer> capVuelos) {                                     
+        // 💡 Ya no construimos el mapa desde cero, usamos capVuelos directamente
         for (Individuo individuo : poblacion.getIndividuos()) {
-            evaluar(individuo, mapaAeropuertos, capacidadesOriginalesVuelos);
+            evaluar(individuo, mapaAeropuertos, capVuelos); // Pasamos capVuelos
         }
     }
 
@@ -63,8 +54,12 @@ public class Fitness {
                 maletasPorAeropuerto.getOrDefault(codigoOrigen, 0) + envio.getCantidadMaletas()
             );
 
-            // Penalización 1: Envío sin ruta
-            if (ruta.getEstado() == EstadoRuta.SIN_RUTA || ruta.getVuelos() == null || ruta.getVuelos().isEmpty()) {
+            // 💡 CAMBIO AQUÍ: Añadimos la validación para INALCANZABLE
+            // Penalización 1: Envío sin ruta o ruta imposible
+            if (ruta.getEstado() == EstadoRuta.SIN_RUTA || 
+                ruta.getEstado() == EstadoRuta.INALCANZABLE || 
+                ruta.getVuelos() == null || 
+                ruta.getVuelos().isEmpty()) {
                 enviosSinRuta++;
                 continue; 
             }

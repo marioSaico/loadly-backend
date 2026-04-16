@@ -5,5 +5,6 @@ public enum EstadoRuta {
     EN_TRANSITO,
     ENTREGADA,
     RETRASADA,
-    SIN_RUTA
+    SIN_RUTA,
+    INALCANZABLE
 }
