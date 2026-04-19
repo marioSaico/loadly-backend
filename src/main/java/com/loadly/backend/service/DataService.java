@@ -25,17 +25,17 @@ public class DataService {
     private Map<String, Aeropuerto> mapaAeropuertos;
     private Map<String, List<PlanVuelo>> mapaVuelosPorOrigen;
 
-    // 💡 NUEVO: Controladores de Capacidad Dinámica
+    // Controladores de Capacidad Dinámica
     private Map<String, Integer> capacidadDinamicaAlmacenes;
     private Map<String, Integer> capacidadDinamicaVuelos;
 
-    // 💡 NUEVO: Solo guarda los envíos que AÚN NO TIENEN RUTA (Backlog)
+    // Solo guarda los envíos que AÚN NO TIENEN RUTA (Backlog)
     private List<Envio> enviosEnEspera = new ArrayList<>();
     
-    // 💡 NUEVO: Guarda el histórico de los que ya se planificaron (para los logs/reportes)
+    // Guarda el histórico de los que ya se planificaron (para los logs/reportes)
     private List<Ruta> rutasPlanificadasHistorico = new ArrayList<>();
 
-    // 💡 NUEVO: La Agenda de Eventos
+    // La Agenda de Eventos
     private PriorityQueue<EventoLogistico> agendaEventos = new PriorityQueue<>();
 
     private static final DateTimeFormatter FORMATO_RELOJ = DateTimeFormatter.ofPattern("yyyyMMdd-HH-mm");
@@ -86,7 +86,7 @@ public class DataService {
             this.enviosEnEspera.addAll(enviosRecienLlegados);
         }
 
-        // 💡 Ahora SOLO devuelve los que acaban de llegar + los rezagados
+        // Ahora SOLO devuelve los que acaban de llegar + los rezagados
         return new ArrayList<>(this.enviosEnEspera);
     }
 

@@ -21,7 +21,7 @@ public class Fitness {
      * OPTIMIZACIÓN: Precalculamos las capacidades originales aquí una sola vez por generación.
      */
     public void evaluarPoblacion(Poblacion poblacion, Map<String, Aeropuerto> mapaAeropuertos, Map<String, Integer> capVuelos) {                                     
-        // 💡 Ya no construimos el mapa desde cero, usamos capVuelos directamente
+        // Ya no construimos el mapa desde cero, usamos capVuelos directamente
         for (Individuo individuo : poblacion.getIndividuos()) {
             evaluar(individuo, mapaAeropuertos, capVuelos); // Pasamos capVuelos
         }
@@ -54,7 +54,7 @@ public class Fitness {
                 maletasPorAeropuerto.getOrDefault(codigoOrigen, 0) + envio.getCantidadMaletas()
             );
 
-            // 💡 CAMBIO AQUÍ: Añadimos la validación para INALCANZABLE
+            // Añadimos la validación para INALCANZABLE
             // Penalización 1: Envío sin ruta o ruta imposible
             if (ruta.getEstado() == EstadoRuta.SIN_RUTA || 
                 ruta.getEstado() == EstadoRuta.INALCANZABLE || 
