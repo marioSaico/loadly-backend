@@ -43,11 +43,11 @@ public class BackendApplication {
 
         // 1️⃣ ESCENARIO: DIA A DIA
         // Configuracion : Ta=2s | Sa=10min | K=1 | Poblacion=50
-        ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260102-00-00", 2, 10, 1, 50, planificador, dataService);
+        //ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260102-00-00", 2, 10, 1, 50, planificador, dataService);
 
         // 2️⃣ ESCENARIO: PERIODO 5 DIAS
         // Configuracion : Ta=15s | Sa=40min | K=6 | Poblacion=100
-        //ejecutarEscenario("PERIODO (5 DIAS)", "20260101-00-00", "20260106-00-00", 15, 40, 6, 100, planificador, dataService);
+        ejecutarEscenario("PERIODO (5 DIAS)", "20260101-00-00", "20260106-00-00", 15, 40, 6, 100, planificador, dataService);
 
         // 3️⃣ ESCENARIO: COLAPSO
         // Configuracion: Ta=15s | Sa=40min | K=6  | Poblacion=100
