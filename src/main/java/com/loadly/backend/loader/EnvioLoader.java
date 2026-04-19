@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -107,7 +108,14 @@ public class EnvioLoader {
                 System.err.println("Error leyendo " + archivo.getName() + ": " + e.getMessage());
             }
         }
-
+        // Al final de cargarPendientes, antes del return:
+        enviosPendientes.sort(Comparator.comparing(envio -> {
+            LocalDate fecha = LocalDate.parse(envio.getFechaRegistro(), dateFmt);
+            LocalDateTime tiempoLocal = LocalDateTime.of(fecha, 
+                LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro()));
+            int gmt = mapaGmt.getOrDefault(envio.getAeropuertoOrigen(), 0);
+            return tiempoLocal.minusHours(gmt);
+        }));
         return enviosPendientes;
     }
 }
