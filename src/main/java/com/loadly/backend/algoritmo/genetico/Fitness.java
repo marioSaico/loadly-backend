@@ -14,7 +14,7 @@ public class Fitness {
     private static final double BETA  = 10.0;    // Peso por CADA MINUTO de retraso
     private static final double GAMMA = 50.0;    // Peso por CADA MALETA extra en almacén
     private static final double DELTA = 50.0;    // Peso por CADA MALETA extra en vuelo
-    private static final double EPSILON = 0.01;  // Presión evolutiva para rutas más rápidas
+    private static final double EPSILON = 0.0001;  // Presión evolutiva para rutas más rápidas
 
     /**
      * Evalúa a toda la población.

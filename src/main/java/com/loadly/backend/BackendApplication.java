@@ -160,19 +160,29 @@ public class BackendApplication {
                     System.out.println("======================================================================");
                     System.out.println(" -> Envíos planificados en este salto: " + planificados);
                     System.out.println(" -> Maletas procesadas en este salto: " + maletasTotales);
-                    System.out.printf(" -> Generaciones GA evaluadas por %ds | Mejor Fitness: %.2f\n", taSegundos, resultado.getFitness());
-
+                    System.out.printf(" -> Generaciones GA evaluadas por %ds | Mejor Fitness: %.6f\n", taSegundos, resultado.getFitness());
                     if (planificados > 0) {
                         System.out.println(" >>> REPORTE DE RUTAS ASIGNADAS <<<");
-                        
-                        // 💡 CORRECCIÓN 2: Los almacenes sí se calculan localmente porque capDinamica ya trae el espacio actualizado real
+
                         Map<String, Integer> usoAlmacenLocal = new HashMap<>();
-                        
-                        for (Ruta r : resultado.getRutas()) {
-                            if (r.getEstado() == EstadoRuta.PLANIFICADA) {
-                                imprimirDetalleRuta(r, dataService, usoVuelosGlobal, usoAlmacenLocal, capDinamica);
-                            }
-                        }
+
+                        // Ordenar por hora de salida GMT del primer vuelo (orden operativo)
+                        resultado.getRutas().stream()
+                            .filter(r -> r.getEstado() == EstadoRuta.PLANIFICADA
+                                    && r.getVuelos() != null
+                                    && !r.getVuelos().isEmpty())
+                            .sorted(Comparator.comparingInt(r -> {
+                                PlanVuelo pv = r.getVuelos().get(0);
+                                Aeropuerto aero = dataService.getMapaAeropuertos().get(pv.getOrigen());
+                                int gmt = (aero != null) ? aero.getGmt() : 0;
+                                String[] partes = pv.getHoraSalida().split(":");
+                                int minSalidaLocal = Integer.parseInt(partes[0]) * 60 
+                                                + Integer.parseInt(partes[1]);
+                                // Convertir a GMT para comparar correctamente entre aeropuertos
+                                return minSalidaLocal - (gmt * 60);
+                            }))
+                            .forEach(r -> imprimirDetalleRuta(
+                                    r, dataService, usoVuelosGlobal, usoAlmacenLocal, capDinamica));
                     }
                     System.out.println("======================================================================\n");
                 }
@@ -278,18 +288,16 @@ public class BackendApplication {
             int ocupadoVuelo = usoVuelosGlobal.getOrDefault(idVuelo, 0) + maletas;
             usoVuelosGlobal.put(idVuelo, ocupadoVuelo);
 
-            // Uso de almacenes LOCAL (se basa en la lectura real actual)
+            // Uso de almacén REAL (capacidad histórica + lo que añade este envío)
             int capAlmacenMax = (aeroOrig != null) ? aeroOrig.getCapacidad() : 0;
-            int espacioLibreInicial = capDinamicaActual.getOrDefault(v.getOrigen(), capAlmacenMax);
-            int ocupadoAlmacenBase = capAlmacenMax - espacioLibreInicial;
-            
-            int ocupadoAlmacenActual = usoAlmacenLocal.getOrDefault(v.getOrigen(), ocupadoAlmacenBase) + maletas;
-            usoAlmacenLocal.put(v.getOrigen(), ocupadoAlmacenActual);
+            int espacioLibre = capDinamicaActual.getOrDefault(v.getOrigen(), capAlmacenMax);
+            int ocupacionReal = (capAlmacenMax - espacioLibre) + maletas;
 
-            System.out.printf("   (%d) %s -> %s | Salida(GMT): %s | Llegada(GMT): %s | Vuelo: %d/%d | Almacén %s: %d/%d\n", 
-                paso++, v.getOrigen(), v.getDestino(), 
-                salidaGMT.toString(), llegadaGMT.toString(), 
-                ocupadoVuelo, v.getCapacidad(), v.getOrigen(), ocupadoAlmacenActual, capAlmacenMax);
+            System.out.printf("   (%d) %s -> %s | Salida(GMT): %s | Llegada(GMT): %s | Vuelo: %d/%d | Almacén %s: %d/%d\n",
+                paso++, v.getOrigen(), v.getDestino(),
+                salidaGMT.toString(), llegadaGMT.toString(),
+                ocupadoVuelo, v.getCapacidad(),
+                v.getOrigen(), ocupacionReal, capAlmacenMax);
         }
     }
 
@@ -327,9 +335,12 @@ public class BackendApplication {
         for (EventoSimulacion e : bitacora) {
             int nueva = capsDin.getOrDefault(e.aeropuerto, 0) + e.variacionCapacidad;
             capsDin.put(e.aeropuerto, nueva);
+            int ocupado = capsOrig.get(e.aeropuerto) - nueva;
             System.out.printf("[%s GMT] %-35s | %s %d | Almacen %s: %d/%d\n",
-                    e.tiempoGMT.format(fmt), e.mensaje, (e.variacionCapacidad > 0 ? "LIBERA":"OCUPA "), 
-                    Math.abs(e.variacionCapacidad), e.aeropuerto, nueva, capsOrig.get(e.aeropuerto));
+                e.tiempoGMT.format(fmt), e.mensaje,
+                (e.variacionCapacidad > 0 ? "LIBERA" : "OCUPA "),
+                Math.abs(e.variacionCapacidad),
+                e.aeropuerto, ocupado, capsOrig.get(e.aeropuerto));
         }
 
         System.out.println("\n" + "=".repeat(80));
