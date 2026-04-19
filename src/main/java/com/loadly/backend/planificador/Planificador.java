@@ -37,7 +37,7 @@ public class Planificador {
             return null; // El Main interpretará esto como "No hay pedidos nuevos en esta ventana"
         }
 
-        // 3. 💡 CAMBIO CLAVE: Obtener las capacidades reales/dinámicas en este minuto del tiempo
+        // 3. Obtener las capacidades reales/dinámicas en este minuto del tiempo
         Map<String, Integer> capDinamicaVuelos = dataService.getCapacidadDinamicaVuelos();
         Map<String, Integer> capDinamicaAlmacenes = dataService.getCapacidadDinamicaAlmacenes();
 
@@ -48,7 +48,7 @@ public class Planificador {
                 tamanoPoblacion, tiempoLimiteMs
         );
 
-        // 5. 💡 CONFIRMAR EL PLAN: Bloquear espacios y agendar eventos de liberación
+        // 5. Bloquear espacios y agendar eventos de liberación
         if (mejorPlan != null) {
             dataService.confirmarPlanYActualizarCapacidades(mejorPlan, fechaHoraLimite);
         }
