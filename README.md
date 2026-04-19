@@ -49,6 +49,7 @@ Por ejemplo:
     │   │   ├── Individuo.java         → cromosoma (conjunto de rutas para todos los envíos)
     │   │   ├── Poblacion.java         → conjunto de individuos
     │   │   ├── Fitness.java           → calcula qué tan buena es una solución
+    │   │   ├── BuscadorRutas.java     → centraliza el motor de búsqueda de rutas basado en el algoritmo A*
     │   │   └── AlgoritmoGenetico.java → motor principal del GA
     │   └── aco
     │       └── AlgoritmoACO.java      → motor principal del ACO
