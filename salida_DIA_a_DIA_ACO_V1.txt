@@ -1,0 +1,1022 @@
+    Envíos a procesar: 1
+    Hormigas (población): 50
+    Fitness inicial: 0.9424182452172275
+=== ACO - Finalizado ===
+    Iteraciones procesadas: 10
+    Mejor Fitness encontrado: 0.9424182452172275
+    Rutas planificadas: 1
+    Tiempo total acumulado: 611 minutos
+    Fitness: 0.9424182452172275
+
+======================================================================
+ [RELOJ SIMULADO: 2026-01-01 21:00]
+ Límite de lectura de datos: 2026-01-01 21:00
+======================================================================
+ -> Envíos planificados en este salto: 1
+ -> Maletas procesadas en este salto: 2
+ -> Generaciones GA evaluadas por 2s | Mejor Fitness: 0.000000
+ >>> REPORTE DE RUTAS ASIGNADAS <<<
+----------------------------------------------------------------------
+ENVÍO ID: 000000002 | ESTADO: [OK] A TIEMPO
+Origen: VIDP (Asia) -> Destino: UMMS (Europa)
+Límite del SLA: 48 horas | Tiempo Real: 10h 11m
+Ruta asignada:
+   (1) VIDP -> UBBB | Salida(GMT): 00:15 | Llegada(GMT): 03:46 | Vuelo: 2/360 | Almacén VIDP: 2/480
+   (2) UBBB -> UMMS | Salida(GMT): 04:05 | Llegada(GMT): 06:51 | Vuelo: 2/300 | Almacén UBBB: 2/400
+======================================================================
+
+
+>>> [RELOJ: 2026-01-01 21:10] Planificando pedidos acumulados hasta las 2026-01-01 21:10...
+    [-] No hay envios nuevos ni rezagados en este intervalo.
+
+>>> [RELOJ: 2026-01-01 21:20] Planificando pedidos acumulados hasta las 2026-01-01 21:20...
+=== ACO - Iniciando Optimización ===
+    Envíos a procesar: 2
+    Hormigas (población): 50
+    Fitness inicial: 0.8707767328456983
+=== ACO - Finalizado ===
+    Iteraciones procesadas: 10
+    Mejor Fitness encontrado: 0.8707767328456983
+    Rutas planificadas: 2
+    Tiempo total acumulado: 1484 minutos
+    Fitness: 0.8707767328456983
+
+======================================================================
+ [RELOJ SIMULADO: 2026-01-01 21:20]
+ Límite de lectura de datos: 2026-01-01 21:20
+======================================================================
+ -> Envíos planificados en este salto: 2
+ -> Maletas procesadas en este salto: 4
+ -> Generaciones GA evaluadas por 2s | Mejor Fitness: 0.000000
+ >>> REPORTE DE RUTAS ASIGNADAS <<<
+----------------------------------------------------------------------
+ENVÍO ID: 000000001 | ESTADO: [OK] A TIEMPO
+Origen: OMDB (Asia) -> Destino: OJAI (Asia)
+Límite del SLA: 24 horas | Tiempo Real: 4h 28m
+Ruta asignada:
+   (1) OMDB -> OJAI | Salida(GMT): 22:58 | Llegada(GMT): 01:34 | Vuelo: 3/300 | Almacén OMDB: 3/420
+----------------------------------------------------------------------
+ENVÍO ID: 000000003 | ESTADO: [OK] A TIEMPO
+Origen: OPKC (Asia) -> Destino: SGAS (America)
+Límite del SLA: 48 horas | Tiempo Real: 20h 16m
+Ruta asignada:
+   (1) OPKC -> SGAS | Salida(GMT): 23:19 | Llegada(GMT): 17:25 | Vuelo: 1/340 | Almacén OPKC: 1/410
+======================================================================
+
+
+>>> [RELOJ: 2026-01-01 21:30] Planificando pedidos acumulados hasta las 2026-01-01 21:30...
+    [-] No hay envios nuevos ni rezagados en este intervalo.
+
+>>> [RELOJ: 2026-01-01 21:40] Planificando pedidos acumulados hasta las 2026-01-01 21:40...
+=== ACO - Iniciando Optimización ===
+    Envíos a procesar: 1
+    Hormigas (población): 50
+    Fitness inicial: 0.9804882831650161
+=== ACO - Finalizado ===
+    Iteraciones procesadas: 10
+    Mejor Fitness encontrado: 0.9804882831650161
+    Rutas planificadas: 1
+    Tiempo total acumulado: 199 minutos
+    Fitness: 0.9804882831650161
+
+======================================================================
+ [RELOJ SIMULADO: 2026-01-01 21:40]
+ Límite de lectura de datos: 2026-01-01 21:40
+======================================================================
+ -> Envíos planificados en este salto: 1
+ -> Maletas procesadas en este salto: 2
+ -> Generaciones GA evaluadas por 2s | Mejor Fitness: 0.000000
+ >>> REPORTE DE RUTAS ASIGNADAS <<<
+----------------------------------------------------------------------
+ENVÍO ID: 000000002 | ESTADO: [OK] A TIEMPO
+Origen: OAKB (Asia) -> Destino: VIDP (Asia)
+Límite del SLA: 24 horas | Tiempo Real: 3h 19m
+Ruta asignada:
+   (1) OAKB -> VIDP | Salida(GMT): 23:26 | Llegada(GMT): 00:42 | Vuelo: 2/300 | Almacén OAKB: 2/480
+======================================================================
+
+
+>>> [RELOJ: 2026-01-01 21:50] Planificando pedidos acumulados hasta las 2026-01-01 21:50...
+=== ACO - Iniciando Optimización ===
+    Envíos a procesar: 2
+    Hormigas (población): 50
+    Fitness inicial: 0.8502678343678259
+=== ACO - Finalizado ===
+    Iteraciones procesadas: 10
+    Mejor Fitness encontrado: 0.8502678343678259
+    Rutas planificadas: 2
+    Tiempo total acumulado: 1761 minutos
+    Fitness: 0.8502678343678259
+
+======================================================================
+ [RELOJ SIMULADO: 2026-01-01 21:50]
+ Límite de lectura de datos: 2026-01-01 21:50
+======================================================================
+ -> Envíos planificados en este salto: 2
+ -> Maletas procesadas en este salto: 4
+ -> Generaciones GA evaluadas por 2s | Mejor Fitness: 0.000000
+ >>> REPORTE DE RUTAS ASIGNADAS <<<
+----------------------------------------------------------------------
+ENVÍO ID: 000000002 | ESTADO: [OK] A TIEMPO
+Origen: OOMS (Asia) -> Destino: SABE (America)
+Límite del SLA: 48 horas | Tiempo Real: 20h 23m
+Ruta asignada:
+   (1) OOMS -> SABE | Salida(GMT): 00:36 | Llegada(GMT): 17:53 | Vuelo: 2/360 | Almacén OOMS: 2/460
+----------------------------------------------------------------------
+ENVÍO ID: 000000003 | ESTADO: [OK] A TIEMPO
+Origen: VIDP (Asia) -> Destino: OPKC (Asia)
+Límite del SLA: 24 horas | Tiempo Real: 8h 58m
+Ruta asignada:
+   (1) VIDP -> OPKC | Salida(GMT): 05:06 | Llegada(GMT): 06:28 | Vuelo: 2/340 | Almacén VIDP: 2/480
+======================================================================
+
+
+>>> [RELOJ: 2026-01-01 22:00] Planificando pedidos acumulados hasta las 2026-01-01 22:00...
+=== ACO - Iniciando Optimización ===
+    Envíos a procesar: 3
+    Hormigas (población): 50
+    Fitness inicial: 0.9044044496698924
+=== ACO - Finalizado ===
+    Iteraciones procesadas: 10
+    Mejor Fitness encontrado: 0.9044044496698924
+    Rutas planificadas: 3
+    Tiempo total acumulado: 1057 minutos
+    Fitness: 0.9044044496698924
+
+======================================================================
+ [RELOJ SIMULADO: 2026-01-01 22:00]
+ Límite de lectura de datos: 2026-01-01 22:00
+======================================================================
+ -> Envíos planificados en este salto: 3
+ -> Maletas procesadas en este salto: 6
+ -> Generaciones GA evaluadas por 2s | Mejor Fitness: 0.000000
+ >>> REPORTE DE RUTAS ASIGNADAS <<<
+----------------------------------------------------------------------
+ENVÍO ID: 000000001 | ESTADO: [OK] A TIEMPO
+Origen: LBSF (Europa) -> Destino: OAKB (Asia)
+Límite del SLA: 48 horas | Tiempo Real: 5h 30m
+Ruta asignada:
+   (1) LBSF -> OAKB | Salida(GMT): 22:08 | Llegada(GMT): 03:15 | Vuelo: 2/300 | Almacén LBSF: 2/400
+----------------------------------------------------------------------
+ENVÍO ID: 000000001 | ESTADO: [OK] A TIEMPO
+Origen: UMMS (Europa) -> Destino: LATI (Europa)
+Límite del SLA: 24 horas | Tiempo Real: 4h 35m
+Ruta asignada:
+   (1) UMMS -> LOWW | Salida(GMT): 22:37 | Llegada(GMT): 23:53 | Vuelo: 2/320 | Almacén UMMS: 2/400
+   (2) LOWW -> LATI | Salida(GMT): 01:20 | Llegada(GMT): 02:21 | Vuelo: 2/300 | Almacén LOWW: 2/430
+----------------------------------------------------------------------
+ENVÍO ID: 000000001 | ESTADO: [OK] A TIEMPO
+Origen: OERK (Asia) -> Destino: LKPR (Europa)
+Límite del SLA: 48 horas | Tiempo Real: 7h 32m
+Ruta asignada:
+   (1) OERK -> LOWW | Salida(GMT): 23:59 | Llegada(GMT): 04:42 | Vuelo: 2/300 | Almacén OERK: 2/420
+   (2) LOWW -> LKPR | Salida(GMT): 04:57 | Llegada(GMT): 05:17 | Vuelo: 2/300 | Almacén LOWW: 2/430
+======================================================================
+
+
+>>> [RELOJ: 2026-01-01 22:10] Planificando pedidos acumulados hasta las 2026-01-01 22:10...
+=== ACO - Iniciando Optimización ===
+    Envíos a procesar: 3
+    Hormigas (población): 50
+    Fitness inicial: 0.7706535141800246
+=== ACO - Finalizado ===
+    Iteraciones procesadas: 10
+    Mejor Fitness encontrado: 0.7706535141800246
+    Rutas planificadas: 3
+    Tiempo total acumulado: 2976 minutos
+    Fitness: 0.7706535141800246
+
+======================================================================
+ [RELOJ SIMULADO: 2026-01-01 22:10]
+ Límite de lectura de datos: 2026-01-01 22:10
+======================================================================
+ -> Envíos planificados en este salto: 3
+ -> Maletas procesadas en este salto: 5
+ -> Generaciones GA evaluadas por 2s | Mejor Fitness: 0.000000
+ >>> REPORTE DE RUTAS ASIGNADAS <<<
+----------------------------------------------------------------------
+ENVÍO ID: 000000001 | ESTADO: [OK] A TIEMPO
+Origen: OYSN (Asia) -> Destino: EHAM (Europa)
+Límite del SLA: 48 horas | Tiempo Real: 9h 28m
+Ruta asignada:
+   (1) OYSN -> OJAI | Salida(GMT): 22:16 | Llegada(GMT): 00:47 | Vuelo: 2/320 | Almacén OYSN: 2/420
+   (2) OJAI -> EHAM | Salida(GMT): 03:07 | Llegada(GMT): 07:26 | Vuelo: 2/340 | Almacén OJAI: 2/400
+----------------------------------------------------------------------
+ENVÍO ID: 000000004 | ESTADO: [OK] A TIEMPO
+Origen: OPKC (Asia) -> Destino: SUAA (America)
+Límite del SLA: 48 horas | Tiempo Real: 19h 16m
+Ruta asignada:
+   (1) OPKC -> SUAA | Salida(GMT): 23:03 | Llegada(GMT): 17:12 | Vuelo: 1/360 | Almacén OPKC: 1/410
+----------------------------------------------------------------------
+ENVÍO ID: 000000001 | ESTADO: [OK] A TIEMPO
+Origen: OSDI (Asia) -> Destino: SCEL (America)
+Límite del SLA: 48 horas | Tiempo Real: 20h 52m
+Ruta asignada:
+   (1) OSDI -> SCEL | Salida(GMT): 02:06 | Llegada(GMT): 18:48 | Vuelo: 2/320 | Almacén OSDI: 2/400
+======================================================================
+
+
+>>> [RELOJ: 2026-01-01 22:20] Planificando pedidos acumulados hasta las 2026-01-01 22:20...
+    [-] No hay envios nuevos ni rezagados en este intervalo.
+
+>>> [RELOJ: 2026-01-01 22:30] Planificando pedidos acumulados hasta las 2026-01-01 22:30...
+=== ACO - Iniciando Optimización ===
+    Envíos a procesar: 4
+    Hormigas (población): 50
+    Fitness inicial: 0.8465966813410091
+=== ACO - Finalizado ===
+    Iteraciones procesadas: 10
+    Mejor Fitness encontrado: 0.8465966813410091
+    Rutas planificadas: 4
+    Tiempo total acumulado: 1812 minutos
+    Fitness: 0.8465966813410091
+
+======================================================================
+ [RELOJ SIMULADO: 2026-01-01 22:30]
+ Límite de lectura de datos: 2026-01-01 22:30
+======================================================================
+ -> Envíos planificados en este salto: 4
+ -> Maletas procesadas en este salto: 9
+ -> Generaciones GA evaluadas por 2s | Mejor Fitness: 0.000000
+ >>> REPORTE DE RUTAS ASIGNADAS <<<
+----------------------------------------------------------------------
+ENVÍO ID: 000000001 | ESTADO: [OK] A TIEMPO
+Origen: OJAI (Asia) -> Destino: SBBR (America)
+Límite del SLA: 48 horas | Tiempo Real: 13h 2m
+Ruta asignada:
+   (1) OJAI -> SBBR | Salida(GMT): 22:30 | Llegada(GMT): 11:14 | Vuelo: 4/300 | Almacén OJAI: 4/400
+----------------------------------------------------------------------
+ENVÍO ID: 000000002 | ESTADO: [OK] A TIEMPO
+Origen: OMDB (Asia) -> Destino: LATI (Europa)
+Límite del SLA: 48 horas | Tiempo Real: 5h 30m
+Ruta asignada:
+   (1) OMDB -> LATI | Salida(GMT): 23:05 | Llegada(GMT): 03:49 | Vuelo: 3/340 | Almacén OMDB: 3/420
+----------------------------------------------------------------------
+ENVÍO ID: 000000003 | ESTADO: [OK] A TIEMPO
+Origen: OOMS (Asia) -> Destino: VIDP (Asia)
+Límite del SLA: 24 horas | Tiempo Real: 5h 51m
+Ruta asignada:
+   (1) OOMS -> VIDP | Salida(GMT): 01:33 | Llegada(GMT): 04:02 | Vuelo: 1/340 | Almacén OOMS: 1/460
+----------------------------------------------------------------------
+ENVÍO ID: 000000003 | ESTADO: [OK] A TIEMPO
+Origen: OAKB (Asia) -> Destino: UBBB (Asia)
+Límite del SLA: 24 horas | Tiempo Real: 5h 49m
+Ruta asignada:
+   (1) OAKB -> UBBB | Salida(GMT): 01:48 | Llegada(GMT): 04:04 | Vuelo: 1/320 | Almacén OAKB: 1/480
+======================================================================
+
+
+>>> [RELOJ: 2026-01-01 22:40] Planificando pedidos acumulados hasta las 2026-01-01 22:40...
+=== ACO - Iniciando Optimización ===
+    Envíos a procesar: 1
+    Hormigas (población): 50
+    Fitness inicial: 0.9446438692612885
+=== ACO - Finalizado ===
+    Iteraciones procesadas: 10
+    Mejor Fitness encontrado: 0.9446438692612885
+    Rutas planificadas: 1
+    Tiempo total acumulado: 586 minutos
+    Fitness: 0.9446438692612885
+
+======================================================================
+ [RELOJ SIMULADO: 2026-01-01 22:40]
+ Límite de lectura de datos: 2026-01-01 22:40
+======================================================================
+ -> Envíos planificados en este salto: 1
+ -> Maletas procesadas en este salto: 2
+ -> Generaciones GA evaluadas por 2s | Mejor Fitness: 0.000000
+ >>> REPORTE DE RUTAS ASIGNADAS <<<
+----------------------------------------------------------------------
+ENVÍO ID: 000000004 | ESTADO: [OK] A TIEMPO
+Origen: VIDP (Asia) -> Destino: EBCI (Europa)
+Límite del SLA: 48 horas | Tiempo Real: 9h 46m
+Ruta asignada:
+   (1) VIDP -> LBSF | Salida(GMT): 23:01 | Llegada(GMT): 05:23 | Vuelo: 2/360 | Almacén VIDP: 2/480
+   (2) LBSF -> EBCI | Salida(GMT): 06:05 | Llegada(GMT): 08:14 | Vuelo: 2/360 | Almacén LBSF: 2/400
+======================================================================
+
+
+>>> [RELOJ: 2026-01-01 22:50] Planificando pedidos acumulados hasta las 2026-01-01 22:50...
+=== ACO - Iniciando Optimización ===
+    Envíos a procesar: 4
+    Hormigas (población): 50
+    Fitness inicial: 0.7347538574577517
+=== ACO - Finalizado ===
+    Iteraciones procesadas: 10
+    Mejor Fitness encontrado: 0.7347538574577517
+    Rutas planificadas: 4
+    Tiempo total acumulado: 3610 minutos
+    Fitness: 0.7347538574577517
+
+======================================================================
+ [RELOJ SIMULADO: 2026-01-01 22:50]
+ Límite de lectura de datos: 2026-01-01 22:50
+======================================================================
+ -> Envíos planificados en este salto: 4
+ -> Maletas procesadas en este salto: 8
+ -> Generaciones GA evaluadas por 2s | Mejor Fitness: 0.000000
+ >>> REPORTE DE RUTAS ASIGNADAS <<<
+----------------------------------------------------------------------
+ENVÍO ID: 000000002 | ESTADO: [OK] A TIEMPO
+Origen: LBSF (Europa) -> Destino: SKBO (America)
+Límite del SLA: 48 horas | Tiempo Real: 17h 15m
+Ruta asignada:
+   (1) LBSF -> UMMS | Salida(GMT): 22:44 | Llegada(GMT): 00:20 | Vuelo: 2/340 | Almacén LBSF: 2/400
+   (2) UMMS -> SKBO | Salida(GMT): 02:38 | Llegada(GMT): 15:46 | Vuelo: 2/320 | Almacén UMMS: 2/400
+----------------------------------------------------------------------
+ENVÍO ID: 000000001 | ESTADO: [OK] A TIEMPO
+Origen: LATI (Europa) -> Destino: OPKC (Asia)
+Límite del SLA: 48 horas | Tiempo Real: 7h 48m
+Ruta asignada:
+   (1) LATI -> OPKC | Salida(GMT): 00:23 | Llegada(GMT): 06:26 | Vuelo: 2/300 | Almacén LATI: 2/410
+----------------------------------------------------------------------
+ENVÍO ID: 000000001 | ESTADO: [OK] A TIEMPO
+Origen: EDDI (Europa) -> Destino: SUAA (America)
+Límite del SLA: 48 horas | Tiempo Real: 16h 56m
+Ruta asignada:
+   (1) EDDI -> SUAA | Salida(GMT): 00:55 | Llegada(GMT): 15:35 | Vuelo: 2/320 | Almacén EDDI: 2/480
+----------------------------------------------------------------------
+ENVÍO ID: 000000001 | ESTADO: [OK] A TIEMPO
+Origen: EBCI (Europa) -> Destino: SUAA (America)
+Límite del SLA: 48 horas | Tiempo Real: 18h 11m
+Ruta asignada:
+   (1) EBCI -> EHAM | Salida(GMT): 01:48 | Llegada(GMT): 02:04 | Vuelo: 2/360 | Almacén EBCI: 2/440
+   (2) EHAM -> SUAA | Salida(GMT): 02:43 | Llegada(GMT): 16:48 | Vuelo: 2/360 | Almacén EHAM: 2/480
+======================================================================
+
+
+>>> [RELOJ: 2026-01-01 23:00] Planificando pedidos acumulados hasta las 2026-01-01 23:00...
+=== ACO - Iniciando Optimización ===
+    Envíos a procesar: 4
+    Hormigas (población): 50
+    Fitness inicial: 0.7371369600471768
+=== ACO - Finalizado ===
+    Iteraciones procesadas: 10
+    Mejor Fitness encontrado: 0.7371369600471768
+    Rutas planificadas: 4
+    Tiempo total acumulado: 3566 minutos
+    Fitness: 0.7371369600471768
+
+======================================================================
+ [RELOJ SIMULADO: 2026-01-01 23:00]
+ Límite de lectura de datos: 2026-01-01 23:00
+======================================================================
+ -> Envíos planificados en este salto: 4
+ -> Maletas procesadas en este salto: 7
+ -> Generaciones GA evaluadas por 2s | Mejor Fitness: 0.000000
+ >>> REPORTE DE RUTAS ASIGNADAS <<<
+----------------------------------------------------------------------
+ENVÍO ID: 000000002 | ESTADO: [OK] A TIEMPO
+Origen: UMMS (Europa) -> Destino: SLLP (America)
+Límite del SLA: 48 horas | Tiempo Real: 17h 51m
+Ruta asignada:
+   (1) UMMS -> EDDI | Salida(GMT): 23:14 | Llegada(GMT): 00:30 | Vuelo: 2/340 | Almacén UMMS: 2/400
+   (2) EDDI -> SLLP | Salida(GMT): 02:57 | Llegada(GMT): 16:32 | Vuelo: 2/300 | Almacén EDDI: 2/480
+----------------------------------------------------------------------
+ENVÍO ID: 000000005 | ESTADO: [OK] A TIEMPO
+Origen: OPKC (Asia) -> Destino: SKBO (America)
+Límite del SLA: 48 horas | Tiempo Real: 19h 49m
+Ruta asignada:
+   (1) OPKC -> LBSF | Salida(GMT): 23:16 | Llegada(GMT): 04:55 | Vuelo: 1/300 | Almacén OPKC: 1/410
+   (2) LBSF -> SKBO | Salida(GMT): 05:41 | Llegada(GMT): 18:37 | Vuelo: 1/340 | Almacén LBSF: 1/400
+----------------------------------------------------------------------
+ENVÍO ID: 000000001 | ESTADO: [OK] A TIEMPO
+Origen: LDZA (Europa) -> Destino: OSDI (Asia)
+Límite del SLA: 48 horas | Tiempo Real: 3h 28m
+Ruta asignada:
+   (1) LDZA -> OSDI | Salida(GMT): 23:26 | Llegada(GMT): 02:10 | Vuelo: 2/300 | Almacén LDZA: 2/420
+----------------------------------------------------------------------
+ENVÍO ID: 000000002 | ESTADO: [OK] A TIEMPO
+Origen: OERK (Asia) -> Destino: SABE (America)
+Límite del SLA: 48 horas | Tiempo Real: 18h 18m
+Ruta asignada:
+   (1) OERK -> SABE | Salida(GMT): 01:05 | Llegada(GMT): 17:04 | Vuelo: 2/300 | Almacén OERK: 2/420
+======================================================================
+
+
+>>> [RELOJ: 2026-01-01 23:10] Planificando pedidos acumulados hasta las 2026-01-01 23:10...
+=== ACO - Iniciando Optimización ===
+    Envíos a procesar: 5
+    Hormigas (población): 50
+    Fitness inicial: 0.7874635798094338
+=== ACO - Finalizado ===
+    Iteraciones procesadas: 10
+    Mejor Fitness encontrado: 0.7874635798094338
+    Rutas planificadas: 5
+    Tiempo total acumulado: 2699 minutos
+    Fitness: 0.7874635798094338
+
+======================================================================
+ [RELOJ SIMULADO: 2026-01-01 23:10]
+ Límite de lectura de datos: 2026-01-01 23:10
+======================================================================
+ -> Envíos planificados en este salto: 5
+ -> Maletas procesadas en este salto: 9
+ -> Generaciones GA evaluadas por 2s | Mejor Fitness: 0.000000
+ >>> REPORTE DE RUTAS ASIGNADAS <<<
+----------------------------------------------------------------------
+ENVÍO ID: 000000004 | ESTADO: [OK] A TIEMPO
+Origen: OAKB (Asia) -> Destino: OERK (Asia)
+Límite del SLA: 24 horas | Tiempo Real: 6h 15m
+Ruta asignada:
+   (1) OAKB -> VIDP | Salida(GMT): 23:26 | Llegada(GMT): 00:42 | Vuelo: 3/300 | Almacén OAKB: 1/480
+   (2) VIDP -> OERK | Salida(GMT): 01:18 | Llegada(GMT): 05:13 | Vuelo: 1/360 | Almacén VIDP: 1/480
+----------------------------------------------------------------------
+ENVÍO ID: 000000001 | ESTADO: [OK] A TIEMPO
+Origen: EKCH (Europa) -> Destino: SPIM (America)
+Límite del SLA: 48 horas | Tiempo Real: 16h 46m
+Ruta asignada:
+   (1) EKCH -> LKPR | Salida(GMT): 23:47 | Llegada(GMT): 00:30 | Vuelo: 2/340 | Almacén EKCH: 2/480
+   (2) LKPR -> EBCI | Salida(GMT): 01:31 | Llegada(GMT): 02:24 | Vuelo: 2/300 | Almacén LKPR: 2/400
+   (3) EBCI -> SPIM | Salida(GMT): 02:38 | Llegada(GMT): 15:42 | Vuelo: 2/320 | Almacén EBCI: 2/440
+----------------------------------------------------------------------
+ENVÍO ID: 000000001 | ESTADO: [OK] A TIEMPO
+Origen: LKPR (Europa) -> Destino: LBSF (Europa)
+Límite del SLA: 24 horas | Tiempo Real: 4h 53m
+Ruta asignada:
+   (1) LKPR -> LDZA | Salida(GMT): 01:15 | Llegada(GMT): 01:58 | Vuelo: 2/300 | Almacén LKPR: 2/400
+   (2) LDZA -> LBSF | Salida(GMT): 03:01 | Llegada(GMT): 03:50 | Vuelo: 2/320 | Almacén LDZA: 2/420
+----------------------------------------------------------------------
+ENVÍO ID: 000000002 | ESTADO: [OK] A TIEMPO
+Origen: OSDI (Asia) -> Destino: EBCI (Europa)
+Límite del SLA: 48 horas | Tiempo Real: 6h 36m
+Ruta asignada:
+   (1) OSDI -> EBCI | Salida(GMT): 01:32 | Llegada(GMT): 05:35 | Vuelo: 2/320 | Almacén OSDI: 2/400
+----------------------------------------------------------------------
+ENVÍO ID: 000000002 | ESTADO: [OK] A TIEMPO
+Origen: OYSN (Asia) -> Destino: OPKC (Asia)
+Límite del SLA: 24 horas | Tiempo Real: 10h 29m
+Ruta asignada:
+   (1) OYSN -> OPKC | Salida(GMT): 06:10 | Llegada(GMT): 09:26 | Vuelo: 2/320 | Almacén OYSN: 2/420
+======================================================================
+
+
+>>> [RELOJ: 2026-01-01 23:20] Planificando pedidos acumulados hasta las 2026-01-01 23:20...
+=== ACO - Iniciando Optimización ===
+    Envíos a procesar: 3
+    Hormigas (población): 50
+    Fitness inicial: 0.9090082719752749
+=== ACO - Finalizado ===
+    Iteraciones procesadas: 10
+    Mejor Fitness encontrado: 0.9090082719752749
+    Rutas planificadas: 3
+    Tiempo total acumulado: 1001 minutos
+    Fitness: 0.9090082719752749
+
+======================================================================
+ [RELOJ SIMULADO: 2026-01-01 23:20]
+ Límite de lectura de datos: 2026-01-01 23:20
+======================================================================
+ -> Envíos planificados en este salto: 3
+ -> Maletas procesadas en este salto: 7
+ -> Generaciones GA evaluadas por 2s | Mejor Fitness: 0.000000
+ >>> REPORTE DE RUTAS ASIGNADAS <<<
+----------------------------------------------------------------------
+ENVÍO ID: 000000001 | ESTADO: [OK] A TIEMPO
+Origen: UBBB (Asia) -> Destino: LBSF (Europa)
+Límite del SLA: 48 horas | Tiempo Real: 3h 30m
+Ruta asignada:
+   (1) UBBB -> LBSF | Salida(GMT): 23:43 | Llegada(GMT): 02:34 | Vuelo: 3/320 | Almacén UBBB: 3/400
+----------------------------------------------------------------------
+ENVÍO ID: 000000004 | ESTADO: [OK] A TIEMPO
+Origen: OOMS (Asia) -> Destino: LATI (Europa)
+Límite del SLA: 48 horas | Tiempo Real: 9h 54m
+Ruta asignada:
+   (1) OOMS -> EDDI | Salida(GMT): 23:52 | Llegada(GMT): 06:08 | Vuelo: 1/300 | Almacén OOMS: 1/460
+   (2) EDDI -> LATI | Salida(GMT): 07:19 | Llegada(GMT): 08:57 | Vuelo: 1/320 | Almacén EDDI: 1/480
+----------------------------------------------------------------------
+ENVÍO ID: 000000001 | ESTADO: [OK] A TIEMPO
+Origen: LOWW (Europa) -> Destino: LATI (Europa)
+Límite del SLA: 24 horas | Tiempo Real: 3h 17m
+Ruta asignada:
+   (1) LOWW -> LATI | Salida(GMT): 01:20 | Llegada(GMT): 02:21 | Vuelo: 5/300 | Almacén LOWW: 3/430
+======================================================================
+
+
+>>> [RELOJ: 2026-01-01 23:30] Planificando pedidos acumulados hasta las 2026-01-01 23:30...
+=== ACO - Iniciando Optimización ===
+    Envíos a procesar: 2
+    Hormigas (población): 50
+    Fitness inicial: 0.8167265599477296
+=== ACO - Finalizado ===
+    Iteraciones procesadas: 10
+    Mejor Fitness encontrado: 0.8167265599477296
+    Rutas planificadas: 2
+    Tiempo total acumulado: 2244 minutos
+    Fitness: 0.8167265599477296
+
+======================================================================
+ [RELOJ SIMULADO: 2026-01-01 23:30]
+ Límite de lectura de datos: 2026-01-01 23:30
+======================================================================
+ -> Envíos planificados en este salto: 2
+ -> Maletas procesadas en este salto: 5
+ -> Generaciones GA evaluadas por 2s | Mejor Fitness: 0.000000
+ >>> REPORTE DE RUTAS ASIGNADAS <<<
+----------------------------------------------------------------------
+ENVÍO ID: 000000001 | ESTADO: [OK] A TIEMPO
+Origen: EHAM (Europa) -> Destino: OAKB (Asia)
+Límite del SLA: 48 horas | Tiempo Real: 10h 43m
+Ruta asignada:
+   (1) EHAM -> EBCI | Salida(GMT): 00:00 | Llegada(GMT): 00:16 | Vuelo: 3/300 | Almacén EHAM: 3/480
+   (2) EBCI -> UBBB | Salida(GMT): 01:45 | Llegada(GMT): 06:25 | Vuelo: 3/360 | Almacén EBCI: 3/440
+   (3) UBBB -> OAKB | Salida(GMT): 07:37 | Llegada(GMT): 09:53 | Vuelo: 3/300 | Almacén UBBB: 3/400
+----------------------------------------------------------------------
+ENVÍO ID: 000000005 | ESTADO: [OK] A TIEMPO
+Origen: VIDP (Asia) -> Destino: SCEL (America)
+Límite del SLA: 48 horas | Tiempo Real: 26h 41m
+Ruta asignada:
+   (1) VIDP -> UBBB | Salida(GMT): 00:15 | Llegada(GMT): 03:46 | Vuelo: 4/360 | Almacén VIDP: 2/480
+   (2) UBBB -> UMMS | Salida(GMT): 04:05 | Llegada(GMT): 06:51 | Vuelo: 4/300 | Almacén UBBB: 2/400
+   (3) UMMS -> EBCI | Salida(GMT): 08:51 | Llegada(GMT): 10:58 | Vuelo: 2/300 | Almacén UMMS: 2/400
+   (4) EBCI -> SCEL | Salida(GMT): 11:13 | Llegada(GMT): 01:59 | Vuelo: 2/360 | Almacén EBCI: 2/440
+======================================================================
+
+
+>>> [RELOJ: 2026-01-01 23:40] Planificando pedidos acumulados hasta las 2026-01-01 23:40...
+=== ACO - Iniciando Optimización ===
+    Envíos a procesar: 5
+    Hormigas (población): 50
+    Fitness inicial: 0.6977880120019538
+=== ACO - Finalizado ===
+    Iteraciones procesadas: 10
+    Mejor Fitness encontrado: 0.6977880120019538
+    Rutas planificadas: 5
+    Tiempo total acumulado: 4331 minutos
+    Fitness: 0.6977880120019538
+
+======================================================================
+ [RELOJ SIMULADO: 2026-01-01 23:40]
+ Límite de lectura de datos: 2026-01-01 23:40
+======================================================================
+ -> Envíos planificados en este salto: 5
+ -> Maletas procesadas en este salto: 9
+ -> Generaciones GA evaluadas por 2s | Mejor Fitness: 0.000000
+ >>> REPORTE DE RUTAS ASIGNADAS <<<
+----------------------------------------------------------------------
+ENVÍO ID: 000000002 | ESTADO: [OK] A TIEMPO
+Origen: EBCI (Europa) -> Destino: SVMI (America)
+Límite del SLA: 48 horas | Tiempo Real: 14h 21m
+Ruta asignada:
+   (1) EBCI -> SKBO | Salida(GMT): 23:49 | Llegada(GMT): 10:54 | Vuelo: 2/360 | Almacén EBCI: 2/440
+   (2) SKBO -> SVMI | Salida(GMT): 12:24 | Llegada(GMT): 13:47 | Vuelo: 2/300 | Almacén SKBO: 2/430
+----------------------------------------------------------------------
+ENVÍO ID: 000000002 | ESTADO: [OK] A TIEMPO
+Origen: LATI (Europa) -> Destino: OMDB (Asia)
+Límite del SLA: 48 horas | Tiempo Real: 9h 32m
+Ruta asignada:
+   (1) LATI -> OSDI | Salida(GMT): 00:02 | Llegada(GMT): 02:13 | Vuelo: 2/360 | Almacén LATI: 2/410
+   (2) OSDI -> OMDB | Salida(GMT): 06:24 | Llegada(GMT): 08:58 | Vuelo: 2/340 | Almacén OSDI: 2/400
+----------------------------------------------------------------------
+ENVÍO ID: 000000003 | ESTADO: [OK] A TIEMPO
+Origen: LBSF (Europa) -> Destino: VIDP (Asia)
+Límite del SLA: 48 horas | Tiempo Real: 9h 15m
+Ruta asignada:
+   (1) LBSF -> LATI | Salida(GMT): 00:17 | Llegada(GMT): 00:43 | Vuelo: 2/300 | Almacén LBSF: 2/400
+   (2) LATI -> VIDP | Salida(GMT): 01:50 | Llegada(GMT): 08:38 | Vuelo: 2/360 | Almacén LATI: 2/410
+----------------------------------------------------------------------
+ENVÍO ID: 000000002 | ESTADO: [OK] A TIEMPO
+Origen: EDDI (Europa) -> Destino: SPIM (America)
+Límite del SLA: 48 horas | Tiempo Real: 15h 33m
+Ruta asignada:
+   (1) EDDI -> SPIM | Salida(GMT): 01:05 | Llegada(GMT): 14:59 | Vuelo: 2/360 | Almacén EDDI: 2/480
+----------------------------------------------------------------------
+ENVÍO ID: 000000006 | ESTADO: [OK] A TIEMPO
+Origen: OPKC (Asia) -> Destino: SCEL (America)
+Límite del SLA: 48 horas | Tiempo Real: 23h 30m
+Ruta asignada:
+   (1) OPKC -> SLLP | Salida(GMT): 01:15 | Llegada(GMT): 20:26 | Vuelo: 1/360 | Almacén OPKC: 1/410
+   (2) SLLP -> SCEL | Salida(GMT): 20:36 | Llegada(GMT): 22:59 | Vuelo: 1/340 | Almacén SLLP: 1/420
+======================================================================
+
+
+>>> [RELOJ: 2026-01-01 23:50] Planificando pedidos acumulados hasta las 2026-01-01 23:50...
+=== ACO - Iniciando Optimización ===
+    Envíos a procesar: 4
+    Hormigas (población): 50
+    Fitness inicial: 0.9254974548819991
+=== ACO - Finalizado ===
+    Iteraciones procesadas: 10
+    Mejor Fitness encontrado: 0.9254974548819991
+    Rutas planificadas: 4
+    Tiempo total acumulado: 805 minutos
+    Fitness: 0.9254974548819991
+
+======================================================================
+ [RELOJ SIMULADO: 2026-01-01 23:50]
+ Límite de lectura de datos: 2026-01-01 23:50
+======================================================================
+ -> Envíos planificados en este salto: 4
+ -> Maletas procesadas en este salto: 10
+ -> Generaciones GA evaluadas por 2s | Mejor Fitness: 0.000000
+ >>> REPORTE DE RUTAS ASIGNADAS <<<
+----------------------------------------------------------------------
+ENVÍO ID: 000000002 | ESTADO: [OK] A TIEMPO
+Origen: OJAI (Asia) -> Destino: EDDI (Europa)
+Límite del SLA: 48 horas | Tiempo Real: 4h 14m
+Ruta asignada:
+   (1) OJAI -> LOWW | Salida(GMT): 23:46 | Llegada(GMT): 02:53 | Vuelo: 3/360 | Almacén OJAI: 3/400
+   (2) LOWW -> EDDI | Salida(GMT): 03:09 | Llegada(GMT): 03:46 | Vuelo: 3/360 | Almacén LOWW: 3/430
+----------------------------------------------------------------------
+ENVÍO ID: 000000003 | ESTADO: [OK] A TIEMPO
+Origen: UMMS (Europa) -> Destino: OSDI (Asia)
+Límite del SLA: 48 horas | Tiempo Real: 3h 25m
+Ruta asignada:
+   (1) UMMS -> OSDI | Salida(GMT): 00:04 | Llegada(GMT): 02:58 | Vuelo: 2/320 | Almacén UMMS: 2/400
+----------------------------------------------------------------------
+ENVÍO ID: 000000003 | ESTADO: [OK] A TIEMPO
+Origen: OMDB (Asia) -> Destino: OAKB (Asia)
+Límite del SLA: 24 horas | Tiempo Real: 2h 47m
+Ruta asignada:
+   (1) OMDB -> OAKB | Salida(GMT): 00:11 | Llegada(GMT): 02:17 | Vuelo: 3/320 | Almacén OMDB: 3/420
+----------------------------------------------------------------------
+ENVÍO ID: 000000002 | ESTADO: [OK] A TIEMPO
+Origen: LDZA (Europa) -> Destino: EBCI (Europa)
+Límite del SLA: 24 horas | Tiempo Real: 2h 59m
+Ruta asignada:
+   (1) LDZA -> EBCI | Salida(GMT): 01:14 | Llegada(GMT): 02:33 | Vuelo: 2/300 | Almacén LDZA: 2/420
+======================================================================
+
+
+>>> [RELOJ: 2026-01-02 00:00] Planificando pedidos acumulados hasta las 2026-01-02 00:00...
+=== ACO - Iniciando Optimización ===
+    Envíos a procesar: 3
+    Hormigas (población): 50
+    Fitness inicial: 0.8709284096847238
+=== ACO - Finalizado ===
+    Iteraciones procesadas: 10
+    Mejor Fitness encontrado: 0.8709284096847238
+    Rutas planificadas: 3
+    Tiempo total acumulado: 1482 minutos
+    Fitness: 0.8709284096847238
+
+======================================================================
+ [RELOJ SIMULADO: 2026-01-02 00:00]
+ Límite de lectura de datos: 2026-01-02 00:00
+======================================================================
+ -> Envíos planificados en este salto: 3
+ -> Maletas procesadas en este salto: 4
+ -> Generaciones GA evaluadas por 2s | Mejor Fitness: 0.000000
+ >>> REPORTE DE RUTAS ASIGNADAS <<<
+----------------------------------------------------------------------
+ENVÍO ID: 000000003 | ESTADO: [OK] A TIEMPO
+Origen: OERK (Asia) -> Destino: EKCH (Europa)
+Límite del SLA: 48 horas | Tiempo Real: 7h 58m
+Ruta asignada:
+   (1) OERK -> LOWW | Salida(GMT): 23:59 | Llegada(GMT): 04:42 | Vuelo: 4/300 | Almacén OERK: 2/420
+   (2) LOWW -> LKPR | Salida(GMT): 04:57 | Llegada(GMT): 05:17 | Vuelo: 4/300 | Almacén LOWW: 2/430
+   (3) LKPR -> EKCH | Salida(GMT): 06:59 | Llegada(GMT): 07:42 | Vuelo: 2/360 | Almacén LKPR: 2/400
+----------------------------------------------------------------------
+ENVÍO ID: 000000005 | ESTADO: [OK] A TIEMPO
+Origen: OAKB (Asia) -> Destino: LDZA (Europa)
+Límite del SLA: 48 horas | Tiempo Real: 8h 4m
+Ruta asignada:
+   (1) OAKB -> LKPR | Salida(GMT): 00:04 | Llegada(GMT): 06:03 | Vuelo: 3/340 | Almacén OAKB: 1/480
+   (2) LKPR -> LDZA | Salida(GMT): 07:08 | Llegada(GMT): 07:51 | Vuelo: 1/320 | Almacén LKPR: 1/400
+----------------------------------------------------------------------
+ENVÍO ID: 000000005 | ESTADO: [OK] A TIEMPO
+Origen: OOMS (Asia) -> Destino: OYSN (Asia)
+Límite del SLA: 24 horas | Tiempo Real: 8h 40m
+Ruta asignada:
+   (1) OOMS -> OAKB | Salida(GMT): 00:58 | Llegada(GMT): 03:00 | Vuelo: 1/300 | Almacén OOMS: 1/460
+   (2) OAKB -> OYSN | Salida(GMT): 04:17 | Llegada(GMT): 08:24 | Vuelo: 1/360 | Almacén OAKB: 1/480
+======================================================================
+
+
+====================================================================================================
+   MAPA DE RUTAS ASIGNADAS CONSOLIDADO (TOTAL HISTÓRICO)
+====================================================================================================
+ ENVÍO      | MALETAS | ORIGEN->DESTINO | TIEMPO     | ITINERARIO (ESCALAS)
+----------------------------------------------------------------------------------------------------
+ 000000001  | 2       | OPKC -> EDDI    | 8h 21m     | [OPKC->EDDI]
+ 000000001  | 2       | VIDP -> OSDI    | 6h 04m     | [VIDP->OSDI]
+ 000000002  | 2       | OPKC -> SLLP    | 21h 49m    | [OPKC->SVMI, SVMI->SLLP]
+ 000000001  | 2       | OAKB -> LKPR    | 9h 27m     | [OAKB->LKPR]
+ 000000001  | 2       | OOMS -> SLLP    | 21h 36m    | [OOMS->OSDI, OSDI->SLLP]
+ 000000002  | 2       | VIDP -> UMMS    | 10h 11m    | [VIDP->UBBB, UBBB->UMMS]
+ 000000001  | 3       | OMDB -> OJAI    | 4h 28m     | [OMDB->OJAI]
+ 000000003  | 1       | OPKC -> SGAS    | 20h 16m    | [OPKC->SGAS]
+ 000000002  | 2       | OAKB -> VIDP    | 3h 19m     | [OAKB->VIDP]
+ 000000002  | 2       | OOMS -> SABE    | 20h 23m    | [OOMS->SABE]
+ 000000003  | 2       | VIDP -> OPKC    | 8h 58m     | [VIDP->OPKC]
+ 000000001  | 2       | LBSF -> OAKB    | 5h 30m     | [LBSF->OAKB]
+ 000000001  | 2       | OERK -> LKPR    | 7h 32m     | [OERK->LOWW, LOWW->LKPR]
+ 000000001  | 2       | UMMS -> LATI    | 4h 35m     | [UMMS->LOWW, LOWW->LATI]
+ 000000004  | 1       | OPKC -> SUAA    | 19h 16m    | [OPKC->SUAA]
+ 000000001  | 2       | OSDI -> SCEL    | 20h 52m    | [OSDI->SCEL]
+ 000000001  | 2       | OYSN -> EHAM    | 9h 28m     | [OYSN->OJAI, OJAI->EHAM]
+ 000000003  | 1       | OOMS -> VIDP    | 5h 51m     | [OOMS->VIDP]
+ 000000001  | 4       | OJAI -> SBBR    | 13h 02m    | [OJAI->SBBR]
+ 000000003  | 1       | OAKB -> UBBB    | 5h 49m     | [OAKB->UBBB]
+ 000000002  | 3       | OMDB -> LATI    | 5h 30m     | [OMDB->LATI]
+ 000000004  | 2       | VIDP -> EBCI    | 9h 46m     | [VIDP->LBSF, LBSF->EBCI]
+ 000000002  | 2       | LBSF -> SKBO    | 17h 15m    | [LBSF->UMMS, UMMS->SKBO]
+ 000000001  | 2       | EBCI -> SUAA    | 18h 11m    | [EBCI->EHAM, EHAM->SUAA]
+ 000000001  | 2       | LATI -> OPKC    | 7h 48m     | [LATI->OPKC]
+ 000000001  | 2       | EDDI -> SUAA    | 16h 56m    | [EDDI->SUAA]
+ 000000002  | 2       | UMMS -> SLLP    | 17h 51m    | [UMMS->EDDI, EDDI->SLLP]
+ 000000001  | 2       | LDZA -> OSDI    | 3h 28m     | [LDZA->OSDI]
+ 000000002  | 2       | OERK -> SABE    | 18h 18m    | [OERK->SABE]
+ 000000005  | 1       | OPKC -> SKBO    | 19h 49m    | [OPKC->LBSF, LBSF->SKBO]
+ 000000001  | 2       | EKCH -> SPIM    | 16h 46m    | [EKCH->LKPR, LKPR->EBCI, EBCI->SPIM]
+ 000000001  | 2       | LKPR -> LBSF    | 4h 53m     | [LKPR->LDZA, LDZA->LBSF]
+ 000000002  | 2       | OYSN -> OPKC    | 10h 29m    | [OYSN->OPKC]
+ 000000004  | 1       | OAKB -> OERK    | 6h 15m     | [OAKB->VIDP, VIDP->OERK]
+ 000000002  | 2       | OSDI -> EBCI    | 6h 36m     | [OSDI->EBCI]
+ 000000004  | 1       | OOMS -> LATI    | 9h 54m     | [OOMS->EDDI, EDDI->LATI]
+ 000000001  | 3       | LOWW -> LATI    | 3h 17m     | [LOWW->LATI]
+ 000000001  | 3       | UBBB -> LBSF    | 3h 30m     | [UBBB->LBSF]
+ 000000001  | 3       | EHAM -> OAKB    | 10h 43m    | [EHAM->EBCI, EBCI->UBBB, UBBB->OAKB]
+ 000000005  | 2       | VIDP -> SCEL    | 26h 41m    | [VIDP->UBBB, UBBB->UMMS, UMMS->EBCI, EBCI->SCEL]
+ 000000003  | 2       | LBSF -> VIDP    | 9h 15m     | [LBSF->LATI, LATI->VIDP]
+ 000000002  | 2       | EBCI -> SVMI    | 14h 21m    | [EBCI->SKBO, SKBO->SVMI]
+ 000000002  | 2       | EDDI -> SPIM    | 15h 33m    | [EDDI->SPIM]
+ 000000002  | 2       | LATI -> OMDB    | 9h 32m     | [LATI->OSDI, OSDI->OMDB]
+ 000000006  | 1       | OPKC -> SCEL    | 23h 30m    | [OPKC->SLLP, SLLP->SCEL]
+ 000000003  | 3       | OMDB -> OAKB    | 2h 47m     | [OMDB->OAKB]
+ 000000002  | 3       | OJAI -> EDDI    | 4h 14m     | [OJAI->LOWW, LOWW->EDDI]
+ 000000003  | 2       | UMMS -> OSDI    | 3h 25m     | [UMMS->OSDI]
+ 000000002  | 2       | LDZA -> EBCI    | 2h 59m     | [LDZA->EBCI]
+ 000000003  | 2       | OERK -> EKCH    | 7h 58m     | [OERK->LOWW, LOWW->LKPR, LKPR->EKCH]
+ 000000005  | 1       | OOMS -> OYSN    | 8h 40m     | [OOMS->OAKB, OAKB->OYSN]
+ 000000005  | 1       | OAKB -> LDZA    | 8h 04m     | [OAKB->LKPR, LKPR->LDZA]
+
+
+================================================================================
+       BITACORA CRONOLOGICA DE EVENTOS (TODOS LOS ALMACENES)
+================================================================================
+[2026-01-01 19:52 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  2 | Almacen OPKC: 2/410
+[2026-01-01 19:53 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  2 | Almacen VIDP: 2/480
+[2026-01-01 20:41 GMT] [CHECK-IN]   Envio 000000002        | OCUPA  2 | Almacen OPKC: 4/410
+[2026-01-01 20:46 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  2 | Almacen OAKB: 2/480
+[2026-01-01 20:49 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  2 | Almacen OOMS: 2/460
+[2026-01-01 20:50 GMT] [DESPEGUE]   VIDP->OSDI (000000001) | LIBERA 2 | Almacen VIDP: 0/480
+[2026-01-01 20:50 GMT] [CHECK-IN]   Envio 000000002        | OCUPA  2 | Almacen VIDP: 2/480
+[2026-01-01 21:09 GMT] [DESPEGUE]   OPKC->EDDI (000000001) | LIBERA 2 | Almacen OPKC: 2/410
+[2026-01-01 21:13 GMT] [DESPEGUE]   OPKC->SVMI (000000002) | LIBERA 2 | Almacen OPKC: 0/410
+[2026-01-01 21:16 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  3 | Almacen OMDB: 3/420
+[2026-01-01 21:19 GMT] [CHECK-IN]   Envio 000000003        | OCUPA  1 | Almacen OPKC: 1/410
+[2026-01-01 21:33 GMT] [CHECK-IN]   Envio 000000002        | OCUPA  2 | Almacen OAKB: 4/480
+[2026-01-01 21:40 GMT] [CHECK-IN]   Envio 000000002        | OCUPA  2 | Almacen OOMS: 4/460
+[2026-01-01 21:40 GMT] [CHECK-IN]   Envio 000000003        | OCUPA  2 | Almacen VIDP: 4/480
+[2026-01-01 21:55 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  2 | Almacen LBSF: 2/400
+[2026-01-01 21:55 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  2 | Almacen OERK: 2/420
+[2026-01-01 21:56 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  2 | Almacen UMMS: 2/400
+[2026-01-01 22:06 GMT] [CHECK-IN]   Envio 000000004        | OCUPA  1 | Almacen OPKC: 2/410
+[2026-01-01 22:06 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  2 | Almacen OSDI: 2/400
+[2026-01-01 22:08 GMT] [DESPEGUE]   LBSF->OAKB (000000001) | LIBERA 2 | Almacen LBSF: 0/400
+[2026-01-01 22:08 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  2 | Almacen OYSN: 2/420
+[2026-01-01 22:10 GMT] [DESPEGUE]   OOMS->OSDI (000000001) | LIBERA 2 | Almacen OOMS: 2/460
+[2026-01-01 22:16 GMT] [DESPEGUE]   OYSN->OJAI (000000001) | LIBERA 2 | Almacen OYSN: 0/420
+[2026-01-01 22:21 GMT] [CHECK-IN]   Envio 000000003        | OCUPA  1 | Almacen OOMS: 3/460
+[2026-01-01 22:22 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  4 | Almacen OJAI: 4/400
+[2026-01-01 22:25 GMT] [CHECK-IN]   Envio 000000003        | OCUPA  1 | Almacen OAKB: 5/480
+[2026-01-01 22:29 GMT] [CHECK-IN]   Envio 000000002        | OCUPA  3 | Almacen OMDB: 6/420
+[2026-01-01 22:30 GMT] [DESPEGUE]   OJAI->SBBR (000000001) | LIBERA 4 | Almacen OJAI: 0/400
+[2026-01-01 22:37 GMT] [DESPEGUE]   UMMS->LOWW (000000001) | LIBERA 2 | Almacen UMMS: 0/400
+[2026-01-01 22:38 GMT] [CHECK-IN]   Envio 000000004        | OCUPA  2 | Almacen VIDP: 6/480
+[2026-01-01 22:41 GMT] [CHECK-IN]   Envio 000000002        | OCUPA  2 | Almacen LBSF: 2/400
+[2026-01-01 22:44 GMT] [DESPEGUE]   LBSF->UMMS (000000002) | LIBERA 2 | Almacen LBSF: 0/400
+[2026-01-01 22:47 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  2 | Almacen EBCI: 2/440
+[2026-01-01 22:48 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  2 | Almacen LATI: 2/410
+[2026-01-01 22:49 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  2 | Almacen EDDI: 2/480
+[2026-01-01 22:51 GMT] [CHECK-IN]   Envio 000000002        | OCUPA  2 | Almacen UMMS: 2/400
+[2026-01-01 22:52 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  2 | Almacen LDZA: 2/420
+[2026-01-01 22:56 GMT] [CHECK-IN]   Envio 000000002        | OCUPA  2 | Almacen OERK: 4/420
+[2026-01-01 22:58 GMT] [DESPEGUE]   OMDB->OJAI (000000001) | LIBERA 3 | Almacen OMDB: 3/420
+[2026-01-01 22:58 GMT] [CHECK-IN]   Envio 000000005        | OCUPA  1 | Almacen OPKC: 3/410
+[2026-01-01 23:01 GMT] [DESPEGUE]   VIDP->LBSF (000000004) | LIBERA 2 | Almacen VIDP: 4/480
+[2026-01-01 23:03 GMT] [DESPEGUE]   OPKC->SUAA (000000004) | LIBERA 1 | Almacen OPKC: 2/410
+[2026-01-01 23:05 GMT] [DESPEGUE]   OMDB->LATI (000000002) | LIBERA 3 | Almacen OMDB: 0/420
+[2026-01-01 23:06 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  2 | Almacen EKCH: 2/480
+[2026-01-01 23:07 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  2 | Almacen LKPR: 2/400
+[2026-01-01 23:07 GMT] [CHECK-IN]   Envio 000000002        | OCUPA  2 | Almacen OYSN: 2/420
+[2026-01-01 23:08 GMT] [CHECK-IN]   Envio 000000004        | OCUPA  1 | Almacen OAKB: 6/480
+[2026-01-01 23:09 GMT] [CHECK-IN]   Envio 000000002        | OCUPA  2 | Almacen OSDI: 4/400
+[2026-01-01 23:13 GMT] [CHECK-IN]   Envio 000000004        | OCUPA  1 | Almacen OOMS: 4/460
+[2026-01-01 23:14 GMT] [DESPEGUE]   UMMS->EDDI (000000002) | LIBERA 2 | Almacen UMMS: 0/400
+[2026-01-01 23:14 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  3 | Almacen LOWW: 3/430
+[2026-01-01 23:14 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  3 | Almacen UBBB: 3/400
+[2026-01-01 23:16 GMT] [DESPEGUE]   OPKC->LBSF (000000005) | LIBERA 1 | Almacen OPKC: 1/410
+[2026-01-01 23:19 GMT] [DESPEGUE]   OPKC->SGAS (000000003) | LIBERA 1 | Almacen OPKC: 0/410
+[2026-01-01 23:20 GMT] [CHECK-IN]   Envio 000000001        | OCUPA  3 | Almacen EHAM: 3/480
+[2026-01-01 23:26 GMT] [DESPEGUE]   OAKB->VIDP (000000002) | LIBERA 2 | Almacen OAKB: 4/480
+[2026-01-01 23:26 GMT] [DESPEGUE]   LDZA->OSDI (000000001) | LIBERA 2 | Almacen LDZA: 0/420
+[2026-01-01 23:26 GMT] [DESPEGUE]   OAKB->VIDP (000000004) | LIBERA 1 | Almacen OAKB: 3/480
+[2026-01-01 23:28 GMT] [CHECK-IN]   Envio 000000005        | OCUPA  2 | Almacen VIDP: 6/480
+[2026-01-01 23:33 GMT] [CHECK-IN]   Envio 000000003        | OCUPA  2 | Almacen LBSF: 2/400
+[2026-01-01 23:36 GMT] [CHECK-IN]   Envio 000000002        | OCUPA  2 | Almacen EBCI: 4/440
+[2026-01-01 23:36 GMT] [CHECK-IN]   Envio 000000002        | OCUPA  2 | Almacen EDDI: 4/480
+[2026-01-01 23:36 GMT] [CHECK-IN]   Envio 000000002        | OCUPA  2 | Almacen LATI: 4/410
+[2026-01-01 23:39 GMT] [CHECK-IN]   Envio 000000006        | OCUPA  1 | Almacen OPKC: 1/410
+[2026-01-01 23:40 GMT] [CHECK-IN]   Envio 000000003        | OCUPA  3 | Almacen OMDB: 3/420
+[2026-01-01 23:42 GMT] [CHECK-IN]   Envio 000000002        | OCUPA  3 | Almacen OJAI: 3/400
+[2026-01-01 23:43 GMT] [DESPEGUE]   UBBB->LBSF (000000001) | LIBERA 3 | Almacen UBBB: 0/400
+[2026-01-01 23:43 GMT] [CHECK-IN]   Envio 000000003        | OCUPA  2 | Almacen UMMS: 2/400
+[2026-01-01 23:44 GMT] [CHECK-IN]   Envio 000000002        | OCUPA  2 | Almacen LDZA: 2/420
+[2026-01-01 23:46 GMT] [DESPEGUE]   OJAI->LOWW (000000002) | LIBERA 3 | Almacen OJAI: 0/400
+[2026-01-01 23:47 GMT] [DESPEGUE]   EKCH->LKPR (000000001) | LIBERA 2 | Almacen EKCH: 0/480
+[2026-01-01 23:49 GMT] [DESPEGUE]   EBCI->SKBO (000000002) | LIBERA 2 | Almacen EBCI: 2/440
+[2026-01-01 23:52 GMT] [DESPEGUE]   OOMS->EDDI (000000004) | LIBERA 1 | Almacen OOMS: 3/460
+[2026-01-01 23:53 GMT] [ATERRIZAJE] UMMS->LOWW (000000001) | OCUPA  2 | Almacen LOWW: 5/430
+[2026-01-01 23:54 GMT] [CHECK-IN]   Envio 000000003        | OCUPA  2 | Almacen OERK: 6/420
+[2026-01-01 23:54 GMT] [CHECK-IN]   Envio 000000005        | OCUPA  1 | Almacen OOMS: 4/460
+[2026-01-01 23:57 GMT] [CHECK-IN]   Envio 000000005        | OCUPA  1 | Almacen OAKB: 4/480
+[2026-01-01 23:59 GMT] [DESPEGUE]   OERK->LOWW (000000001) | LIBERA 2 | Almacen OERK: 4/420
+[2026-01-01 23:59 GMT] [DESPEGUE]   OERK->LOWW (000000003) | LIBERA 2 | Almacen OERK: 2/420
+[2026-01-02 00:00 GMT] [DESPEGUE]   EHAM->EBCI (000000001) | LIBERA 3 | Almacen EHAM: 0/480
+[2026-01-02 00:02 GMT] [DESPEGUE]   LATI->OSDI (000000002) | LIBERA 2 | Almacen LATI: 2/410
+[2026-01-02 00:04 GMT] [DESPEGUE]   OAKB->LKPR (000000001) | LIBERA 2 | Almacen OAKB: 2/480
+[2026-01-02 00:04 GMT] [DESPEGUE]   UMMS->OSDI (000000003) | LIBERA 2 | Almacen UMMS: 0/400
+[2026-01-02 00:04 GMT] [DESPEGUE]   OAKB->LKPR (000000005) | LIBERA 1 | Almacen OAKB: 1/480
+[2026-01-02 00:11 GMT] [DESPEGUE]   OMDB->OAKB (000000003) | LIBERA 3 | Almacen OMDB: 0/420
+[2026-01-02 00:15 GMT] [DESPEGUE]   VIDP->UBBB (000000002) | LIBERA 2 | Almacen VIDP: 4/480
+[2026-01-02 00:15 GMT] [DESPEGUE]   VIDP->UBBB (000000005) | LIBERA 2 | Almacen VIDP: 2/480
+[2026-01-02 00:16 GMT] [ATERRIZAJE] EHAM->EBCI (000000001) | OCUPA  3 | Almacen EBCI: 5/440
+[2026-01-02 00:17 GMT] [DESPEGUE]   LBSF->LATI (000000003) | LIBERA 2 | Almacen LBSF: 0/400
+[2026-01-02 00:20 GMT] [ATERRIZAJE] LBSF->UMMS (000000002) | OCUPA  2 | Almacen UMMS: 2/400
+[2026-01-02 00:23 GMT] [DESPEGUE]   LATI->OPKC (000000001) | LIBERA 2 | Almacen LATI: 0/410
+[2026-01-02 00:30 GMT] [ATERRIZAJE] UMMS->EDDI (000000002) | OCUPA  2 | Almacen EDDI: 6/480
+[2026-01-02 00:30 GMT] [ATERRIZAJE] EKCH->LKPR (000000001) | OCUPA  2 | Almacen LKPR: 4/400
+[2026-01-02 00:36 GMT] [DESPEGUE]   OOMS->SABE (000000002) | LIBERA 2 | Almacen OOMS: 2/460
+[2026-01-02 00:42 GMT] [ATERRIZAJE] OAKB->VIDP (000000002) | OCUPA  2 | Almacen VIDP: 4/480
+[2026-01-02 00:42 GMT] [ATERRIZAJE] OAKB->VIDP (000000004) | OCUPA  1 | Almacen VIDP: 5/480
+[2026-01-02 00:43 GMT] [ATERRIZAJE] LBSF->LATI (000000003) | OCUPA  2 | Almacen LATI: 2/410
+[2026-01-02 00:47 GMT] [ATERRIZAJE] OYSN->OJAI (000000001) | OCUPA  2 | Almacen OJAI: 2/400
+[2026-01-02 00:52 GMT] [RECOJO]     Envio 000000002        | LIBERA 2 | Almacen VIDP: 3/480
+[2026-01-02 00:55 GMT] [DESPEGUE]   EDDI->SUAA (000000001) | LIBERA 2 | Almacen EDDI: 4/480
+[2026-01-02 00:58 GMT] [DESPEGUE]   OOMS->OAKB (000000005) | LIBERA 1 | Almacen OOMS: 1/460
+[2026-01-02 01:05 GMT] [DESPEGUE]   OERK->SABE (000000002) | LIBERA 2 | Almacen OERK: 0/420
+[2026-01-02 01:05 GMT] [DESPEGUE]   EDDI->SPIM (000000002) | LIBERA 2 | Almacen EDDI: 2/480
+[2026-01-02 01:12 GMT] [ATERRIZAJE] OOMS->OSDI (000000001) | OCUPA  2 | Almacen OSDI: 6/400
+[2026-01-02 01:14 GMT] [DESPEGUE]   LDZA->EBCI (000000002) | LIBERA 2 | Almacen LDZA: 0/420
+[2026-01-02 01:15 GMT] [DESPEGUE]   LKPR->LDZA (000000001) | LIBERA 2 | Almacen LKPR: 2/400
+[2026-01-02 01:15 GMT] [DESPEGUE]   OPKC->SLLP (000000006) | LIBERA 1 | Almacen OPKC: 0/410
+[2026-01-02 01:18 GMT] [DESPEGUE]   VIDP->OERK (000000004) | LIBERA 1 | Almacen VIDP: 2/480
+[2026-01-02 01:20 GMT] [DESPEGUE]   LOWW->LATI (000000001) | LIBERA 2 | Almacen LOWW: 3/430
+[2026-01-02 01:20 GMT] [DESPEGUE]   LOWW->LATI (000000001) | LIBERA 3 | Almacen LOWW: 0/430
+[2026-01-02 01:31 GMT] [DESPEGUE]   LKPR->EBCI (000000001) | LIBERA 2 | Almacen LKPR: 0/400
+[2026-01-02 01:32 GMT] [DESPEGUE]   OSDI->EBCI (000000002) | LIBERA 2 | Almacen OSDI: 4/400
+[2026-01-02 01:33 GMT] [DESPEGUE]   OOMS->VIDP (000000003) | LIBERA 1 | Almacen OOMS: 0/460
+[2026-01-02 01:34 GMT] [ATERRIZAJE] OMDB->OJAI (000000001) | OCUPA  3 | Almacen OJAI: 5/400
+[2026-01-02 01:44 GMT] [RECOJO]     Envio 000000001        | LIBERA 3 | Almacen OJAI: 2/400
+[2026-01-02 01:45 GMT] [DESPEGUE]   EBCI->UBBB (000000001) | LIBERA 3 | Almacen EBCI: 2/440
+[2026-01-02 01:47 GMT] [ATERRIZAJE] VIDP->OSDI (000000001) | OCUPA  2 | Almacen OSDI: 6/400
+[2026-01-02 01:48 GMT] [DESPEGUE]   OAKB->UBBB (000000003) | LIBERA 1 | Almacen OAKB: 0/480
+[2026-01-02 01:48 GMT] [DESPEGUE]   EBCI->EHAM (000000001) | LIBERA 2 | Almacen EBCI: 0/440
+[2026-01-02 01:50 GMT] [DESPEGUE]   LATI->VIDP (000000003) | LIBERA 2 | Almacen LATI: 0/410
+[2026-01-02 01:57 GMT] [RECOJO]     Envio 000000001        | LIBERA 2 | Almacen OSDI: 4/400
+[2026-01-02 01:58 GMT] [ATERRIZAJE] LKPR->LDZA (000000001) | OCUPA  2 | Almacen LDZA: 2/420
+[2026-01-02 02:04 GMT] [ATERRIZAJE] EBCI->EHAM (000000001) | OCUPA  2 | Almacen EHAM: 2/480
+[2026-01-02 02:06 GMT] [DESPEGUE]   OSDI->SCEL (000000001) | LIBERA 2 | Almacen OSDI: 2/400
+[2026-01-02 02:10 GMT] [ATERRIZAJE] LDZA->OSDI (000000001) | OCUPA  2 | Almacen OSDI: 4/400
+[2026-01-02 02:13 GMT] [ATERRIZAJE] LATI->OSDI (000000002) | OCUPA  2 | Almacen OSDI: 6/400
+[2026-01-02 02:17 GMT] [ATERRIZAJE] OMDB->OAKB (000000003) | OCUPA  3 | Almacen OAKB: 3/480
+[2026-01-02 02:20 GMT] [RECOJO]     Envio 000000001        | LIBERA 2 | Almacen OSDI: 4/400
+[2026-01-02 02:21 GMT] [ATERRIZAJE] LOWW->LATI (000000001) | OCUPA  2 | Almacen LATI: 2/410
+[2026-01-02 02:21 GMT] [ATERRIZAJE] LOWW->LATI (000000001) | OCUPA  3 | Almacen LATI: 5/410
+[2026-01-02 02:24 GMT] [ATERRIZAJE] LKPR->EBCI (000000001) | OCUPA  2 | Almacen EBCI: 2/440
+[2026-01-02 02:27 GMT] [RECOJO]     Envio 000000003        | LIBERA 3 | Almacen OAKB: 0/480
+[2026-01-02 02:31 GMT] [RECOJO]     Envio 000000001        | LIBERA 2 | Almacen LATI: 3/410
+[2026-01-02 02:31 GMT] [RECOJO]     Envio 000000001        | LIBERA 3 | Almacen LATI: 0/410
+[2026-01-02 02:33 GMT] [ATERRIZAJE] LDZA->EBCI (000000002) | OCUPA  2 | Almacen EBCI: 4/440
+[2026-01-02 02:34 GMT] [ATERRIZAJE] UBBB->LBSF (000000001) | OCUPA  3 | Almacen LBSF: 3/400
+[2026-01-02 02:38 GMT] [DESPEGUE]   UMMS->SKBO (000000002) | LIBERA 2 | Almacen UMMS: 0/400
+[2026-01-02 02:38 GMT] [DESPEGUE]   EBCI->SPIM (000000001) | LIBERA 2 | Almacen EBCI: 2/440
+[2026-01-02 02:43 GMT] [DESPEGUE]   EHAM->SUAA (000000001) | LIBERA 2 | Almacen EHAM: 0/480
+[2026-01-02 02:43 GMT] [RECOJO]     Envio 000000002        | LIBERA 2 | Almacen EBCI: 0/440
+[2026-01-02 02:44 GMT] [RECOJO]     Envio 000000001        | LIBERA 3 | Almacen LBSF: 0/400
+[2026-01-02 02:50 GMT] [DESPEGUE]   OSDI->SLLP (000000001) | LIBERA 2 | Almacen OSDI: 2/400
+[2026-01-02 02:53 GMT] [ATERRIZAJE] OJAI->LOWW (000000002) | OCUPA  3 | Almacen LOWW: 3/430
+[2026-01-02 02:57 GMT] [DESPEGUE]   EDDI->SLLP (000000002) | LIBERA 2 | Almacen EDDI: 0/480
+[2026-01-02 02:58 GMT] [ATERRIZAJE] UMMS->OSDI (000000003) | OCUPA  2 | Almacen OSDI: 4/400
+[2026-01-02 03:00 GMT] [ATERRIZAJE] OOMS->OAKB (000000005) | OCUPA  1 | Almacen OAKB: 1/480
+[2026-01-02 03:01 GMT] [DESPEGUE]   LDZA->LBSF (000000001) | LIBERA 2 | Almacen LDZA: 0/420
+[2026-01-02 03:07 GMT] [DESPEGUE]   OJAI->EHAM (000000001) | LIBERA 2 | Almacen OJAI: 0/400
+[2026-01-02 03:08 GMT] [RECOJO]     Envio 000000003        | LIBERA 2 | Almacen OSDI: 2/400
+[2026-01-02 03:09 GMT] [DESPEGUE]   LOWW->EDDI (000000002) | LIBERA 3 | Almacen LOWW: 0/430
+[2026-01-02 03:15 GMT] [ATERRIZAJE] LBSF->OAKB (000000001) | OCUPA  2 | Almacen OAKB: 3/480
+[2026-01-02 03:25 GMT] [RECOJO]     Envio 000000001        | LIBERA 2 | Almacen OAKB: 1/480
+[2026-01-02 03:46 GMT] [ATERRIZAJE] VIDP->UBBB (000000002) | OCUPA  2 | Almacen UBBB: 2/400
+[2026-01-02 03:46 GMT] [ATERRIZAJE] VIDP->UBBB (000000005) | OCUPA  2 | Almacen UBBB: 4/400
+[2026-01-02 03:46 GMT] [ATERRIZAJE] LOWW->EDDI (000000002) | OCUPA  3 | Almacen EDDI: 3/480
+[2026-01-02 03:49 GMT] [ATERRIZAJE] OMDB->LATI (000000002) | OCUPA  3 | Almacen LATI: 3/410
+[2026-01-02 03:50 GMT] [ATERRIZAJE] LDZA->LBSF (000000001) | OCUPA  2 | Almacen LBSF: 2/400
+[2026-01-02 03:56 GMT] [RECOJO]     Envio 000000002        | LIBERA 3 | Almacen EDDI: 0/480
+[2026-01-02 03:59 GMT] [RECOJO]     Envio 000000002        | LIBERA 3 | Almacen LATI: 0/410
+[2026-01-02 04:00 GMT] [RECOJO]     Envio 000000001        | LIBERA 2 | Almacen LBSF: 0/400
+[2026-01-02 04:02 GMT] [ATERRIZAJE] OOMS->VIDP (000000003) | OCUPA  1 | Almacen VIDP: 3/480
+[2026-01-02 04:03 GMT] [ATERRIZAJE] OPKC->EDDI (000000001) | OCUPA  2 | Almacen EDDI: 2/480
+[2026-01-02 04:04 GMT] [ATERRIZAJE] OAKB->UBBB (000000003) | OCUPA  1 | Almacen UBBB: 5/400
+[2026-01-02 04:05 GMT] [DESPEGUE]   UBBB->UMMS (000000002) | LIBERA 2 | Almacen UBBB: 3/400
+[2026-01-02 04:05 GMT] [DESPEGUE]   UBBB->UMMS (000000005) | LIBERA 2 | Almacen UBBB: 1/400
+[2026-01-02 04:12 GMT] [RECOJO]     Envio 000000003        | LIBERA 1 | Almacen VIDP: 2/480
+[2026-01-02 04:13 GMT] [RECOJO]     Envio 000000001        | LIBERA 2 | Almacen EDDI: 0/480
+[2026-01-02 04:14 GMT] [RECOJO]     Envio 000000003        | LIBERA 1 | Almacen UBBB: 0/400
+[2026-01-02 04:17 GMT] [DESPEGUE]   OAKB->OYSN (000000005) | LIBERA 1 | Almacen OAKB: 0/480
+[2026-01-02 04:42 GMT] [ATERRIZAJE] OERK->LOWW (000000001) | OCUPA  2 | Almacen LOWW: 2/430
+[2026-01-02 04:42 GMT] [ATERRIZAJE] OERK->LOWW (000000003) | OCUPA  2 | Almacen LOWW: 4/430
+[2026-01-02 04:55 GMT] [ATERRIZAJE] OPKC->LBSF (000000005) | OCUPA  1 | Almacen LBSF: 1/400
+[2026-01-02 04:57 GMT] [DESPEGUE]   LOWW->LKPR (000000001) | LIBERA 2 | Almacen LOWW: 2/430
+[2026-01-02 04:57 GMT] [DESPEGUE]   LOWW->LKPR (000000003) | LIBERA 2 | Almacen LOWW: 0/430
+[2026-01-02 05:06 GMT] [DESPEGUE]   VIDP->OPKC (000000003) | LIBERA 2 | Almacen VIDP: 0/480
+[2026-01-02 05:13 GMT] [ATERRIZAJE] VIDP->OERK (000000004) | OCUPA  1 | Almacen OERK: 1/420
+[2026-01-02 05:17 GMT] [ATERRIZAJE] LOWW->LKPR (000000001) | OCUPA  2 | Almacen LKPR: 2/400
+[2026-01-02 05:17 GMT] [ATERRIZAJE] LOWW->LKPR (000000003) | OCUPA  2 | Almacen LKPR: 4/400
+[2026-01-02 05:23 GMT] [ATERRIZAJE] VIDP->LBSF (000000004) | OCUPA  2 | Almacen LBSF: 3/400
+[2026-01-02 05:23 GMT] [RECOJO]     Envio 000000004        | LIBERA 1 | Almacen OERK: 0/420
+[2026-01-02 05:27 GMT] [RECOJO]     Envio 000000001        | LIBERA 2 | Almacen LKPR: 2/400
+[2026-01-02 05:35 GMT] [ATERRIZAJE] OSDI->EBCI (000000002) | OCUPA  2 | Almacen EBCI: 2/440
+[2026-01-02 05:41 GMT] [DESPEGUE]   LBSF->SKBO (000000005) | LIBERA 1 | Almacen LBSF: 2/400
+[2026-01-02 05:45 GMT] [RECOJO]     Envio 000000002        | LIBERA 2 | Almacen EBCI: 0/440
+[2026-01-02 06:03 GMT] [ATERRIZAJE] OAKB->LKPR (000000001) | OCUPA  2 | Almacen LKPR: 4/400
+[2026-01-02 06:03 GMT] [ATERRIZAJE] OAKB->LKPR (000000005) | OCUPA  1 | Almacen LKPR: 5/400
+[2026-01-02 06:05 GMT] [DESPEGUE]   LBSF->EBCI (000000004) | LIBERA 2 | Almacen LBSF: 0/400
+[2026-01-02 06:08 GMT] [ATERRIZAJE] OOMS->EDDI (000000004) | OCUPA  1 | Almacen EDDI: 1/480
+[2026-01-02 06:10 GMT] [DESPEGUE]   OYSN->OPKC (000000002) | LIBERA 2 | Almacen OYSN: 0/420
+[2026-01-02 06:13 GMT] [RECOJO]     Envio 000000001        | LIBERA 2 | Almacen LKPR: 3/400
+[2026-01-02 06:24 GMT] [DESPEGUE]   OSDI->OMDB (000000002) | LIBERA 2 | Almacen OSDI: 0/400
+[2026-01-02 06:25 GMT] [ATERRIZAJE] EBCI->UBBB (000000001) | OCUPA  3 | Almacen UBBB: 3/400
+[2026-01-02 06:26 GMT] [ATERRIZAJE] LATI->OPKC (000000001) | OCUPA  2 | Almacen OPKC: 2/410
+[2026-01-02 06:28 GMT] [ATERRIZAJE] VIDP->OPKC (000000003) | OCUPA  2 | Almacen OPKC: 4/410
+[2026-01-02 06:36 GMT] [RECOJO]     Envio 000000001        | LIBERA 2 | Almacen OPKC: 2/410
+[2026-01-02 06:38 GMT] [RECOJO]     Envio 000000003        | LIBERA 2 | Almacen OPKC: 0/410
+[2026-01-02 06:51 GMT] [ATERRIZAJE] UBBB->UMMS (000000002) | OCUPA  2 | Almacen UMMS: 2/400
+[2026-01-02 06:51 GMT] [ATERRIZAJE] UBBB->UMMS (000000005) | OCUPA  2 | Almacen UMMS: 4/400
+[2026-01-02 06:59 GMT] [DESPEGUE]   LKPR->EKCH (000000003) | LIBERA 2 | Almacen LKPR: 1/400
+[2026-01-02 07:01 GMT] [RECOJO]     Envio 000000002        | LIBERA 2 | Almacen UMMS: 2/400
+[2026-01-02 07:08 GMT] [DESPEGUE]   LKPR->LDZA (000000005) | LIBERA 1 | Almacen LKPR: 0/400
+[2026-01-02 07:19 GMT] [DESPEGUE]   EDDI->LATI (000000004) | LIBERA 1 | Almacen EDDI: 0/480
+[2026-01-02 07:26 GMT] [ATERRIZAJE] OJAI->EHAM (000000001) | OCUPA  2 | Almacen EHAM: 2/480
+[2026-01-02 07:36 GMT] [RECOJO]     Envio 000000001        | LIBERA 2 | Almacen EHAM: 0/480
+[2026-01-02 07:37 GMT] [DESPEGUE]   UBBB->OAKB (000000001) | LIBERA 3 | Almacen UBBB: 0/400
+[2026-01-02 07:42 GMT] [ATERRIZAJE] LKPR->EKCH (000000003) | OCUPA  2 | Almacen EKCH: 2/480
+[2026-01-02 07:51 GMT] [ATERRIZAJE] LKPR->LDZA (000000005) | OCUPA  1 | Almacen LDZA: 1/420
+[2026-01-02 07:52 GMT] [RECOJO]     Envio 000000003        | LIBERA 2 | Almacen EKCH: 0/480
+[2026-01-02 08:01 GMT] [RECOJO]     Envio 000000005        | LIBERA 1 | Almacen LDZA: 0/420
+[2026-01-02 08:14 GMT] [ATERRIZAJE] LBSF->EBCI (000000004) | OCUPA  2 | Almacen EBCI: 2/440
+[2026-01-02 08:24 GMT] [RECOJO]     Envio 000000004        | LIBERA 2 | Almacen EBCI: 0/440
+[2026-01-02 08:24 GMT] [ATERRIZAJE] OAKB->OYSN (000000005) | OCUPA  1 | Almacen OYSN: 1/420
+[2026-01-02 08:34 GMT] [RECOJO]     Envio 000000005        | LIBERA 1 | Almacen OYSN: 0/420
+[2026-01-02 08:38 GMT] [ATERRIZAJE] LATI->VIDP (000000003) | OCUPA  2 | Almacen VIDP: 2/480
+[2026-01-02 08:48 GMT] [RECOJO]     Envio 000000003        | LIBERA 2 | Almacen VIDP: 0/480
+[2026-01-02 08:51 GMT] [DESPEGUE]   UMMS->EBCI (000000005) | LIBERA 2 | Almacen UMMS: 0/400
+[2026-01-02 08:57 GMT] [ATERRIZAJE] EDDI->LATI (000000004) | OCUPA  1 | Almacen LATI: 1/410
+[2026-01-02 08:58 GMT] [ATERRIZAJE] OSDI->OMDB (000000002) | OCUPA  2 | Almacen OMDB: 2/420
+[2026-01-02 09:07 GMT] [RECOJO]     Envio 000000004        | LIBERA 1 | Almacen LATI: 0/410
+[2026-01-02 09:08 GMT] [RECOJO]     Envio 000000002        | LIBERA 2 | Almacen OMDB: 0/420
+[2026-01-02 09:26 GMT] [ATERRIZAJE] OYSN->OPKC (000000002) | OCUPA  2 | Almacen OPKC: 2/410
+[2026-01-02 09:36 GMT] [RECOJO]     Envio 000000002        | LIBERA 2 | Almacen OPKC: 0/410
+[2026-01-02 09:53 GMT] [ATERRIZAJE] UBBB->OAKB (000000001) | OCUPA  3 | Almacen OAKB: 3/480
+[2026-01-02 10:03 GMT] [RECOJO]     Envio 000000001        | LIBERA 3 | Almacen OAKB: 0/480
+[2026-01-02 10:54 GMT] [ATERRIZAJE] EBCI->SKBO (000000002) | OCUPA  2 | Almacen SKBO: 2/430
+[2026-01-02 10:58 GMT] [ATERRIZAJE] UMMS->EBCI (000000005) | OCUPA  2 | Almacen EBCI: 2/440
+[2026-01-02 11:13 GMT] [DESPEGUE]   EBCI->SCEL (000000005) | LIBERA 2 | Almacen EBCI: 0/440
+[2026-01-02 11:14 GMT] [ATERRIZAJE] OJAI->SBBR (000000001) | OCUPA  4 | Almacen SBBR: 4/480
+[2026-01-02 11:24 GMT] [RECOJO]     Envio 000000001        | LIBERA 4 | Almacen SBBR: 0/480
+[2026-01-02 12:24 GMT] [DESPEGUE]   SKBO->SVMI (000000002) | LIBERA 2 | Almacen SKBO: 0/430
+[2026-01-02 13:47 GMT] [ATERRIZAJE] SKBO->SVMI (000000002) | OCUPA  2 | Almacen SVMI: 2/400
+[2026-01-02 13:57 GMT] [RECOJO]     Envio 000000002        | LIBERA 2 | Almacen SVMI: 0/400
+[2026-01-02 14:24 GMT] [ATERRIZAJE] OPKC->SVMI (000000002) | OCUPA  2 | Almacen SVMI: 2/400
+[2026-01-02 14:42 GMT] [DESPEGUE]   SVMI->SLLP (000000002) | LIBERA 2 | Almacen SVMI: 0/400
+[2026-01-02 14:59 GMT] [ATERRIZAJE] EDDI->SPIM (000000002) | OCUPA  2 | Almacen SPIM: 2/440
+[2026-01-02 15:09 GMT] [RECOJO]     Envio 000000002        | LIBERA 2 | Almacen SPIM: 0/440
+[2026-01-02 15:35 GMT] [ATERRIZAJE] EDDI->SUAA (000000001) | OCUPA  2 | Almacen SUAA: 2/400
+[2026-01-02 15:42 GMT] [ATERRIZAJE] EBCI->SPIM (000000001) | OCUPA  2 | Almacen SPIM: 2/440
+[2026-01-02 15:45 GMT] [RECOJO]     Envio 000000001        | LIBERA 2 | Almacen SUAA: 0/400
+[2026-01-02 15:46 GMT] [ATERRIZAJE] UMMS->SKBO (000000002) | OCUPA  2 | Almacen SKBO: 2/430
+[2026-01-02 15:52 GMT] [RECOJO]     Envio 000000001        | LIBERA 2 | Almacen SPIM: 0/440
+[2026-01-02 15:56 GMT] [RECOJO]     Envio 000000002        | LIBERA 2 | Almacen SKBO: 0/430
+[2026-01-02 16:32 GMT] [ATERRIZAJE] EDDI->SLLP (000000002) | OCUPA  2 | Almacen SLLP: 2/420
+[2026-01-02 16:42 GMT] [RECOJO]     Envio 000000002        | LIBERA 2 | Almacen SLLP: 0/420
+[2026-01-02 16:48 GMT] [ATERRIZAJE] EHAM->SUAA (000000001) | OCUPA  2 | Almacen SUAA: 2/400
+[2026-01-02 16:58 GMT] [RECOJO]     Envio 000000001        | LIBERA 2 | Almacen SUAA: 0/400
+[2026-01-02 17:04 GMT] [ATERRIZAJE] OERK->SABE (000000002) | OCUPA  2 | Almacen SABE: 2/460
+[2026-01-02 17:12 GMT] [ATERRIZAJE] OPKC->SUAA (000000004) | OCUPA  1 | Almacen SUAA: 1/400
+[2026-01-02 17:14 GMT] [RECOJO]     Envio 000000002        | LIBERA 2 | Almacen SABE: 0/460
+[2026-01-02 17:22 GMT] [RECOJO]     Envio 000000004        | LIBERA 1 | Almacen SUAA: 0/400
+[2026-01-02 17:25 GMT] [ATERRIZAJE] OPKC->SGAS (000000003) | OCUPA  1 | Almacen SGAS: 1/400
+[2026-01-02 17:35 GMT] [RECOJO]     Envio 000000003        | LIBERA 1 | Almacen SGAS: 0/400
+[2026-01-02 17:53 GMT] [ATERRIZAJE] OOMS->SABE (000000002) | OCUPA  2 | Almacen SABE: 2/460
+[2026-01-02 18:03 GMT] [RECOJO]     Envio 000000002        | LIBERA 2 | Almacen SABE: 0/460
+[2026-01-02 18:15 GMT] [ATERRIZAJE] OSDI->SLLP (000000001) | OCUPA  2 | Almacen SLLP: 2/420
+[2026-01-02 18:20 GMT] [ATERRIZAJE] SVMI->SLLP (000000002) | OCUPA  2 | Almacen SLLP: 4/420
+[2026-01-02 18:25 GMT] [RECOJO]     Envio 000000001        | LIBERA 2 | Almacen SLLP: 2/420
+[2026-01-02 18:30 GMT] [RECOJO]     Envio 000000002        | LIBERA 2 | Almacen SLLP: 0/420
+[2026-01-02 18:37 GMT] [ATERRIZAJE] LBSF->SKBO (000000005) | OCUPA  1 | Almacen SKBO: 1/430
+[2026-01-02 18:47 GMT] [RECOJO]     Envio 000000005        | LIBERA 1 | Almacen SKBO: 0/430
+[2026-01-02 18:48 GMT] [ATERRIZAJE] OSDI->SCEL (000000001) | OCUPA  2 | Almacen SCEL: 2/460
+[2026-01-02 18:58 GMT] [RECOJO]     Envio 000000001        | LIBERA 2 | Almacen SCEL: 0/460
+[2026-01-02 20:26 GMT] [ATERRIZAJE] OPKC->SLLP (000000006) | OCUPA  1 | Almacen SLLP: 1/420
+[2026-01-02 20:36 GMT] [DESPEGUE]   SLLP->SCEL (000000006) | LIBERA 1 | Almacen SLLP: 0/420
+[2026-01-02 22:59 GMT] [ATERRIZAJE] SLLP->SCEL (000000006) | OCUPA  1 | Almacen SCEL: 1/460
+[2026-01-02 23:09 GMT] [RECOJO]     Envio 000000006        | LIBERA 1 | Almacen SCEL: 0/460
+[2026-01-03 01:59 GMT] [ATERRIZAJE] EBCI->SCEL (000000005) | OCUPA  2 | Almacen SCEL: 2/460
+[2026-01-03 02:09 GMT] [RECOJO]     Envio 000000005        | LIBERA 2 | Almacen SCEL: 0/460
+
+================================================================================
+ RESUMEN DEL ESCENARIO
+ - Envios unicos exitosamente planificados: 52
+ - [OK] La simulacion completo su periodo exitosamente.
+================================================================================
+

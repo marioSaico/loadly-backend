@@ -2,7 +2,8 @@ package com.loadly.backend;
 
 import com.loadly.backend.algoritmo.genetico.Individuo;
 import com.loadly.backend.model.*;
-import com.loadly.backend.planificador.Planificador;
+//import com.loadly.backend.planificador.Planificador;
+import com.loadly.backend.planificador.PlanificadorACO;
 import com.loadly.backend.service.DataService;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -34,7 +35,7 @@ public class BackendApplication {
 
     public static void main(String[] args) {
         ApplicationContext context = SpringApplication.run(BackendApplication.class, args);
-        Planificador planificador = context.getBean(Planificador.class);
+        PlanificadorACO planificador = context.getBean(PlanificadorACO.class);
         DataService dataService = context.getBean(DataService.class);
 
         // =========================================================================================
@@ -47,16 +48,16 @@ public class BackendApplication {
 
         // 2️⃣ ESCENARIO: PERIODO 5 DIAS
         // Configuracion : Ta=15s | Sa=40min | K=6 | Poblacion=100
-        ejecutarEscenario("PERIODO (5 DIAS)", "20260101-00-00", "20260106-00-00", 15, 40, 6, 100, planificador, dataService);
+        //ejecutarEscenario("PERIODO (5 DIAS)", "20260101-00-00", "20260106-00-00", 15, 40, 6, 100, planificador, dataService);
 
         // 3️⃣ ESCENARIO: COLAPSO
         // Configuracion: Ta=15s | Sa=40min | K=6  | Poblacion=100
-        // ejecutarEscenario("COLAPSO", "20260101-00-00", "20260106-00-00", 15, 40, 6, 100, planificador, dataService);
+        ejecutarEscenario("COLAPSO", "20260101-00-00", "20260102-00-00", 1, 30, 1, 5, planificador, dataService);
     }
 
     public static void ejecutarEscenario(String nombre, String inicioStr, String finStr, 
                                          int taSegundos, int sa, int k, int tamanoPoblacion, 
-                                         Planificador planificador, DataService dataService) {
+                                         PlanificadorACO planificador, DataService dataService) {
         
         DateTimeFormatter fmtInput = DateTimeFormatter.ofPattern("yyyyMMdd-HH-mm");
         DateTimeFormatter fmtLog = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
