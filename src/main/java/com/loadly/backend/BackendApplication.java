@@ -42,17 +42,29 @@ public class BackendApplication {
         // 🚀 PANEL DE CONTROL DE ESCENARIOS
         // =========================================================================================
 
+        //PARA GENETICO
+
         // 1️⃣ ESCENARIO: DIA A DIA
         // Configuracion : Ta=2s | Sa=10min | K=1 | Poblacion=50
         //ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260102-00-00", 2, 10, 1, 50, planificador, dataService);
-
         // 2️⃣ ESCENARIO: PERIODO 5 DIAS
         // Configuracion : Ta=15s | Sa=40min | K=6 | Poblacion=100
         //ejecutarEscenario("PERIODO (5 DIAS)", "20260101-00-00", "20260106-00-00", 15, 40, 6, 100, planificador, dataService);
 
         // 3️⃣ ESCENARIO: COLAPSO
         // Configuracion: Ta=15s | Sa=40min | K=6  | Poblacion=100
-        ejecutarEscenario("COLAPSO", "20260101-00-00", "20260102-00-00", 1, 30, 1, 5, planificador, dataService);
+        //ejecutarEscenario("COLAPSO", "20260101-00-00", "20260102-00-00", 1, 30, 1, 5, planificador, dataService);
+    
+        //PARA ACO
+
+        // 1️⃣ ESCENARIO: DIA A DIA
+        // Configuracion : Ta=2s | Sa=10min | K=1 | Poblacion=50
+        //ejecutarEscenario("DIA A DIA - ACO", "20260102-00-00", "20260102-06-00", 5, 10, 1, 50, planificador, dataService);
+        // 2️⃣ ESCENARIO: PERIODO 5 DIAS
+        // Configuracion : Ta=15s | Sa=40min | K=6 | Poblacion=100
+        //ejecutarEscenario("PERIODO (5 DIAS) - ACO", "20260102-00-00", "20260107-00-00", 5, 120, 1, 30, planificador, dataService);        // 3️⃣ ESCENARIO: COLAPSO
+        // Configuracion: Ta=15s | Sa=40min | K=6  | Poblacion=100
+        ejecutarEscenario("COLAPSO - ACO", "20260102-00-00", "20260102-12-00", 1, 5, 1, 5, planificador, dataService);
     }
 
     public static void ejecutarEscenario(String nombre, String inicioStr, String finStr, 
