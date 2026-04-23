@@ -3,7 +3,6 @@ package com.loadly.backend;
 import com.loadly.backend.algoritmo.genetico.Individuo;
 import com.loadly.backend.model.*;
 import com.loadly.backend.planificador.Planificador;
-//import com.loadly.backend.planificador.Planificador;
 import com.loadly.backend.planificador.PlanificadorACO;
 import com.loadly.backend.service.DataService;
 import org.springframework.boot.SpringApplication;
@@ -36,7 +35,7 @@ public class BackendApplication {
 
     public static void main(String[] args) {
         ApplicationContext context = SpringApplication.run(BackendApplication.class, args);
-        //PlanificadorACO planificador = context.getBean(PlanificadorACO.class);
+        PlanificadorACO planificadorACO = context.getBean(PlanificadorACO.class);
         Planificador planificador = context.getBean(Planificador.class);
         DataService dataService = context.getBean(DataService.class);
 
@@ -52,7 +51,6 @@ public class BackendApplication {
         // 2️⃣ ESCENARIO: PERIODO 5 DIAS
         // Configuracion : Ta=25s | Sa=10min | K=5 | Poblacion=100
         ejecutarEscenario("PERIODO (5 DIAS)", "20260101-00-00", "20260106-00-00", 25, 10, 5, 100, planificador, dataService);
-
         // 3️⃣ ESCENARIO: COLAPSO
         // Configuracion: Ta=15s | Sa=40min | K=6  | Poblacion=100
         //ejecutarEscenario("COLAPSO", "20260101-00-00", "20260102-00-00", 1, 30, 1, 5, planificador, dataService);
@@ -60,13 +58,14 @@ public class BackendApplication {
         //PARA ACO
 
         // 1️⃣ ESCENARIO: DIA A DIA
-        // Configuracion : Ta=2s | Sa=10min | K=1 | Poblacion=50
-        //ejecutarEscenario("DIA A DIA - ACO", "20260102-00-00", "20260102-06-00", 5, 10, 1, 50, planificador, dataService);
+        // Configuracion : Ta=2s | Sa=10min | K=1 | Numero_Hormigas=50
+        //ejecutarEscenarioACO("DIA A DIA - ACO", "20260102-00-00", "20260102-06-00", 2, 10, 1, 50, planificadorACO, dataService);
         // 2️⃣ ESCENARIO: PERIODO 5 DIAS
-        // Configuracion : Ta=15s | Sa=40min | K=6 | Poblacion=100
-        //ejecutarEscenario("PERIODO (5 DIAS) - ACO", "20260102-00-00", "20260107-00-00", 5, 120, 1, 30, planificador, dataService);        // 3️⃣ ESCENARIO: COLAPSO
-        // Configuracion: Ta=15s | Sa=40min | K=6  | Poblacion=100
-        //ejecutarEscenario("COLAPSO - ACO", "20260102-00-00", "20260102-12-00", 1, 5, 1, 5, planificador, dataService);
+        // Configuracion : Ta=25s | Sa=10min | K=5 | Numero_Hormigas=100
+        //ejecutarEscenarioACO("PERIODO (5 DIAS) - ACO", "20260102-00-00", "20260107-00-00", 25, 10, 5, 100, planificadorACO, dataService);        // 3️⃣ ESCENARIO: COLAPSO
+        // 3️⃣ ESCENARIO: COLAPSO
+        // Configuracion: Ta=15s | Sa=40min | K=6  | Numero_Hormigas=100
+        //ejecutarEscenarioACO("COLAPSO - ACO", "20260102-00-00", "20260102-12-00", 1, 5, 1, 5, planificadorACO, dataService);
     }
 
     public static void ejecutarEscenario(String nombre, String inicioStr, String finStr, 
