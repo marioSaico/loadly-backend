@@ -50,7 +50,7 @@ public class BackendApplication {
         //ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260102-00-00", 2, 10, 1, 50, planificador, dataService);
         // 2️⃣ ESCENARIO: PERIODO 5 DIAS
         // Configuracion : Ta=25s | Sa=10min | K=5 | Poblacion=100
-        ejecutarEscenario("PERIODO (5 DIAS)", "20260101-00-00", "20260106-00-00", 25, 10, 5, 100, planificador, dataService);
+        //ejecutarEscenario("PERIODO (5 DIAS)", "20260101-00-00", "20260106-00-00", 25, 10, 5, 100, planificador, dataService);
         // 3️⃣ ESCENARIO: COLAPSO
         // Configuracion: Ta=15s | Sa=40min | K=6  | Poblacion=100
         //ejecutarEscenario("COLAPSO", "20260101-00-00", "20260102-00-00", 1, 30, 1, 5, planificador, dataService);
@@ -59,7 +59,7 @@ public class BackendApplication {
 
         // 1️⃣ ESCENARIO: DIA A DIA
         // Configuracion : Ta=2s | Sa=10min | K=1 | Numero_Hormigas=50
-        //ejecutarEscenarioACO("DIA A DIA - ACO", "20260102-00-00", "20260102-06-00", 2, 10, 1, 50, planificadorACO, dataService);
+        ejecutarEscenarioACO("DIA A DIA - ACO", "20260101-00-00", "20260102-00-00", 2, 10, 1, 50, planificadorACO, dataService);
         // 2️⃣ ESCENARIO: PERIODO 5 DIAS
         // Configuracion : Ta=25s | Sa=10min | K=5 | Numero_Hormigas=100
         //ejecutarEscenarioACO("PERIODO (5 DIAS) - ACO", "20260102-00-00", "20260107-00-00", 25, 10, 5, 100, planificadorACO, dataService);        // 3️⃣ ESCENARIO: COLAPSO
@@ -217,6 +217,151 @@ public class BackendApplication {
         }
 
         imprimirBitacoraFinal(bitacoraGlobal, capacidadOriginal, totalEnviosProcesados, colapsoDetectado, relojSimulado, fmtLog, rutasHistorico);
+    }
+
+    // Es casi idéntico a ejecutarEscenario(), con 2 diferencias:
+    //   1. Recibe PlanificadorACO en lugar de Planificador.
+    //   2. El log dice "Hormigas ACO" en lugar de "Generaciones GA".
+    //
+    // PEGAR ESTE MÉTODO al final de BackendApplication.java,
+    // justo antes del último cierre de llaves de la clase:
+    // ============================================================
+    
+    public static void ejecutarEscenarioACO(String nombre, String inicioStr, String finStr,
+                                            int taSegundos, int sa, int k, int numHormigas,
+                                            PlanificadorACO planificadorACO, DataService dataService) {
+    
+        DateTimeFormatter fmtInput = DateTimeFormatter.ofPattern("yyyyMMdd-HH-mm");
+        DateTimeFormatter fmtLog   = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    
+        LocalDateTime relojSimulado    = LocalDateTime.parse(inicioStr, fmtInput);
+        LocalDateTime finSimulacion    = LocalDateTime.parse(finStr,    fmtInput);
+    
+        int  sc            = sa * k;
+        long tiempoLimiteMs = taSegundos * 1000L;
+    
+        System.out.println("\n" + "=".repeat(80));
+        System.out.println("   INICIANDO ESCENARIO ACO: " + nombre);
+        System.out.println("   Parámetros -> Ta: " + taSegundos + "s | Sa: " + sa
+                + " min | K: " + k + " | Sc: " + sc + " min | Hormigas: " + numHormigas);
+        long diasSimulacion = ChronoUnit.DAYS.between(relojSimulado, finSimulacion);
+        System.out.println("   Tiempo a simular: " + diasSimulacion + " días");
+        System.out.println("=".repeat(80));
+    
+        Map<String, Integer> capacidadOriginal = dataService.getAeropuertos().stream()
+                .collect(Collectors.toMap(Aeropuerto::getCodigo, Aeropuerto::getCapacidad));
+        Map<String, Integer> mapaGmt = dataService.getAeropuertos().stream()
+                .collect(Collectors.toMap(Aeropuerto::getCodigo, Aeropuerto::getGmt));
+    
+        List<EventoSimulacion> bitacoraGlobal = new ArrayList<>();
+        boolean colapsoDetectado = false;
+        LocalDateTime limiteLecturaDatos = relojSimulado;
+        Map<String, Integer> usoVuelosGlobal = new HashMap<>();
+    
+        // --- BUCLE PRINCIPAL (mismo que GA, solo cambia el planificador) ---
+        while ((limiteLecturaDatos.isBefore(finSimulacion)
+                || limiteLecturaDatos.isEqual(finSimulacion)) && !colapsoDetectado) {
+    
+            String limiteLecturaStr = limiteLecturaDatos.format(fmtInput);
+            String relojActualStr   = relojSimulado.format(fmtInput);
+    
+            System.out.println("\n>>> [RELOJ: " + relojSimulado.format(fmtLog)
+                    + "] Planificando envíos hasta " + limiteLecturaDatos.format(fmtLog) + "...");
+    
+            dataService.procesarEventosDelReloj(relojActualStr);
+            Individuo resultado = planificadorACO.planificar(limiteLecturaStr, numHormigas, tiempoLimiteMs);
+    
+            if (resultado != null) {
+                long maletasSinRuta      = 0;
+                boolean colapsoTopologico = false;
+    
+                for (Ruta r : resultado.getRutas()) {
+                    if (r.getEstado() == EstadoRuta.INALCANZABLE) colapsoTopologico = true;
+                    if (r.getEstado() == EstadoRuta.SIN_RUTA)     maletasSinRuta++;
+                }
+    
+                boolean colapsoPorTiempo  = false;
+                boolean colapsoPorEspacio = false;
+                List<Envio> enEspera = dataService.getEnviosEnEspera();
+                Map<String, Integer> ocupacionBacklog = new HashMap<>();
+    
+                for (Envio env : enEspera) {
+                    long maxHoras = 48;
+                    Aeropuerto o = dataService.getMapaAeropuertos().get(env.getAeropuertoOrigen());
+                    Aeropuerto d = dataService.getMapaAeropuertos().get(env.getAeropuertoDestino());
+                    if (o != null && d != null && o.getContinente().equals(d.getContinente())) maxHoras = 24;
+    
+                    LocalDateTime horaReg = LocalDateTime.of(
+                            Integer.parseInt(env.getFechaRegistro().substring(0, 4)),
+                            Integer.parseInt(env.getFechaRegistro().substring(4, 6)),
+                            Integer.parseInt(env.getFechaRegistro().substring(6, 8)),
+                            env.getHoraRegistro(), env.getMinutoRegistro());
+                    if (ChronoUnit.HOURS.between(horaReg, relojSimulado) > maxHoras) colapsoPorTiempo = true;
+    
+                    ocupacionBacklog.merge(env.getAeropuertoOrigen(), env.getCantidadMaletas(), Integer::sum);
+                }
+    
+                Map<String, Integer> capDinamica = dataService.getCapacidadDinamicaAlmacenes();
+                for (Map.Entry<String, Integer> entry : ocupacionBacklog.entrySet()) {
+                    if (entry.getValue() > capDinamica.getOrDefault(entry.getKey(), 0)) {
+                        colapsoPorEspacio = true;
+                    }
+                }
+    
+                if (colapsoTopologico || colapsoPorTiempo || colapsoPorEspacio) {
+                    System.out.println("    [!] ¡ALERTA DE COLAPSO LOGÍSTICO!");
+                    if (colapsoTopologico) System.out.println("        -> [Topológico]");
+                    if (colapsoPorTiempo)  System.out.println("        -> [Tiempo] SLA excedido");
+                    if (colapsoPorEspacio) System.out.println("        -> [Espacio] Almacén desbordado");
+                    colapsoDetectado = true;
+                    break;
+                } else {
+                    int planificados = resultado.getRutas().size() - (int) maletasSinRuta;
+                    int maletasTotales = resultado.getRutas().stream()
+                            .filter(r -> r.getEstado() == EstadoRuta.PLANIFICADA)
+                            .mapToInt(r -> r.getEnvio().getCantidadMaletas()).sum();
+    
+                    System.out.println("\n" + "=".repeat(70));
+                    System.out.println(" [RELOJ SIMULADO: " + relojSimulado.format(fmtLog) + "]");
+                    System.out.println(" -> Envíos planificados: " + planificados);
+                    System.out.println(" -> Maletas procesadas:  " + maletasTotales);
+                    System.out.printf(" -> ACO %ds | Mejor Fitness: %.6f%n", taSegundos, resultado.getFitness());
+    
+                    if (planificados > 0) {
+                        System.out.println(" >>> REPORTE DE RUTAS ASIGNADAS (ACO) <<<");
+                        Map<String, Integer> usoAlmacenLocal = new HashMap<>();
+                        resultado.getRutas().stream()
+                            .filter(r -> r.getEstado() == EstadoRuta.PLANIFICADA
+                                    && r.getVuelos() != null && !r.getVuelos().isEmpty())
+                            .sorted(Comparator.comparingInt(r -> {
+                                PlanVuelo pv = r.getVuelos().get(0);
+                                Aeropuerto aero = dataService.getMapaAeropuertos().get(pv.getOrigen());
+                                int gmt = (aero != null) ? aero.getGmt() : 0;
+                                String[] p = pv.getHoraSalida().split(":");
+                                return Integer.parseInt(p[0]) * 60 + Integer.parseInt(p[1]) - gmt * 60;
+                            }))
+                            .forEach(r -> imprimirDetalleRuta(r, dataService, usoVuelosGlobal,
+                                    usoAlmacenLocal, capDinamica));
+                    }
+                    System.out.println("=".repeat(70));
+                }
+            } else {
+                System.out.println("    [-] No hay envíos nuevos ni rezagados en este intervalo.");
+            }
+    
+            limiteLecturaDatos = limiteLecturaDatos.plusMinutes(sc);
+            relojSimulado      = relojSimulado.plusMinutes(sa);
+        }
+    
+        // Bitácora final (misma lógica que GA)
+        int totalEnvios = 0;
+        List<Ruta> rutasHistorico = dataService.getRutasPlanificadasHistorico();
+        for (Ruta ruta : rutasHistorico) {
+            totalEnvios++;
+            procesarRutaEnBitacora(ruta, mapaGmt, bitacoraGlobal);
+        }
+        imprimirBitacoraFinal(bitacoraGlobal, capacidadOriginal, totalEnvios,
+                colapsoDetectado, relojSimulado, fmtLog, rutasHistorico);
     }
 
     private static void procesarRutaEnBitacora(Ruta ruta, Map<String, Integer> mapaGmt, List<EventoSimulacion> bitacora) {
