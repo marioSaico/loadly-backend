@@ -19,7 +19,7 @@ public class BuscadorRutasACO {
 
     // ---------- Parámetros de la fórmula ACO ----------
     private static final double ALFA = 1.0;
-    private static final double BETA = 1.5; // Aumentado ligeramente para darle más peso al tiempo inicial
+    private static final double BETA = 1.0; // Aumentado ligeramente para darle más peso al tiempo inicial
 
     // =========================================================================
     //  MÉTODO PRINCIPAL CON REINTENTOS
