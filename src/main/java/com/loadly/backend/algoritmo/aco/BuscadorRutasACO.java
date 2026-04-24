@@ -15,7 +15,7 @@ public class BuscadorRutasACO {
     private static final int TIEMPO_MINIMO_ESCALA  = 10;
     private static final int TIEMPO_RECOJO_DESTINO = 10;
     private static final int MAX_ESCALAS           = 6;
-    private static final int MAX_INTENTOS = 5;
+    private static final int MAX_INTENTOS = 20;
 
     // ---------- Parámetros de la fórmula ACO ----------
     private static final double ALFA = 1.0;
