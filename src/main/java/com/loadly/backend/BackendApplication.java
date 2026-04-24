@@ -59,7 +59,7 @@ public class BackendApplication {
 
         // 1️⃣ ESCENARIO: DIA A DIA
         // Configuracion : Ta=2s | Sa=10min | K=1 | Numero_Hormigas=50
-        ejecutarEscenarioACO("DIA A DIA - ACO", "20260101-00-00", "20260102-00-00", 2, 10, 1, 50, planificadorACO, dataService);
+        ejecutarEscenarioACO("DIA A DIA - ACO", "20260101-00-00", "20260102-00-00", 2, 10, 1, 30, planificadorACO, dataService);
         // 2️⃣ ESCENARIO: PERIODO 5 DIAS
         // Configuracion : Ta=25s | Sa=10min | K=5 | Numero_Hormigas=100
         //ejecutarEscenarioACO("PERIODO (5 DIAS) - ACO", "20260102-00-00", "20260107-00-00", 25, 10, 5, 100, planificadorACO, dataService);        // 3️⃣ ESCENARIO: COLAPSO
