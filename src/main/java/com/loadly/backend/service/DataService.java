@@ -165,6 +165,45 @@ public class DataService {
         }
     }
 
+    /**
+     * Reinicia el estado dinámico del sistema para una nueva réplica del experimento.
+     *
+     * Qué resetea:
+     *   - Capacidades dinámicas de vuelos → vuelven al máximo físico original
+     *   - Capacidades dinámicas de almacenes → vuelven al máximo físico original
+     *   - Backlog de envíos en espera → vacío
+     *   - Histórico de rutas planificadas → vacío
+     *   - Agenda de eventos → vacía
+     *
+     * Qué NO resetea (no hace falta):
+     *   - aeropuertos, vuelos, mapaAeropuertos, mapaVuelosPorOrigen
+     *   → Estos son datos estáticos que no cambian entre réplicas
+     */
+    public void resetEstadoExperimento() {
+
+        // 1. Restaurar capacidades de almacenes al máximo físico
+        this.capacidadDinamicaAlmacenes.clear();
+        for (Aeropuerto a : aeropuertos) {
+            capacidadDinamicaAlmacenes.put(a.getCodigo(), a.getCapacidad());
+        }
+
+        // 2. Restaurar capacidades de vuelos al máximo físico
+        this.capacidadDinamicaVuelos.clear();
+        for (PlanVuelo v : vuelos) {
+            capacidadDinamicaVuelos.put(claveVuelo(v), v.getCapacidad());
+        }
+
+        // 3. Limpiar backlog
+        this.enviosEnEspera.clear();
+
+        // 4. Limpiar histórico de rutas
+        this.rutasPlanificadasHistorico.clear();
+
+        // 5. Limpiar agenda de eventos
+        this.agendaEventos.clear();
+    }
+
+
     // =========================================================================
     // 4. MÉTODOS DE APOYO Y GETTERS
     // =========================================================================
