@@ -1,68 +1,58 @@
 package com.loadly.backend.experimento;
-
+ 
 import com.loadly.backend.model.Aeropuerto;
 import com.loadly.backend.model.Envio;
-
+ 
 import java.util.*;
-
+ 
 /**
  * Genera datasets sintéticos de envíos para el experimento.
  *
- * Los envíos reales tienen 1-2 maletas → poca presión al sistema.
- * Los datasets sintéticos usan 5-20 maletas por envío para estresar
- * los algoritmos y producir diferencias estadísticamente significativas.
+ * Rangos de maletas por envío calibrados para generar competencia
+ * real por recursos (vuelos 150-400 maletas, almacenes 400-800):
+ *   - pequeño  (20 envíos)  : 5-20  maletas → poca presión
+ *   - mediano  (100 envíos) : 5-20  maletas → presión moderada
+ *   - grande   (500 envíos) : 5-20  maletas → alta presión por acumulación
  *
- * Formato del Envio generado:
- *   - aeropuertoOrigen: código de un aeropuerto real aleatorio
- *   - aeropuertoDestino: código de otro aeropuerto real aleatorio (distinto continente o mismo)
- *   - cantidadMaletas: entre MIN_MALETAS y MAX_MALETAS
- *   - fechaRegistro: fija "20260101"
- *   - horaRegistro / minutoRegistro: distribuidos a lo largo del día
- *   - idEnvio: generado secuencialmente
- *   - idCliente: fijo "CLI001" (no afecta al algoritmo)
+ * Ta calibrado según tiempos reales observados:
+ *   - pequeño  → Ta = 15s
+ *   - mediano  → Ta = 40s
+ *   - grande   → Ta = 90s  (margen para ACO que tarda más por iteración)
+ *
+ * Hormigas ACO calibradas para garantizar suficientes iteraciones:
+ *   - pequeño  → 30 hormigas
+ *   - mediano  → 30 hormigas
+ *   - grande   → 10 hormigas  (reducido para permitir más iteraciones)
  */
 public class GeneradorDatasets {
-
-    // Rangos de maletas por envío — más alto que los datos reales para estresar el sistema
+ 
     private static final int MIN_MALETAS = 5;
     private static final int MAX_MALETAS = 20;
-
     private static final String FECHA_BASE = "20260101";
     private static final Random random = new Random();
-
-    /**
-     * Genera un dataset sintético de N envíos usando los aeropuertos reales cargados.
-     *
-     * @param cantidad          Número de envíos a generar (20, 100 o 500)
-     * @param aeropuertosReales Lista de aeropuertos reales del sistema (para usar códigos válidos)
-     * @return Lista de Envio listos para pasarse directamente al algoritmo
-     */
+ 
     public static List<Envio> generar(int cantidad, List<Aeropuerto> aeropuertosReales) {
         List<Envio> dataset = new ArrayList<>();
-
-        // Filtramos aeropuertos con código válido
+ 
         List<Aeropuerto> validos = aeropuertosReales.stream()
                 .filter(a -> a.getCodigo() != null && !a.getCodigo().isBlank())
                 .toList();
-
+ 
         if (validos.size() < 2) {
-            throw new IllegalStateException("Se necesitan al menos 2 aeropuertos para generar datasets");
+            throw new IllegalStateException("Se necesitan al menos 2 aeropuertos");
         }
-
+ 
         for (int i = 1; i <= cantidad; i++) {
-            // Seleccionar origen y destino distintos
-            Aeropuerto origen  = validos.get(random.nextInt(validos.size()));
+            Aeropuerto origen = validos.get(random.nextInt(validos.size()));
             Aeropuerto destino;
             do {
                 destino = validos.get(random.nextInt(validos.size()));
             } while (destino.getCodigo().equals(origen.getCodigo()));
-
-            // Distribuir los envíos a lo largo del día (0-23h, 0-59min)
-            int hora   = (i - 1) * 24 / cantidad;       // distribución uniforme
+ 
+            int hora   = (i - 1) * 24 / cantidad;
             int minuto = random.nextInt(60);
-
             int maletas = MIN_MALETAS + random.nextInt(MAX_MALETAS - MIN_MALETAS + 1);
-
+ 
             Envio envio = new Envio();
             envio.setIdEnvio("SYN-" + String.format("%04d", i));
             envio.setAeropuertoOrigen(origen.getCodigo());
@@ -72,14 +62,13 @@ public class GeneradorDatasets {
             envio.setHoraRegistro(hora);
             envio.setMinutoRegistro(minuto);
             envio.setIdCliente("CLI001");
-
+ 
             dataset.add(envio);
         }
-
+ 
         return dataset;
     }
-
-    /** Nombre legible del tamaño del dataset */
+ 
     public static String nombreDataset(int cantidad) {
         return switch (cantidad) {
             case 20  -> "pequeño";
@@ -88,14 +77,25 @@ public class GeneradorDatasets {
             default  -> "n=" + cantidad;
         };
     }
-
-    /** Ta recomendado en ms según el tamaño del dataset */
+ 
+    /** Ta en ms calibrado según tiempos reales observados */
     public static long taRecomendadoMs(int cantidad) {
         return switch (cantidad) {
-            case 20  -> 10_000L;   // 10 segundos
-            case 100 -> 25_000L;   // 25 segundos
-            case 500 -> 60_000L;   // 60 segundos
-            default  -> 25_000L;
+            case 20  -> 15_000L;   // 15s — cubre rango 11-15s observado
+            case 100 -> 40_000L;   // 40s — cubre rango 25-36s observado
+            case 500 -> 90_000L;   // 90s — da margen al ACO (~85s observado)
+            default  -> 40_000L;
+        };
+    }
+ 
+    /** Hormigas ACO calibradas para garantizar suficientes iteraciones por dataset */
+    public static int hormigasACO(int cantidad) {
+        return switch (cantidad) {
+            case 20  -> 30;   // suficiente, iteraciones rápidas
+            case 100 -> 30;   // suficiente, ~5 iteraciones observadas
+            case 500 -> 10;   // reducido: 30→10 para permitir más iteraciones
+            default  -> 30;
         };
     }
 }
+ 
