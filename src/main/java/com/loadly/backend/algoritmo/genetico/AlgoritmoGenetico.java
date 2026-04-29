@@ -46,6 +46,9 @@ public class AlgoritmoGenetico {
         long tiempoInicio = System.currentTimeMillis();
         int generacionesContadas = 0;
 
+        Individuo mejorInicial = copiarIndividuo(mejorIndividuo);
+        System.out.println("Fitness inicial: " + String.format("%.6f", mejorInicial.getFitness()));
+
         // 2. Bucle evolutivo con criterio de parada por tiempo
         while ((System.currentTimeMillis() - tiempoInicio) < tiempoLimiteMs) {
             List<Individuo> nuevaGeneracion = new ArrayList<>();
@@ -80,6 +83,10 @@ public class AlgoritmoGenetico {
 
             generacionesContadas++;
         }
+
+        System.out.println("Fitness final:   " + String.format("%.6f", mejorIndividuo.getFitness()));
+        System.out.println("Mejora:          " + 
+            String.format("%.6f", mejorIndividuo.getFitness() - mejorInicial.getFitness()));
 
         System.out.println("=== GA - Finalizado ===");
         System.out.println("    Generaciones procesadas: " + generacionesContadas);

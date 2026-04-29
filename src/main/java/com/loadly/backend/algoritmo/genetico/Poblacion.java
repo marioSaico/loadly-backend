@@ -13,7 +13,7 @@ public class Poblacion {
     // Factor de diversidad para la inicialización (variación leve: 0% a 20%)
     // Permite que cada individuo de la población inicial tenga rutas ligeramente distintas
     // aunque el A* encuentre el mismo camino óptimo base.
-    private static final double FACTOR_DIVERSIDAD_INIT = 0.20;
+    private static final double FACTOR_DIVERSIDAD_INIT = 2.00;
 
     private final BuscadorRutas buscadorRutas = new BuscadorRutas();
 
