@@ -77,7 +77,7 @@ public class AlgoritmoACO {
         // --- Construcción inicial ---
         // Primera iteración: feromonas iguales → selección guiada principalmente por heurística.
         colonia.construirSoluciones(envios, capVuelos, capAlmacenes);
-        evaluarColonia(colonia, mapaAeropuertos, capVuelos);
+        evaluarColonia(colonia, mapaAeropuertos, capVuelos, capAlmacenes);
  
         Hormiga mejorHormiga = colonia.getMejorHormiga();
         Hormiga mejorGlobal  = copiarHormiga(mejorHormiga);
@@ -104,7 +104,7 @@ public class AlgoritmoACO {
  
             // Paso 3 — Construcción: nuevas soluciones guiadas por feromonas actualizadas
             colonia.construirSoluciones(envios, capVuelos, capAlmacenes);
-            evaluarColonia(colonia, mapaAeropuertos, capVuelos);
+            evaluarColonia(colonia, mapaAeropuertos, capVuelos, capAlmacenes);
  
             // Paso 4 — Actualizar mejor global si hay mejora
             Hormiga mejorActual = colonia.getMejorHormiga();
@@ -139,10 +139,11 @@ public class AlgoritmoACO {
      */
     private void evaluarColonia(Colonia colonia,
                                  Map<String, Aeropuerto> mapaAeropuertos,
-                                 Map<String, Integer> capVuelos) {
+                                 Map<String, Integer> capVuelos,
+                                Map<String, Integer> capAlmacenes) {
         for (Hormiga hormiga : colonia.getHormigas()) {
             Individuo indv = new Individuo(hormiga.getRutas());
-            evaluadorFitness.evaluar(indv, mapaAeropuertos, capVuelos);
+            evaluadorFitness.evaluar(indv, mapaAeropuertos, capVuelos, capAlmacenes);
             hormiga.setFitness(indv.getFitness());
             hormiga.setFeromonaDepositada(indv.getFitness());
         }
