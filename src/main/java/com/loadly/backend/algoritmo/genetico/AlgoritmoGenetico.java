@@ -38,7 +38,7 @@ public class AlgoritmoGenetico {
         poblacion.inicializar(envios, vuelos, mapaAeropuertos, capVuelos, capAlmacenes);
 
         Fitness evaluadorFitness = new Fitness();
-        evaluadorFitness.evaluarPoblacion(poblacion, mapaAeropuertos, capVuelos);
+        evaluadorFitness.evaluarPoblacion(poblacion, mapaAeropuertos, capVuelos, capAlmacenes);
 
         Individuo mejorIndividuo = obtenerMejorIndividuo(poblacion);
 
@@ -74,7 +74,7 @@ public class AlgoritmoGenetico {
             }
 
             poblacion.setIndividuos(nuevaGeneracion);
-            evaluadorFitness.evaluarPoblacion(poblacion, mapaAeropuertos, capVuelos);
+            evaluadorFitness.evaluarPoblacion(poblacion, mapaAeropuertos, capVuelos, capAlmacenes);
 
             Individuo mejorActual = obtenerMejorIndividuo(poblacion);
             if (mejorActual.getFitness() > mejorIndividuo.getFitness()) {
