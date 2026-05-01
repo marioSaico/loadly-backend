@@ -78,9 +78,10 @@ public class DataService {
     // 1. GESTIÓN DE ENVÍOS (Backlog)
     // =========================================================================
  
-    public List<Envio> obtenerEnviosPendientes(String fechaHoraLimite) {
+    public List<Envio> obtenerEnviosPendientes(String inicioEscenario, String fechaHoraLimite) {
         List<Envio> enviosRecienLlegados = envioLoader.cargarPendientes(
             "src/main/resources/data/envios",
+            inicioEscenario,
             fechaHoraLimite,
             this.aeropuertos
         );
