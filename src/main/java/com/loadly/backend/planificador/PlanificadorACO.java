@@ -33,14 +33,14 @@ public class PlanificadorACO {
      * @param tiempoLimiteMs  Tiempo máximo de ejecución del ACO en ms (= Ta × 1000).
      * @return Mejor plan encontrado como Individuo, o null si no hay envíos pendientes.
      */
-    public Individuo planificar(String fechaHoraLimite, int numHormigas, long tiempoLimiteMs) {
+    public Individuo planificar(String inicioEscenario, String fechaHoraLimite, int numHormigas, long tiempoLimiteMs) {
  
         // 1. Datos estáticos
         Map<String, Aeropuerto>      mapaAeropuertos     = dataService.getMapaAeropuertos();
         Map<String, List<PlanVuelo>> mapaVuelosPorOrigen = dataService.getMapaVuelosPorOrigen();
  
         // 2. Envíos pendientes (nuevos + backlog)
-        List<Envio> enviosPendientes = dataService.obtenerEnviosPendientes(fechaHoraLimite);
+        List<Envio> enviosPendientes = dataService.obtenerEnviosPendientes(inicioEscenario, fechaHoraLimite);
         if (enviosPendientes.isEmpty()) {
             return null; // El Main interpreta null como "sin envíos en esta ventana"
         }

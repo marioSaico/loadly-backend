@@ -28,7 +28,7 @@ public class BackendApplication {
 
     @FunctionalInterface
     interface PlanificadorFunc {
-        Individuo planificar(String fechaHoraLimite, int tamano, long tiempoMs);
+        Individuo planificar(String inicioStr, String fechaHoraLimite, int tamano, long tiempoMs);
     }
 
     public static void main(String[] args) {
@@ -42,7 +42,7 @@ public class BackendApplication {
         // ---------------------------------------------------------
         // 1. SELECCIÓN DE ALGORITMO (Comenta el que NO vayas a usar)
         // ---------------------------------------------------------
-        PlanificadorFunc planFunc = (lim, tam, ms) -> planificador.planificar(lim, tam, ms);
+        PlanificadorFunc planFunc = (inicio, lim, tam, ms) -> planificador.planificar(inicio, lim, tam, ms);
         String nombreAlg = "GA";
 
         // PlanificadorFunc planFunc = (lim, tam, ms) -> planificadorACO.planificar(lim, tam, ms);
@@ -51,8 +51,8 @@ public class BackendApplication {
         // ---------------------------------------------------------
         // 2. SELECCIÓN DE ESCENARIO (Descomenta SOLO 1 a la vez)
         // ---------------------------------------------------------
-        //ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260102-00-00", 5, 60, 1, 5, nombreAlg, planFunc, dataService);
-        ejecutarEscenario("PERIODO", "20260101-00-00", "20260106-00-00", 25, 10, 5, 5, nombreAlg, planFunc, dataService);
+        //ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260102-00-00", 60, 60*24, 1, 5, nombreAlg, planFunc, dataService);
+        ejecutarEscenario("PERIODO", "20271201-00-00", "20271202-00-00", 25, 10, 6, 10, nombreAlg, planFunc, dataService);
         // ejecutarEscenario("COLAPSO", "20260101-00-00", "20260106-00-00", 45, 10, 7, 100, nombreAlg, planFunc, dataService);
     }
 
@@ -88,7 +88,7 @@ public class BackendApplication {
             System.out.println("\n>>> [RELOJ: " + relojSimulado.format(FMT_LOG) + "] Planificando envios hasta " + limiteLecturaDatos.format(FMT_LOG));
 
             dataService.procesarEventosDelReloj(relojActualStr);
-            Individuo resultado = planFunc.planificar(limiteLecturaStr, tamano, tiempoLimiteMs);
+            Individuo resultado = planFunc.planificar(inicioStr, limiteLecturaStr, tamano, tiempoLimiteMs);
 
             if (resultado != null) {
                 ResultadoColapso colapso = detectarColapso(resultado, dataService, relojSimulado, timelineAlmacenesGlobal);

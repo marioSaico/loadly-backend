@@ -23,7 +23,7 @@ public class Planificador {
     /**
      * Ejecuta una planificación con los envíos pendientes hasta la fechaHoraLimite dada.
      */
-    public Individuo planificar(String fechaHoraLimite, int tamanoPoblacion, long tiempoLimiteMs) {
+    public Individuo planificar(String inicioEscenario, String fechaHoraLimite, int tamanoPoblacion, long tiempoLimiteMs) {
 
         // 1. Obtener datos estáticos
         List<PlanVuelo> vuelos = dataService.getVuelos();
@@ -31,7 +31,7 @@ public class Planificador {
         Map<String, List<PlanVuelo>> mapaVuelosPorOrigen = dataService.getMapaVuelosPorOrigen();            
 
         // 2. Obtener envíos pendientes (Nuevos + Rezagados del backlog)
-        List<Envio> enviosPendientes = dataService.obtenerEnviosPendientes(fechaHoraLimite);
+        List<Envio> enviosPendientes = dataService.obtenerEnviosPendientes(inicioEscenario, fechaHoraLimite);
 
         if (enviosPendientes.isEmpty()) {
             return null; // El Main interpretará esto como "No hay pedidos nuevos en esta ventana"

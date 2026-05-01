@@ -25,25 +25,26 @@ public class EnvioLoader {
     // Clave: Nombre del archivo, Valor: Número de línea donde nos detuvimos la última vez
     private final Map<String, Integer> cursorLineasPorArchivo = new HashMap<>();
 
-    public List<Envio> cargarPendientes(String rutaCarpeta, String fechaHoraLimiteStr, List<Aeropuerto> aeropuertos) {
+    public List<Envio> cargarPendientes(String rutaCarpeta, String fechaInicioStr, String fechaHoraLimiteStr, List<Aeropuerto> aeropuertos) {
         List<Envio> enviosPendientes = new ArrayList<>();
         File carpeta = new File(rutaCarpeta);
 
         Map<String, Integer> mapaGmt = aeropuertos.stream()
                 .collect(Collectors.toMap(Aeropuerto::getCodigo, Aeropuerto::getGmt));
 
-        String[] limitePartes = fechaHoraLimiteStr.split("-");
         DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("yyyyMMdd");
-        LocalDate limiteDate = LocalDate.parse(limitePartes[0], dateFmt);
-        int limiteHora = Integer.parseInt(limitePartes[1]);
-        int limiteMin = Integer.parseInt(limitePartes[2]);
         
-        LocalDateTime relojGlobalGMT = LocalDateTime.of(limiteDate, LocalTime.of(limiteHora, limiteMin));
+        // --- PARSEO DEL LÍMITE ---
+        String[] limitePartes = fechaHoraLimiteStr.split("-");
+        LocalDate limiteDate = LocalDate.parse(limitePartes[0], dateFmt);
+        LocalDateTime relojGlobalGMT = LocalDateTime.of(limiteDate, LocalTime.of(Integer.parseInt(limitePartes[1]), Integer.parseInt(limitePartes[2])));
 
-        File[] archivos = carpeta.listFiles(
-            (dir, nombre) -> nombre.startsWith("_envios_") && nombre.endsWith("_.txt")
-        );
+        // --- PARSEO DEL INICIO (NUEVO) ---
+        String[] inicioPartes = fechaInicioStr.split("-");
+        LocalDate inicioDate = LocalDate.parse(inicioPartes[0], dateFmt);
+        LocalDateTime relojInicioGMT = LocalDateTime.of(inicioDate, LocalTime.of(Integer.parseInt(inicioPartes[1]), Integer.parseInt(inicioPartes[2])));
 
+        File[] archivos = carpeta.listFiles((dir, nombre) -> nombre.startsWith("_envios_") && nombre.endsWith("_.txt"));
         if (archivos == null) return enviosPendientes;
 
         for (File archivo : archivos) {
@@ -51,7 +52,6 @@ public class EnvioLoader {
             String codigoOrigen = nombreArchivo.replace("_envios_", "").replace("_.txt", "");
             int gmtOrigen = mapaGmt.getOrDefault(codigoOrigen, 0);
 
-            // 🚀 Recuperamos la línea en la que nos quedamos la última vez (por defecto 0)
             int lineaInicio = cursorLineasPorArchivo.getOrDefault(nombreArchivo, 0);
             int lineasLeidasEnEstaRonda = 0;
 
@@ -62,28 +62,31 @@ public class EnvioLoader {
                 while ((linea = br.readLine()) != null) {
                     numeroLineaActual++;
 
-                    // 🚀 Saltamos las líneas que ya procesamos en intervalos de tiempo anteriores
                     if (numeroLineaActual <= lineaInicio) {
                         continue;
                     }
 
                     linea = linea.trim();
                     if (linea.isEmpty()) {
-                        lineasLeidasEnEstaRonda++; // Contamos las vacías también para no volver a leerlas
+                        lineasLeidasEnEstaRonda++;
                         continue;
                     }
 
                     String[] campos = linea.split("-");
-                    
                     LocalDate fechaLocal = LocalDate.parse(campos[1], dateFmt);
-                    int horaLocal = Integer.parseInt(campos[2]);
-                    int minLocal = Integer.parseInt(campos[3]);
-                    LocalDateTime tiempoLocal = LocalDateTime.of(fechaLocal, LocalTime.of(horaLocal, minLocal));
+                    LocalDateTime tiempoLocal = LocalDateTime.of(fechaLocal, LocalTime.of(Integer.parseInt(campos[2]), Integer.parseInt(campos[3])));
                     LocalDateTime tiempoGMT = tiempoLocal.minusHours(gmtOrigen);
 
-                    //  LÓGICA DE FRENO: Si encontramos un envío del futuro, paramos de leer este archivo
+                    // 🚀 LÓGICA DE DESCARTAR BASURA ANTIGUA: 
+                    // Si el paquete es de 2026 y el escenario arranca en 2027, lo saltamos pero el cursor avanza
+                    if (tiempoGMT.isBefore(relojInicioGMT)) {
+                        lineasLeidasEnEstaRonda++;
+                        continue; 
+                    }
+
+                    // 🚀 LÓGICA DE FRENO: Si es del futuro respecto a nuestro salto actual (Sa), paramos
                     if (tiempoGMT.isAfter(relojGlobalGMT) || tiempoGMT.isEqual(relojGlobalGMT)) {
-                        break; // Salimos del while de lectura de este archivo en particular
+                        break; 
                     }
 
                     Envio envio = new Envio();
@@ -101,21 +104,20 @@ public class EnvioLoader {
                     lineasLeidasEnEstaRonda++;
                 }
                 
-                //  Guardamos en la libreta hasta qué línea avanzamos para el siguiente salto de reloj
                 cursorLineasPorArchivo.put(nombreArchivo, lineaInicio + lineasLeidasEnEstaRonda);
 
             } catch (Exception e) {
                 System.err.println("Error leyendo " + archivo.getName() + ": " + e.getMessage());
             }
         }
-        // Al final de cargarPendientes, antes del return:
+        
         enviosPendientes.sort(Comparator.comparing(envio -> {
             LocalDate fecha = LocalDate.parse(envio.getFechaRegistro(), dateFmt);
-            LocalDateTime tiempoLocal = LocalDateTime.of(fecha, 
-                LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro()));
+            LocalDateTime tiempoLocal = LocalDateTime.of(fecha, LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro()));
             int gmt = mapaGmt.getOrDefault(envio.getAeropuertoOrigen(), 0);
             return tiempoLocal.minusHours(gmt);
         }));
+        
         return enviosPendientes;
     }
 }
