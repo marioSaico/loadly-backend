@@ -10,6 +10,11 @@ import java.util.Map;
 public class Fitness {
  
     private static final double PENALIZACION_DURA = 999999.0;
+    
+    // Pesos para que la saturación sume lo suficiente al "costoTotal" 
+    // y el algoritmo prefiera vuelos/almacenes vacíos.
+    private static final double PESO_SATURACION_VUELO   = 120.0;
+    private static final double PESO_SATURACION_ALMACEN = 180.0;
  
     public void evaluarPoblacion(
             Poblacion poblacion,
@@ -36,7 +41,8 @@ public class Fitness {
         for (Ruta ruta : individuo.getRutas()) {
             Envio envio = ruta.getEnvio();
  
-            // Caso 1: Sin ruta
+            // [CORREGIDO] Validaciones originales tuyas intactas
+            // Caso 1: Sin ruta o ruta inválida
             if (ruta.getEstado() == EstadoRuta.SIN_RUTA ||
                 ruta.getEstado() == EstadoRuta.INALCANZABLE ||
                 ruta.getVuelos() == null ||
@@ -53,7 +59,6 @@ public class Fitness {
             );
  
             // Acumular maletas en cada vuelo y almacén destino
-            // (cubre escalas intermedias y destino final)
             for (PlanVuelo vuelo : ruta.getVuelos()) {
                 String claveVuelo = vuelo.getOrigen() + "-" +
                                     vuelo.getDestino() + "-" +
@@ -62,7 +67,7 @@ public class Fitness {
                 maletasPorAlmacen.merge(vuelo.getDestino(), envio.getCantidadMaletas(), Integer::sum);
             }
  
-            // Verificar SLA — mapaAeropuertos se usa aquí para saber el continente
+            // Verificar SLA
             Aeropuerto aeropOrigen  = mapaAeropuertos.get(envio.getAeropuertoOrigen());
             Aeropuerto aeropDestino = mapaAeropuertos.get(envio.getAeropuertoDestino());
  
@@ -79,29 +84,41 @@ public class Fitness {
             }
         }
  
-        // ── PARTE 2: Verificar violaciones agregadas ──────────────────────
+        // ── PARTE 2: Verificar violaciones agregadas y Balanceo de Carga ───────
  
         // Verificar capacidad de vuelos con capacidad dinámica actual
         for (Map.Entry<String, Integer> entry : maletasPorVuelo.entrySet()) {
             int capacidadDisponible = capVuelos.getOrDefault(entry.getKey(), Integer.MAX_VALUE);
-            if (entry.getValue() > capacidadDisponible) {
+            int maletasUsadas = entry.getValue();
+
+            if (capacidadDisponible <= 0 || maletasUsadas > capacidadDisponible) {
                 costoTotal += PENALIZACION_DURA;
+            } else {
+                // Agregar penalización por saturación (más lleno = mayor costo)
+                double proporcionUsoVuelo = (double) maletasUsadas / capacidadDisponible;
+                costoTotal += (proporcionUsoVuelo * PESO_SATURACION_VUELO);
             }
         }
  
         // Verificar capacidad de almacenes con capacidad dinámica actual
-        // mapaAeropuertos se usa como fallback si la clave no está en capAlmacenes
         for (Map.Entry<String, Integer> entry : maletasPorAlmacen.entrySet()) {
             Aeropuerto aeropuerto = mapaAeropuertos.get(entry.getKey());
             int capacidadDisponible = capAlmacenes.getOrDefault(
                 entry.getKey(),
                 aeropuerto != null ? aeropuerto.getCapacidad() : Integer.MAX_VALUE
             );
-            if (entry.getValue() > capacidadDisponible) {
+            int maletasUsadas = entry.getValue();
+
+            if (capacidadDisponible <= 0 || maletasUsadas > capacidadDisponible) {
                 costoTotal += PENALIZACION_DURA;
+            } else {
+                // Agregar penalización por saturación en almacén
+                double proporcionUsoAlmacen = (double) maletasUsadas / capacidadDisponible;
+                costoTotal += (proporcionUsoAlmacen * PESO_SATURACION_ALMACEN);
             }
         }
  
-        individuo.setFitness(1.0 / (1.0 + costoTotal));
+        // [CORREGIDO] Inversión matemática original para maximizar el fitness (0 a 1)
+        individuo.setFitness(1000000.0 / (1.0 + costoTotal));
     }
 }
