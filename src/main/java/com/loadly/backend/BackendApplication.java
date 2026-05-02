@@ -51,8 +51,8 @@ public class BackendApplication {
         // ---------------------------------------------------------
         // 2. SELECCIÓN DE ESCENARIO (Descomenta SOLO 1 a la vez)
         // ---------------------------------------------------------
-        //ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260102-00-00", 20, 60*24, 1, 5, nombreAlg, planFunc, dataService);
-        ejecutarEscenario("PERIODO", "20271201-00-00", "20271202-00-00", 25, 10, 6, 10, nombreAlg, planFunc, dataService);
+        //ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260101-21-00", 5, 10, 1, 5, nombreAlg, planFunc, dataService);
+        ejecutarEscenario("PERIODO", "20280125-00-00", "20280126-00-00", 30, 10, 6, 10, nombreAlg, planFunc, dataService);
         // ejecutarEscenario("COLAPSO", "20260101-00-00", "20260106-00-00", 45, 10, 7, 100, nombreAlg, planFunc, dataService);
     }
 
@@ -314,23 +314,21 @@ public class BackendApplication {
         }
         double promAlmacenes = almacenesUsados == 0 ? 0 : sumaPorcentajesAlm / almacenesUsados;
 
-        List<Envio> backlog = dataService.getEnviosEnEspera();
-        if (!backlog.isEmpty() && (colapso == null || !colapso.hayColapso())) {
-            System.out.println("\n" + "=".repeat(100));
-            System.out.println("   ENVÍOS PENDIENTES (EN ESPERA EN ALMACÉN PARA SIGUIENTES TURNOS)");
-            System.out.println("-".repeat(100));
-            for (Envio e : backlog) {
-                System.out.printf(" %-12s | %-7d | %-18s | [EN ALMACÉN: %s]%n",
-                        e.getIdEnvio(), e.getCantidadMaletas(),
-                        e.getAeropuertoOrigen() + "->" + e.getAeropuertoDestino(), e.getAeropuertoOrigen());
-            }
+        int enviosNoPlanificados = 0;
+        int maletasNoPlanificadas = 0;
+        if (colapso != null && colapso.hayColapso()) {
+            enviosNoPlanificados = dataService.getEnviosEnEspera().size();
+            maletasNoPlanificadas = dataService.getEnviosEnEspera().stream().mapToInt(Envio::getCantidadMaletas).sum();
         }
 
         System.out.println("\n" + "=".repeat(80));
         System.out.println(" ESTADÍSTICAS FINALES DEL ESCENARIO");
         System.out.println(" - Envíos procesados exitosamente: " + rutasHistorico.size());
-        System.out.println(" - Envíos en espera (Backlog):     " + backlog.size());
         System.out.println(" - Total de maletas planificadas:  " + totalMaletasPlanificadas);
+        if (colapso != null && colapso.hayColapso()) {
+            System.out.println(" - Envíos NO planificados (Fallo): " + enviosNoPlanificados);
+            System.out.println(" - Maletas NO planificadas:        " + maletasNoPlanificadas);
+        }
         System.out.printf(" - Consumo prom. del SLA:          %.2f%%%n", promConsumoSLA);
         System.out.printf(" - Ocupación prom. Vuelos Usados:  %.2f%%%n", promVuelos);
         System.out.printf(" - Ocupación prom. de Almacenes:   %.2f%%%n", promAlmacenes);
@@ -386,17 +384,29 @@ public class BackendApplication {
         for (Ruta r : res.getRutas()) {
             Envio env = r.getEnvio();
             if (r.getEstado() == EstadoRuta.INALCANZABLE) {
-                // No retornamos inmediatamente: contabilizamos y seguimos analizando
-                contadorInalcanzables++;
-                if (primeraInalcanzableId == null) primeraInalcanzableId = env.getIdEnvio();
-                continue;
-            } else if (r.getEstado() == EstadoRuta.PLANIFICADA) {
+                rc.topologico = true; rc.idEnvioCausante = env.getIdEnvio();
+                rc.rutaCausante = env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino(); // <-- NUEVO
+                rc.maletasCausantes = env.getCantidadMaletas(); // <-- NUEVO
+                rc.detalle = "No existe conexión física o vuelos factibles para llegar de " + env.getAeropuertoOrigen() + " a " + env.getAeropuertoDestino();
+                return rc;
+            } 
+            else if (r.getEstado() == EstadoRuta.SIN_RUTA) {
+                rc.porRutaNoEncontrada = true; 
+                rc.idEnvioCausante = env.getIdEnvio();
+                rc.rutaCausante = env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino(); // <-- NUEVO
+                rc.maletasCausantes = env.getCantidadMaletas(); // <-- NUEVO
+                rc.detalle = "No se encontró una solución que respete los límites de tiempo y capacidad.";
+                return rc;
+            }
+            else if (r.getEstado() == EstadoRuta.PLANIFICADA) {
                 Aeropuerto o = ds.getMapaAeropuertos().get(env.getAeropuertoOrigen());
                 Aeropuerto d = ds.getMapaAeropuertos().get(env.getAeropuertoDestino());
                 long sla = (o != null && d != null && o.getContinente().equals(d.getContinente())) ? 24 : 48;
                 
                 if (r.getTiempoTotalMinutos() > sla * 60) {
                     rc.porSLA = true; rc.idEnvioCausante = env.getIdEnvio();
+                    rc.rutaCausante = env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino(); // <-- NUEVO
+                rc.maletasCausantes = env.getCantidadMaletas(); // <-- NUEVO
                     rc.detalle = String.format("El tiempo calculado (%dh %dm) excede el SLA de %dh", r.getTiempoTotalMinutos()/60, r.getTiempoTotalMinutos()%60, sla);
                     return rc;
                 }
@@ -407,6 +417,8 @@ public class BackendApplication {
                         ocupacionVuelosActuales.put(key, nuevaOc);
                         if (nuevaOc > v.getCapacidad()) {
                             rc.porEspacioVuelo = true; rc.idEnvioCausante = env.getIdEnvio();
+                            rc.rutaCausante = env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino(); // <-- NUEVO
+                            rc.maletasCausantes = env.getCantidadMaletas(); // <-- NUEVO
                             rc.detalle = String.format("El Vuelo %s->%s ha superado su capacidad física. Requerido: %d | Máximo: %d", v.getOrigen(), v.getDestino(), nuevaOc, v.getCapacidad());
                             return rc;
                         }
@@ -435,38 +447,14 @@ public class BackendApplication {
             tlForense.put(entry.getKey(), lista);
         }
 
-        // [DEBUG] Log de envíos en backlog en el momento del colapso
-        System.out.println("\n[DEBUG BACKLOG EN COLAPSO - Reloj: " + reloj.format(FMT_LOG) + "]");
-        for (Envio env : ds.getEnviosEnEspera()) {
-            Aeropuerto o = ds.getMapaAeropuertos().get(env.getAeropuertoOrigen());
-            Aeropuerto d = ds.getMapaAeropuertos().get(env.getAeropuertoDestino());
-            long sla = (o != null && d != null && o.getContinente().equals(d.getContinente())) ? 24 : 48;
-            
-            LocalDateTime regGMT = LocalDateTime.of(LocalDate.parse(env.getFechaRegistro(), FMT_FECHA), 
-                    LocalTime.of(env.getHoraRegistro(), env.getMinutoRegistro()))
-                    .minusHours(o != null ? o.getGmt() : 0);
-            
-            long horasEspera = ChronoUnit.HOURS.between(regGMT, reloj);
-            
-            System.out.printf("[BACKLOG] ID: %s | origen: %s -> dest: %s | registrado: %s | horas esperando: %d | SLA: %d%n",
-                    env.getIdEnvio(), env.getAeropuertoOrigen(), env.getAeropuertoDestino(), regGMT, horasEspera, sla);
-            
-            if (horasEspera > sla) {
-                rc.porSLA = true; 
-                rc.idEnvioCausante = env.getIdEnvio();
-                rc.detalle = String.format("El envío expiró su SLA (%dh) mientras esperaba inactivo. Horas reales esperando: %d", sla, horasEspera);
-                return rc;
-            }
-            
-            tlForense.computeIfAbsent(o.getCodigo(), k -> new ArrayList<>()).add(new EventoForense(regGMT.toEpochSecond(ZoneOffset.UTC)/60, env.getCantidadMaletas(), env.getIdEnvio()));
-        }
-
         for (Ruta r : res.getRutas()) {
             if (r.getEstado() == EstadoRuta.PLANIFICADA && r.getVuelos() != null) {
                 Envio env = r.getEnvio();
                 Aeropuerto o = ds.getMapaAeropuertos().get(env.getAeropuertoOrigen());
                 LocalDateTime cursor = LocalDateTime.of(LocalDate.parse(env.getFechaRegistro(), FMT_FECHA), LocalTime.of(env.getHoraRegistro(), env.getMinutoRegistro())).minusHours(o.getGmt());
                 
+                //tlForense.computeIfAbsent(o.getCodigo(), k -> new ArrayList<>()).add(new EventoForense(cursor.toEpochSecond(ZoneOffset.UTC)/60, env.getCantidadMaletas(), env.getIdEnvio()));
+
                 for (PlanVuelo v : r.getVuelos()) {
                     int gmtO = ds.getMapaAeropuertos().get(v.getOrigen()).getGmt();
                     int gmtD = ds.getMapaAeropuertos().get(v.getDestino()).getGmt();
@@ -508,24 +496,29 @@ public class BackendApplication {
 
     private static void imprimirAlertas(ResultadoColapso rc, LocalDateTime reloj) {
         System.out.println("\n    " + "!".repeat(70));
-        System.out.println("    [!] ¡COLAPSO DETECTADO EN EL ENVÍO: " + rc.idEnvioCausante + "!");
+        System.out.println("    [!] ¡COLAPSO DETECTADO EN EL SISTEMA!");
         System.out.println("    [!] MOMENTO DEL SISTEMA: " + reloj.format(FMT_LOG));
         System.out.println("    [!] TIPO DE FALLO:       " + rc.getTipoError());
-        if (rc.ubicacionConflicto != null) System.out.println("    [!] LUGAR DEL CONFLICTO: " + rc.ubicacionConflicto);
+        System.out.println("    [!] ENVÍO CAUSANTE:      " + rc.idEnvioCausante + " | RUTA: " + rc.rutaCausante + " | MALETAS: " + rc.maletasCausantes);
+        if (rc.ubicacionConflicto != null) System.out.println("    [!] LUGAR CONFLICTO:     " + rc.ubicacionConflicto);
         System.out.println("    [!] DETALLE TÉCNICO:     " + rc.detalle);
         System.out.println("    " + "!".repeat(70) + "\n");
     }
 
     static class ResultadoColapso {
         boolean topologico = false, porSLA = false, porEspacioAlmacen = false, porEspacioVuelo = false;
+        boolean porRutaNoEncontrada = false;
         String idEnvioCausante = "N/A";
+        String rutaCausante = "N/A";
+        int maletasCausantes = 0;
         String ubicacionConflicto = null;
         String detalle = "";
 
-        boolean hayColapso() { return topologico || porSLA || porEspacioAlmacen || porEspacioVuelo; }
+        boolean hayColapso() { return topologico || porSLA || porEspacioAlmacen || porEspacioVuelo || porRutaNoEncontrada; }
 
         String getTipoError() {
             if (topologico) return "ERROR TOPOLÓGICO (SIN RUTA FACTIBLE)";
+            if (porRutaNoEncontrada) return "ERROR DE OPTIMIZACIÓN (NO SE PUDO ASIGNAR RUTA)";
             if (porSLA) return "INCUMPLIMIENTO DE SLA (TIEMPO EXCEDIDO)";
             if (porEspacioAlmacen) return "EXCESO DE CAPACIDAD EN ALMACÉN";
             if (porEspacioVuelo) return "EXCESO DE CAPACIDAD EN VUELO";
