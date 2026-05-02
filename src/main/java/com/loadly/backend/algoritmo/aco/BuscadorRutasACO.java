@@ -17,7 +17,7 @@ public class BuscadorRutasACO {
     private static final int TIEMPO_RECOJO_DESTINO = 10;
     private static final int MAX_ESCALAS           = 6;
     private static final int MAX_INTENTOS = 30;
-    private static final int FALLBACK_ASTAR_UMBRAL = 10; // intentar A* tras N intentos fallidos
+    private static final int FALLBACK_ASTAR_UMBRAL = 4; // intentar A* mucho antes si el modo estocástico no progresa
 
     // ---------- Parámetros de la fórmula ACO ----------
     private static final double ALFA = 1.0;
@@ -285,6 +285,7 @@ public class BuscadorRutasACO {
 
         double[] pesos = new double[candidatos.size()];
         double   suma  = 0.0;
+        double   mejorPeso = -1.0;
 
         for (int i = 0; i < candidatos.size(); i++) {
             PlanVuelo v = candidatos.get(i);
@@ -300,6 +301,18 @@ public class BuscadorRutasACO {
 
             pesos[i] = tau * eta * factorCap * factorHub;
             suma     += pesos[i];
+
+            if (pesos[i] > mejorPeso) {
+                mejorPeso = pesos[i];
+            }
+        }
+
+        if (candidatos.size() <= 2 || (suma > 0.0 && (mejorPeso / suma) >= 0.60)) {
+            for (int i = 0; i < pesos.length; i++) {
+                if (pesos[i] == mejorPeso) {
+                    return i;
+                }
+            }
         }
 
         if (suma <= 0.0) {

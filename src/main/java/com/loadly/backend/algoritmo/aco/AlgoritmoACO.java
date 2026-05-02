@@ -96,7 +96,7 @@ public class AlgoritmoACO {
         // --- Construcción inicial ---
         // Primera iteración: feromonas iguales → selección guiada principalmente por heurística.
         colonia.construirSoluciones(enviosPrioritarios, capVuelos, capAlmacenes);
-        evaluarColonia(colonia, mapaAeropuertos, capVuelos, capAlmacenes);
+        evaluarColonia(colonia, mapaAeropuertos, capVuelosSnapshot, capAlmacenesSnapshot);
  
         Hormiga mejorHormiga = seleccionarMejorHormiga(colonia.getHormigas());
         Hormiga mejorGlobal  = copiarHormiga(mejorHormiga);
@@ -123,9 +123,9 @@ public class AlgoritmoACO {
             }
  
             // Paso 3 — Construcción: nuevas soluciones guiadas por feromonas actualizadas
-            List<Envio> enviosIteracion = priorizarPorRutasPendientes(mejorGlobal, enviosPrioritarios);
+            List<Envio> enviosIteracion = priorizarPorRutasPendientes(mejorGlobal, enviosPrioritarios, iteracionesTotal);
             colonia.construirSoluciones(enviosIteracion, capVuelos, capAlmacenes);
-            evaluarColonia(colonia, mapaAeropuertos, capVuelos, capAlmacenes);
+            evaluarColonia(colonia, mapaAeropuertos, capVuelosSnapshot, capAlmacenesSnapshot);
  
             // Paso 4 — Actualizar mejor global si hay mejora
             Hormiga mejorActual = seleccionarMejorHormiga(colonia.getHormigas());
@@ -186,16 +186,14 @@ public class AlgoritmoACO {
                              Map<String, Aeropuerto> mapaAeropuertos,
                              Map<String, Integer> capVuelos,
                              Map<String, Integer> capAlmacenes) {
-    for (Hormiga hormiga : colonia.getHormigas()) {
-        Individuo indv = new Individuo(hormiga.getRutas());
-        // CRÍTICO: pasar copias para que Fitness.evaluar() no mute los mapas reales
-        Map<String, Integer> capVuelosCopia    = new HashMap<>(capVuelos);
-        Map<String, Integer> capAlmacenesCopia = new HashMap<>(capAlmacenes);
-        evaluadorFitness.evaluar(indv, mapaAeropuertos, capVuelosCopia, capAlmacenesCopia);
-        hormiga.setFitness(indv.getFitness());
-        hormiga.setFeromonaDepositada(indv.getFitness());
+        for (Hormiga hormiga : colonia.getHormigas()) {
+            Individuo indv = new Individuo(hormiga.getRutas());
+            // Fitness solo lee las capacidades; reutilizar las snapshots evita copiar mapas por hormiga.
+            evaluadorFitness.evaluar(indv, mapaAeropuertos, capVuelos, capAlmacenes);
+            hormiga.setFitness(indv.getFitness());
+            hormiga.setFeromonaDepositada(indv.getFitness());
+        }
     }
-}
  
     /**
      * Crea una copia de una hormiga para preservar el mejor global entre iteraciones.
@@ -356,24 +354,37 @@ public class AlgoritmoACO {
 
         List<EnvioConPrioridad> priorizados = new ArrayList<>();
         for (Envio envio : envios) {
+            int salidasOrigen = salidasPorAeropuerto.getOrDefault(envio.getAeropuertoOrigen(), 0);
+            int entradasDestino = entradasPorAeropuerto.getOrDefault(envio.getAeropuertoDestino(), 0);
+
+            double dificultadHeuristica = calcularDificultadHeuristica(
+                envio,
+                salidasOrigen,
+                entradasDestino);
+
+            double dificultad;
+            if (dificultadHeuristica >= 500.0) {
             Map<String, Integer> capVuelosCopia = new HashMap<>(capVuelos);
             Map<String, Integer> capAlmacenesCopia = new HashMap<>(capAlmacenes);
 
             Ruta estimada = buscador.buscarRuta(
-                    envio,
-                    null,
-                    mapaVuelosPorOrigen,
-                    mapaAeropuertos,
-                    capVuelosCopia,
-                    capAlmacenesCopia,
-                    random,
-                    0.0);
+                envio,
+                null,
+                mapaVuelosPorOrigen,
+                mapaAeropuertos,
+                capVuelosCopia,
+                capAlmacenesCopia,
+                random,
+                0.0);
 
-            double dificultad = calcularDificultadEnvio(
-                    envio,
-                    estimada,
-                    salidasPorAeropuerto.getOrDefault(envio.getAeropuertoOrigen(), 0),
-                    entradasPorAeropuerto.getOrDefault(envio.getAeropuertoDestino(), 0));
+            dificultad = calcularDificultadEnvio(
+                envio,
+                estimada,
+                salidasOrigen,
+                entradasDestino);
+            } else {
+            dificultad = dificultadHeuristica;
+            }
 
             priorizados.add(new EnvioConPrioridad(envio, dificultad));
         }
@@ -391,7 +402,7 @@ public class AlgoritmoACO {
                                            Ruta estimada,
                                            int salidasOrigen,
                                            int entradasDestino) {
-        double score = 0.0;
+        double score = calcularDificultadHeuristica(envio, salidasOrigen, entradasDestino);
 
         // Si A* no encuentra camino, este envío debe ir primero.
         if (estimada == null || estimada.getEstado() != EstadoRuta.PLANIFICADA) {
@@ -408,6 +419,16 @@ public class AlgoritmoACO {
         // Cargas más grandes consumen más capacidad y conviene resolverlas antes.
         score += envio.getCantidadMaletas() * 25.0;
 
+        return score;
+    }
+
+    private double calcularDificultadHeuristica(Envio envio,
+                                                int salidasOrigen,
+                                                int entradasDestino) {
+        double score = 0.0;
+        score += Math.max(0, 15 - salidasOrigen) * 80.0;
+        score += Math.max(0, 15 - entradasDestino) * 60.0;
+        score += envio.getCantidadMaletas() * 25.0;
         return score;
     }
 
@@ -452,9 +473,9 @@ public class AlgoritmoACO {
         }
     }
 
-    private List<Envio> priorizarPorRutasPendientes(Hormiga mejorGlobal, List<Envio> base) {
+    private List<Envio> priorizarPorRutasPendientes(Hormiga mejorGlobal, List<Envio> base, int iteracion) {
         if (mejorGlobal == null || mejorGlobal.getRutas() == null || mejorGlobal.getRutas().isEmpty()) {
-            return base;
+            return diversificarOrden(base, iteracion);
         }
 
         Set<String> idsPendientes = new HashSet<>();
@@ -465,21 +486,32 @@ public class AlgoritmoACO {
         }
 
         if (idsPendientes.isEmpty()) {
-            return base;
+            return diversificarOrden(base, iteracion);
         }
 
-        List<Envio> resultado = new ArrayList<>(base.size());
+        List<Envio> pendientes = new ArrayList<>();
+        List<Envio> restantes = new ArrayList<>();
         for (Envio e : base) {
             if (idsPendientes.contains(e.getIdEnvio())) {
-                resultado.add(e);
+                pendientes.add(e);
+            } else {
+                restantes.add(e);
             }
         }
-        for (Envio e : base) {
-            if (!idsPendientes.contains(e.getIdEnvio())) {
-                resultado.add(e);
-            }
-        }
+
+        Collections.shuffle(pendientes, new Random(97L + iteracion));
+        Collections.shuffle(restantes, new Random(197L + iteracion));
+
+        List<Envio> resultado = new ArrayList<>(base.size());
+        resultado.addAll(pendientes);
+        resultado.addAll(restantes);
         return resultado;
+    }
+
+    private List<Envio> diversificarOrden(List<Envio> base, int iteracion) {
+        List<Envio> copia = new ArrayList<>(base);
+        Collections.shuffle(copia, new Random(313L + iteracion));
+        return copia;
     }
 
     private Hormiga seleccionarMejorHormiga(List<Hormiga> hormigas) {

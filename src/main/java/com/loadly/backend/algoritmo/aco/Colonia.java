@@ -70,9 +70,13 @@ public class Colonia {
     /**
      * Hace que todas las hormigas construyan su solución de forma independiente.
      *
-     * Cada hormiga recibe capacidades CLONADAS para explorar su propio espacio
-     * sin interferir con las demás. BuscadorRutasACO consulta el FeromenaGrafo
-     * (solo lectura) para hacer la selección probabilística en cada paso.
+     * Cada hormiga recibe:
+     *   1. Capacidades CLONADAS para explorar su propio espacio.
+     *   2. Un ORDEN ALEATORIO DE ENVÍOS para que explores diferentes prioritizaciones
+     *      (emulando cómo el GA explora múltiples asignaciones/ordenamientos).
+     *
+     * BuscadorRutasACO consulta el FeromenaGrafo (solo lectura) para hacer la
+     * selección probabilística en cada paso.
      *
      * Este método se llama: una vez al inicio, y luego en cada iteración del bucle.
      *
@@ -84,18 +88,29 @@ public class Colonia {
             List<Envio> envios,
             Map<String, Integer> capVuelos,
             Map<String, Integer> capAlmacenes) {
- 
+
         Random random = new Random();
         hormigas.clear(); // limpiar la generación anterior
- 
+
         for (int i = 0; i < numHormigas; i++) {
- 
+
             // Clonar capacidades: cada hormiga trabaja sobre su propia copia
             Map<String, Integer> capVuelosClonada    = new HashMap<>(capVuelos);
             Map<String, Integer> capAlmacenesClonada = new HashMap<>(capAlmacenes);
- 
-            List<Ruta> rutasHormiga = new ArrayList<>();
-            for (Envio envio : envios) {
+
+            // PERMUTACIÓN DINÁMICA: cada hormiga procesa envíos en orden aleatorio
+            // Esto permite explorar diferentes ordenamientos, similar a cómo GA
+            // explora múltiples asignaciones/recombinaciones en paralelo
+            List<Envio> enviospermutados = new ArrayList<>(envios);
+            Collections.shuffle(enviospermutados, random);
+
+            // Mapa para reordenar rutas: de vuelta al orden original
+            List<Ruta> rutasPorEnvio = new ArrayList<>();
+            for (int j = 0; j < envios.size(); j++) {
+                rutasPorEnvio.add(null); // placeholder
+            }
+
+            for (Envio envio : enviospermutados) {
                 Ruta ruta = buscadorRutasACO.construirRuta(
                         envio,
                         mapaVuelosPorOrigen,
@@ -105,10 +120,12 @@ public class Colonia {
                         capAlmacenesClonada,
                         random
                 );
-                rutasHormiga.add(ruta);
+                // Encontrar índice original del envío en la lista original
+                int indiceOriginal = envios.indexOf(envio);
+                rutasPorEnvio.set(indiceOriginal, ruta);
             }
- 
-            hormigas.add(new Hormiga(rutasHormiga));
+
+            hormigas.add(new Hormiga(rutasPorEnvio));
         }
     }
  
