@@ -1,6 +1,7 @@
 package com.loadly.backend.algoritmo.aco;
  
 import com.loadly.backend.algoritmo.genetico.Fitness;
+import com.loadly.backend.algoritmo.genetico.BuscadorRutas;
 import com.loadly.backend.algoritmo.genetico.Individuo;
 import com.loadly.backend.model.*;
 import org.springframework.stereotype.Component;
@@ -73,6 +74,31 @@ public class AlgoritmoACO {
  
         // --- Crear la colonia (inicializa feromonas uniformes en todos los vuelos) ---
         Colonia colonia = new Colonia(numHormigas, mapaAeropuertos, mapaVuelosPorOrigen);
+
+        // --- Siembra inicial de feromonas usando A* para guiar la colonia hacia rutas factibles ---
+        try {
+            System.out.println("    Siembra inicial: ejecutando A* para rutas semilla...");
+            BuscadorRutas buscador = new BuscadorRutas();
+            Random seedRand = new Random(12345);
+            final double SEMILLA_FACTOR = 5.0; // cantidad de feromona adicional por tramo A*
+
+            // Usamos copias de capacidades para que la siembra no consuma cupos reales
+            Map<String, Integer> capVuelosCopia = new HashMap<>(capVuelos);
+            Map<String, Integer> capAlmacenesCopia = new HashMap<>(capAlmacenes);
+
+            for (Envio e : envios) {
+                Ruta r = buscador.buscarRuta(e, null, mapaVuelosPorOrigen, mapaAeropuertos, capVuelosCopia, capAlmacenesCopia, seedRand, 0.0);
+                if (r != null && r.getEstado() == EstadoRuta.PLANIFICADA && r.getVuelos() != null) {
+                    for (PlanVuelo v : r.getVuelos()) {
+                        String clave = v.getOrigen() + "-" + v.getDestino() + "-" + v.getHoraSalida();
+                        colonia.getFeromenaGrafo().aumentarFeromona(clave, SEMILLA_FACTOR);
+                    }
+                }
+            }
+            System.out.println("    Siembra inicial completada.");
+        } catch (Exception ex) {
+            System.out.println("    [WARN] Error en siembra inicial A*: " + ex.getMessage());
+        }
  
         // --- Construcción inicial ---
         // Primera iteración: feromonas iguales → selección guiada principalmente por heurística.

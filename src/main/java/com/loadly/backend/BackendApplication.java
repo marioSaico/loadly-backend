@@ -42,11 +42,11 @@ public class BackendApplication {
         // ---------------------------------------------------------
         // 1. SELECCIÓN DE ALGORITMO (Comenta el que NO vayas a usar)
         // ---------------------------------------------------------
-        PlanificadorFunc planFunc = (inicio, lim, tam, ms) -> planificador.planificar(inicio, lim, tam, ms);
-        String nombreAlg = "GA";
+        //PlanificadorFunc planFunc = (inicio, lim, tam, ms) -> planificador.planificar(inicio, lim, tam, ms);
+        //String nombreAlg = "GA";
 
-        // PlanificadorFunc planFunc = (lim, tam, ms) -> planificadorACO.planificar(lim, tam, ms);
-        // String nombreAlg = "ACO";
+        PlanificadorFunc planFunc = (inicio,lim, tam, ms) -> planificadorACO.planificar(inicio,lim, tam, ms);
+        String nombreAlg = "ACO";
 
         // ---------------------------------------------------------
         // 2. SELECCIÓN DE ESCENARIO (Descomenta SOLO 1 a la vez)
@@ -291,13 +291,18 @@ public class BackendApplication {
     private static ResultadoColapso detectarColapso(Individuo res, DataService ds, LocalDateTime reloj, Map<String, List<long[]>> timelineGlobal) {
         ResultadoColapso rc = new ResultadoColapso();
         Map<String, Integer> ocupacionVuelosActuales = new HashMap<>();
+        // Umbral: porcentaje de rutas INALCANZABLE para declarar colapso topológico
+        final double UMBRAL_INALCANZABLE = 0.10; // 10%
+        int contadorInalcanzables = 0;
+        String primeraInalcanzableId = null;
 
         for (Ruta r : res.getRutas()) {
             Envio env = r.getEnvio();
             if (r.getEstado() == EstadoRuta.INALCANZABLE) {
-                rc.topologico = true; rc.idEnvioCausante = env.getIdEnvio();
-                rc.detalle = "No existe conexión física o vuelos factibles para llegar de " + env.getAeropuertoOrigen() + " a " + env.getAeropuertoDestino();
-                return rc;
+                // No retornamos inmediatamente: contabilizamos y seguimos analizando
+                contadorInalcanzables++;
+                if (primeraInalcanzableId == null) primeraInalcanzableId = env.getIdEnvio();
+                continue;
             } else if (r.getEstado() == EstadoRuta.PLANIFICADA) {
                 Aeropuerto o = ds.getMapaAeropuertos().get(env.getAeropuertoOrigen());
                 Aeropuerto d = ds.getMapaAeropuertos().get(env.getAeropuertoDestino());
@@ -321,6 +326,19 @@ public class BackendApplication {
                     }
                 }
             }
+        }
+
+        // Evaluar umbral de INALCANZABLEs tras analizar todas las rutas planificadas
+        int totalRutas = Math.max(1, res.getRutas().size());
+        if (contadorInalcanzables > 0) {
+            double ratio = ((double) contadorInalcanzables) / ((double) totalRutas);
+            if (ratio >= UMBRAL_INALCANZABLE) {
+                rc.topologico = true;
+                rc.idEnvioCausante = primeraInalcanzableId != null ? primeraInalcanzableId : "N/A";
+                rc.detalle = String.format("%d de %d rutas (%d%%) resultaron INALCANZABLES — umbral %d%% superado.", contadorInalcanzables, totalRutas, (int)(ratio*100), (int)(UMBRAL_INALCANZABLE*100));
+                return rc;
+            }
+            // Si no supera umbral, no se considera colapso topológico: simplemente dejamos pasar
         }
 
         Map<String, List<EventoForense>> tlForense = new HashMap<>();

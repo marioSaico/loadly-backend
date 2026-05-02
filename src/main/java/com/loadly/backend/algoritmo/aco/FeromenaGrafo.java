@@ -130,6 +130,15 @@ public class FeromenaGrafo {
     public void reiniciarFeromonas() {
         feromona.replaceAll((k, v) -> FEROMONA_INICIAL);
     }
+
+    /**
+     * Incrementa la feromona de una clave de vuelo específica.
+     * Usado para siembra inicial basada en rutas A*.
+     */
+    public void aumentarFeromona(String clave, double delta) {
+        double actual = feromona.getOrDefault(clave, FEROMONA_INICIAL);
+        feromona.put(clave, Math.max(FEROMONA_MIN, actual + delta));
+    }
  
     // =========================================================================
     //  MÉTODOS PRIVADOS DE APOYO
