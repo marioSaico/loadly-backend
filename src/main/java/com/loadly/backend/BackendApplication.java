@@ -51,8 +51,8 @@ public class BackendApplication {
         // ---------------------------------------------------------
         // 2. SELECCIÓN DE ESCENARIO (Descomenta SOLO 1 a la vez)
         // ---------------------------------------------------------
-        //ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260102-00-00", 60, 60*24, 1, 5, nombreAlg, planFunc, dataService);
-        ejecutarEscenario("PERIODO", "20271201-00-00", "20271202-00-00", 25, 10, 6, 10, nombreAlg, planFunc, dataService);
+        //ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260102-00-00", 20, 60*24, 1, 5, nombreAlg, planFunc, dataService);
+        ejecutarEscenario("PERIODO", "20280125-00-00", "20280126-00-00", 30, 10, 6, 10, nombreAlg, planFunc, dataService);
         // ejecutarEscenario("COLAPSO", "20260101-00-00", "20260106-00-00", 45, 10, 7, 100, nombreAlg, planFunc, dataService);
     }
 
@@ -110,7 +110,8 @@ public class BackendApplication {
 
         long tiempoEjecucionRealMs = System.currentTimeMillis() - inicioEscenarioMs;
         // [MODIFICADO] Ahora pasamos el DataService completo para imprimir el Backlog
-        imprimirResumenFinal(dataService, colapsoFinal, relojSimulado, tiempoEjecucionRealMs);
+        // Agregamos el timelineAlmacenesGlobal y la fecha de inicio para calcular promedios
+        imprimirResumenFinal(dataService, colapsoFinal, relojSimulado, tiempoEjecucionRealMs, timelineAlmacenesGlobal, LocalDateTime.parse(inicioStr, FMT_INPUT));
     }
 
     private static void imprimirReporteIntervalo(
@@ -170,17 +171,24 @@ public class BackendApplication {
                                             Map<String, List<long[]>> timelineAlmacenes) {
         Envio env = r.getEnvio();
         Aeropuerto origen = dataService.getMapaAeropuertos().get(env.getAeropuertoOrigen());
+        Aeropuerto destino = dataService.getMapaAeropuertos().get(env.getAeropuertoDestino());
+        
         LocalDateTime regGMT = LocalDateTime.of(LocalDate.parse(env.getFechaRegistro(), FMT_FECHA),
                 LocalTime.of(env.getHoraRegistro(), env.getMinutoRegistro())).minusHours(origen.getGmt());
         
-        // Calculamos las horas y minutos de la ruta
         long horasTotales = r.getTiempoTotalMinutos() / 60;
         long minutosRestantes = r.getTiempoTotalMinutos() % 60;
+        long slaHoras = (origen != null && destino != null && origen.getContinente().equals(destino.getContinente())) ? 24 : 48;
 
-        System.out.printf("ENVÍO: %s | %s -> %s | %d maletas%n",
+        // Exactamente tu diseño, pero con ASCII seguro para el Bloc de Notas
+        System.out.println("-----------------------------------------------------------------------------------------");
+        System.out.printf("| ENVÍO: %-10s | %s -> %s | MALETAS: %-40d |%n",
                 env.getIdEnvio(), env.getAeropuertoOrigen(), env.getAeropuertoDestino(), env.getCantidadMaletas());
-        System.out.printf("Registro (GMT): %s | Llegada (GMT): %s | Duración: %dh %02dm%n",
-                regGMT.format(FMT_DISPLAY), regGMT.plusMinutes(r.getTiempoTotalMinutos()).format(FMT_DISPLAY),horasTotales, minutosRestantes);
+        System.out.printf("| REGISTRO: %-16s | LLEGADA: %-46s |%n",
+                regGMT.format(FMT_DISPLAY), regGMT.plusMinutes(r.getTiempoTotalMinutos()).format(FMT_DISPLAY));
+        System.out.printf("| DURACIÓN: %02dh %02dm           | SLA: %dh                                               |%n",
+                horasTotales, minutosRestantes, slaHoras);
+        System.out.println("-----------------------------------------------------------------------------------------");
 
         LocalDateTime cursor = regGMT;
         int paso = 1;
@@ -200,36 +208,112 @@ public class BackendApplication {
             int ocupadoAlm = getOcupacionAlmacen(timelineAlmacenes, v.getOrigen(), despegue);
             String claveV = v.getOrigen() + "-" + v.getDestino() + "-" + v.getHoraSalida();
 
-            System.out.printf("  (%d) %s->%s | Sale GMT: %s | Llega GMT: %s | Vuelo: %d/%d | Almacén %s: %d/%d%n",
+            // Formato exacto para las líneas de vuelo
+            System.out.printf("| (%d) %s->%-4s | Sale: %s | Llega: %s | Vuelo: %3d/%-3d | Almacen %s: %3d/%-3d |%n",
                     paso++, v.getOrigen(), v.getDestino(), despegue.toLocalTime(), llegada.toLocalTime(),
                     ocupacionVuelos.getOrDefault(claveV, 0), v.getCapacidad(), v.getOrigen(), ocupadoAlm, ao.getCapacidad());
             cursor = llegada;
         }
-        System.out.println("-".repeat(70));
+        System.out.println("-----------------------------------------------------------------------------------------\n");
     }
 
     // [MODIFICADO] Ahora incluye la sección de ENVÍOS PENDIENTES (Backlog)
-    private static void imprimirResumenFinal(DataService dataService, ResultadoColapso colapso, LocalDateTime relojParada, long tiempoEjecucionRealMs) {
+    private static void imprimirResumenFinal(DataService dataService, ResultadoColapso colapso, LocalDateTime relojParada, long tiempoEjecucionRealMs, Map<String, List<long[]>> timelineAlmacenes, LocalDateTime relojInicio) {
         List<Ruta> rutasHistorico = dataService.getRutasPlanificadasHistorico();
         
-        System.out.println("\n" + "=".repeat(100));
+        System.out.println("\n" + "=".repeat(120));
         System.out.println("   RESUMEN DEL ESCENARIO - CONSOLIDADO FINAL");
-        System.out.println("=".repeat(100));
-        System.out.printf(" %-12s | %-7s | %-18s | %-10s | %s%n", "ENVÍO", "MALETAS", "RUTA", "TIEMPO", "ITINERARIO");
-        System.out.println("-".repeat(100));
+        System.out.println("=".repeat(120));
+        System.out.printf(" %-12s | %-7s | %-12s | %-10s | %-6s | %-6s | %-9s | %s%n", 
+                          "ENVÍO", "MALETAS", "RUTA", "TIEMPO", "% SLA", "LÍMITE", "ESTADO", "ITINERARIO");
+        System.out.println("-".repeat(120));
 
         int totalMaletasPlanificadas = 0;
+        double sumaConsumoSLA = 0; // Para el promedio global del SLA
+
+        // Variables para Ocupación Promedio Vuelos
+        Map<String, Integer> usoVuelo = new HashMap<>();
+        Map<String, Integer> capVuelo = new HashMap<>();
 
         for (Ruta r : rutasHistorico) {
             totalMaletasPlanificadas += r.getEnvio().getCantidadMaletas();
             String itinerario = r.getVuelos().stream().map(v -> v.getOrigen() + "->" + v.getDestino()).collect(Collectors.joining(", "));
-            System.out.printf(" %-12s | %-7d | %-18s | %dh %02dm | [%s]%n",
-                    r.getEnvio().getIdEnvio(), r.getEnvio().getCantidadMaletas(),
+            
+            Aeropuerto o = dataService.getMapaAeropuertos().get(r.getEnvio().getAeropuertoOrigen());
+            Aeropuerto d = dataService.getMapaAeropuertos().get(r.getEnvio().getAeropuertoDestino());
+            long slaHoras = (o != null && d != null && o.getContinente().equals(d.getContinente())) ? 24 : 48;
+            
+            double consumoSLA = (r.getTiempoTotalMinutos() * 100.0) / (slaHoras * 60);
+            sumaConsumoSLA += consumoSLA; // Acumulamos el % para el promedio final
+            
+            String estadoSLA = (r.getTiempoTotalMinutos() <= (slaHoras * 60)) ? " OK" : " NO";
+
+            System.out.printf(" %-12s | %-7d | %-12s | %2dh %02dm    | %5.1f%% | %2dh    | %-9s | [%s]%n",
+                    r.getEnvio().getIdEnvio(), 
+                    r.getEnvio().getCantidadMaletas(),
                     r.getEnvio().getAeropuertoOrigen() + "->" + r.getEnvio().getAeropuertoDestino(),
-                    r.getTiempoTotalMinutos() / 60, r.getTiempoTotalMinutos() % 60, itinerario);
+                    r.getTiempoTotalMinutos() / 60, r.getTiempoTotalMinutos() % 60, 
+                    consumoSLA,
+                    slaHoras, 
+                    estadoSLA,
+                    itinerario);
+
+            // Registro de uso de vuelos
+            if (r.getVuelos() != null) {
+                for (PlanVuelo v : r.getVuelos()) {
+                    String clave = v.getOrigen() + "-" + v.getDestino() + "-" + v.getHoraSalida();
+                    usoVuelo.put(clave, usoVuelo.getOrDefault(clave, 0) + r.getEnvio().getCantidadMaletas());
+                    capVuelo.put(clave, v.getCapacidad());
+                }
+            }
         }
 
-        // --- IMPRESIÓN DEL BACKLOG ---
+        // --- CÁLCULO DE PROMEDIO PONDERADO DE VUELOS (La idea de tu amigo) ---
+        long totalMaletasEnVuelos = 0;
+        long totalCapacidadDeVuelosUsados = 0;
+        for (String clave : usoVuelo.keySet()) {
+            totalMaletasEnVuelos += usoVuelo.get(clave);
+            totalCapacidadDeVuelosUsados += capVuelo.get(clave);
+        }
+        double promVuelos = totalCapacidadDeVuelosUsados == 0 ? 0 : (totalMaletasEnVuelos * 100.0) / totalCapacidadDeVuelosUsados;
+
+        // --- CÁLCULO DE PROMEDIO DE SLA ---
+        double promConsumoSLA = rutasHistorico.isEmpty() ? 0 : sumaConsumoSLA / rutasHistorico.size();
+
+        // --- CÁLCULO DE PROMEDIO DE ALMACENES (Área bajo la curva / Tiempo) ---
+        double sumaPorcentajesAlm = 0;
+        int almacenesUsados = 0;
+        long inicioMin = relojInicio.toEpochSecond(ZoneOffset.UTC) / 60;
+        long finMin = relojParada.toEpochSecond(ZoneOffset.UTC) / 60;
+        long totalMinutosSimulacion = finMin - inicioMin;
+
+        if (totalMinutosSimulacion > 0) {
+            for (Map.Entry<String, List<long[]>> entry : timelineAlmacenes.entrySet()) {
+                Aeropuerto aero = dataService.getMapaAeropuertos().get(entry.getKey());
+                if (aero == null || aero.getCapacidad() == 0) continue;
+
+                List<long[]> eventos = new ArrayList<>(entry.getValue());
+                eventos.sort(Comparator.comparingLong(a -> a[0])); // Orden cronológico
+
+                long areaMaletaMinutos = 0;
+                long lastTime = inicioMin;
+                int currentOc = 0;
+
+                for (long[] ev : eventos) {
+                    long tiempoEvento = Math.max(inicioMin, Math.min(ev[0], finMin));
+                    areaMaletaMinutos += currentOc * (tiempoEvento - lastTime);
+                    currentOc += (int) ev[1];
+                    lastTime = tiempoEvento;
+                }
+                areaMaletaMinutos += currentOc * (finMin - lastTime);
+
+                double ocupacionPromedioMaletas = (double) areaMaletaMinutos / totalMinutosSimulacion;
+                sumaPorcentajesAlm += (ocupacionPromedioMaletas * 100.0) / aero.getCapacidad();
+                almacenesUsados++;
+            }
+        }
+        double promAlmacenes = almacenesUsados == 0 ? 0 : sumaPorcentajesAlm / almacenesUsados;
+
         List<Envio> backlog = dataService.getEnviosEnEspera();
         if (!backlog.isEmpty() && (colapso == null || !colapso.hayColapso())) {
             System.out.println("\n" + "=".repeat(100));
@@ -247,6 +331,9 @@ public class BackendApplication {
         System.out.println(" - Envíos procesados exitosamente: " + rutasHistorico.size());
         System.out.println(" - Envíos en espera (Backlog):     " + backlog.size());
         System.out.println(" - Total de maletas planificadas:  " + totalMaletasPlanificadas);
+        System.out.printf(" - Consumo prom. del SLA:          %.2f%%%n", promConsumoSLA);
+        System.out.printf(" - Ocupación prom. Vuelos Usados:  %.2f%%%n", promVuelos);
+        System.out.printf(" - Ocupación prom. de Almacenes:   %.2f%%%n", promAlmacenes);
         System.out.printf(" - Tiempo de ejecución real:       %.3f segundos%n", (tiempoEjecucionRealMs / 1000.0));
         
         if (colapso != null && colapso.hayColapso()) {
