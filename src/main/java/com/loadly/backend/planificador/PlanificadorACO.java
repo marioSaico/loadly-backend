@@ -64,6 +64,7 @@ public class PlanificadorACO {
  
         // 5. Confirmar plan y actualizar capacidades (igual que el GA)
         if (mejorPlan != null) {
+            // Cambiar 'inicioEscenario' por 'fechaHoraLimite'
             dataService.confirmarPlanYActualizarCapacidades(mejorPlan, fechaHoraLimite);
         }
  

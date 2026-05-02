@@ -52,7 +52,7 @@ public class BackendApplication {
         // 2. SELECCIÓN DE ESCENARIO (Descomenta SOLO 1 a la vez)
         // ---------------------------------------------------------
         //ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260102-00-00", 60, 60*24, 1, 5, nombreAlg, planFunc, dataService);
-        ejecutarEscenario("PERIODO", "20271201-00-00", "20271202-00-00", 25, 10, 6, 10, nombreAlg, planFunc, dataService);
+        ejecutarEscenario("PERIODO", "20271201-00-00", "20271202-00-00", 25, 10, 6, 50, nombreAlg, planFunc, dataService);
         // ejecutarEscenario("COLAPSO", "20260101-00-00", "20260106-00-00", 45, 10, 7, 100, nombreAlg, planFunc, dataService);
     }
 
@@ -348,18 +348,29 @@ public class BackendApplication {
             tlForense.put(entry.getKey(), lista);
         }
 
+        // [DEBUG] Log de envíos en backlog en el momento del colapso
+        System.out.println("\n[DEBUG BACKLOG EN COLAPSO - Reloj: " + reloj.format(FMT_LOG) + "]");
         for (Envio env : ds.getEnviosEnEspera()) {
             Aeropuerto o = ds.getMapaAeropuertos().get(env.getAeropuertoOrigen());
             Aeropuerto d = ds.getMapaAeropuertos().get(env.getAeropuertoDestino());
             long sla = (o != null && d != null && o.getContinente().equals(d.getContinente())) ? 24 : 48;
             
-            LocalDateTime regGMT = LocalDateTime.of(LocalDate.parse(env.getFechaRegistro(), FMT_FECHA), LocalTime.of(env.getHoraRegistro(), env.getMinutoRegistro())).minusHours(o != null ? o.getGmt() : 0);
+            LocalDateTime regGMT = LocalDateTime.of(LocalDate.parse(env.getFechaRegistro(), FMT_FECHA), 
+                    LocalTime.of(env.getHoraRegistro(), env.getMinutoRegistro()))
+                    .minusHours(o != null ? o.getGmt() : 0);
             
-            if (ChronoUnit.HOURS.between(regGMT, reloj) > sla) {
-                rc.porSLA = true; rc.idEnvioCausante = env.getIdEnvio();
-                rc.detalle = "El envío expiró su SLA (" + sla + "h) mientras esperaba inactivo en el almacén de origen sin vuelos asignados.";
+            long horasEspera = ChronoUnit.HOURS.between(regGMT, reloj);
+            
+            System.out.printf("[BACKLOG] ID: %s | origen: %s -> dest: %s | registrado: %s | horas esperando: %d | SLA: %d%n",
+                    env.getIdEnvio(), env.getAeropuertoOrigen(), env.getAeropuertoDestino(), regGMT, horasEspera, sla);
+            
+            if (horasEspera > sla) {
+                rc.porSLA = true; 
+                rc.idEnvioCausante = env.getIdEnvio();
+                rc.detalle = String.format("El envío expiró su SLA (%dh) mientras esperaba inactivo. Horas reales esperando: %d", sla, horasEspera);
                 return rc;
             }
+            
             tlForense.computeIfAbsent(o.getCodigo(), k -> new ArrayList<>()).add(new EventoForense(regGMT.toEpochSecond(ZoneOffset.UTC)/60, env.getCantidadMaletas(), env.getIdEnvio()));
         }
 
