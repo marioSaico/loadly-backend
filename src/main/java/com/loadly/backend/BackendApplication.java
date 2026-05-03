@@ -52,7 +52,7 @@ public class BackendApplication {
         // 2. SELECCIÓN DE ESCENARIO (Descomenta SOLO 1 a la vez)
         // ---------------------------------------------------------
         //ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260101-21-00", 5, 10, 1, 5, nombreAlg, planFunc, dataService);
-        ejecutarEscenario("PERIODO", "20280125-00-00", "20280126-00-00", 30, 10, 6, 10, nombreAlg, planFunc, dataService);
+        ejecutarEscenario("PERIODO", "20270107-00-00", "20270108-00-00", 30, 10, 6, 10, nombreAlg, planFunc, dataService);
         // ejecutarEscenario("COLAPSO", "20260101-00-00", "20260106-00-00", 45, 10, 7, 100, nombreAlg, planFunc, dataService);
     }
 
@@ -332,6 +332,8 @@ public class BackendApplication {
         System.out.printf(" - Consumo prom. del SLA:          %.2f%%%n", promConsumoSLA);
         System.out.printf(" - Ocupación prom. Vuelos Usados:  %.2f%%%n", promVuelos);
         System.out.printf(" - Ocupación prom. de Almacenes:   %.2f%%%n", promAlmacenes);
+        double FO = (promConsumoSLA*4 + promVuelos*3 + promAlmacenes*3)/10;
+        System.out.printf(" - Funcion Objetivo:               %.2f%%%n", FO);
         System.out.printf(" - Tiempo de ejecución real:       %.3f segundos%n", (tiempoEjecucionRealMs / 1000.0));
         
         if (colapso != null && colapso.hayColapso()) {
