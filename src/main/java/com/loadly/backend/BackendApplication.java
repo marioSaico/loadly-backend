@@ -28,7 +28,7 @@ public class BackendApplication {
 
     @FunctionalInterface
     interface PlanificadorFunc {
-        Individuo planificar(String inicioStr, String fechaHoraLimite, int tamano, long tiempoMs);
+        Individuo planificar(String inicioStr, String fechaHoraLimite, String relojActual, int tamano, long tiempoMs);
     }
 
     public static void main(String[] args) {
@@ -42,17 +42,20 @@ public class BackendApplication {
         // ---------------------------------------------------------
         // 1. SELECCIÓN DE ALGORITMO (Comenta el que NO vayas a usar)
         // ---------------------------------------------------------
-        PlanificadorFunc planFunc = (inicio, lim, tam, ms) -> planificador.planificar(inicio, lim, tam, ms);
-        String nombreAlg = "GA";
+        //PlanificadorFunc planFunc = (inicio, lim, tam, ms) -> planificador.planificar(inicio, lim, tam, ms);
+        //String nombreAlg = "GA";
 
-        // PlanificadorFunc planFunc = (lim, tam, ms) -> planificadorACO.planificar(lim, tam, ms);
-        // String nombreAlg = "ACO";
+        // Alternativa: algoritmo anterior
+        PlanificadorFunc planFunc = (inicio,lim, relojActual, tam, ms) -> planificadorACO.planificar(inicio,lim, relojActual,tam, ms);
+        String nombreAlg = "ACO";
 
         // ---------------------------------------------------------
         // 2. SELECCIÓN DE ESCENARIO (Descomenta SOLO 1 a la vez)
         // ---------------------------------------------------------
         //ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260101-21-00", 5, 10, 1, 5, nombreAlg, planFunc, dataService);
-        ejecutarEscenario("PERIODO", "20270107-00-00", "20270108-00-00", 30, 10, 6, 10, nombreAlg, planFunc, dataService);
+
+        ejecutarEscenario("PERIODO", "20270415-00-00", "20270416-00-00", 30, 10, 6, 10, nombreAlg, planFunc, dataService);
+
         // ejecutarEscenario("COLAPSO", "20260101-00-00", "20260106-00-00", 45, 10, 7, 100, nombreAlg, planFunc, dataService);
     }
 
@@ -88,7 +91,7 @@ public class BackendApplication {
             System.out.println("\n>>> [RELOJ: " + relojSimulado.format(FMT_LOG) + "] Planificando envios hasta " + limiteLecturaDatos.format(FMT_LOG));
 
             dataService.procesarEventosDelReloj(relojActualStr);
-            Individuo resultado = planFunc.planificar(inicioStr, limiteLecturaStr, tamano, tiempoLimiteMs);
+            Individuo resultado = planFunc.planificar(inicioStr, limiteLecturaStr, relojActualStr,tamano, tiempoLimiteMs);
 
             if (resultado != null) {
                 ResultadoColapso colapso = detectarColapso(resultado, dataService, relojSimulado, timelineAlmacenesGlobal);
@@ -378,6 +381,11 @@ public class BackendApplication {
     private static ResultadoColapso detectarColapso(Individuo res, DataService ds, LocalDateTime reloj, Map<String, List<long[]>> timelineGlobal) {
         ResultadoColapso rc = new ResultadoColapso();
         Map<String, Integer> ocupacionVuelosActuales = new HashMap<>();
+        // Umbral: porcentaje de rutas INALCANZABLE para declarar colapso topológico
+        final double UMBRAL_INALCANZABLE = 0.10; // 10%
+        int contadorInalcanzables = 0;
+           int contadorSinRuta = 0;
+           String primeraInalcanzableId = null;
 
         for (Ruta r : res.getRutas()) {
             Envio env = r.getEnvio();
@@ -389,12 +397,11 @@ public class BackendApplication {
                 return rc;
             } 
             else if (r.getEstado() == EstadoRuta.SIN_RUTA) {
-                rc.porRutaNoEncontrada = true; 
-                rc.idEnvioCausante = env.getIdEnvio();
-                rc.rutaCausante = env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino(); // <-- NUEVO
-                rc.maletasCausantes = env.getCantidadMaletas(); // <-- NUEVO
-                rc.detalle = "No se encontró una solución que respete los límites de tiempo y capacidad.";
-                return rc;
+                   // SIN_RUTA es NORMAL cuando la ruta es topológicamente imposible
+                   // NO es un error del algoritmo, es una limitación física de la red
+                   contadorSinRuta++;
+                   System.out.println("[INFO] Envío imposible topológicamente, omitiendo de validación: " + env.getIdEnvio() + " (" + env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino() + ")");
+                   continue; // NO marcar como colapso
             }
             else if (r.getEstado() == EstadoRuta.PLANIFICADA) {
                 Aeropuerto o = ds.getMapaAeropuertos().get(env.getAeropuertoOrigen());
@@ -423,6 +430,19 @@ public class BackendApplication {
                     }
                 }
             }
+        }
+
+        // Evaluar umbral de INALCANZABLEs tras analizar todas las rutas planificadas
+        int totalRutas = Math.max(1, res.getRutas().size());
+        if (contadorInalcanzables > 0) {
+            double ratio = ((double) contadorInalcanzables) / ((double) totalRutas);
+            if (ratio >= UMBRAL_INALCANZABLE) {
+                rc.topologico = true;
+                rc.idEnvioCausante = primeraInalcanzableId != null ? primeraInalcanzableId : "N/A";
+                rc.detalle = String.format("%d de %d rutas (%d%%) resultaron INALCANZABLES — umbral %d%% superado.", contadorInalcanzables, totalRutas, (int)(ratio*100), (int)(UMBRAL_INALCANZABLE*100));
+                return rc;
+            }
+            // Si no supera umbral, no se considera colapso topológico: simplemente dejamos pasar
         }
 
         Map<String, List<EventoForense>> tlForense = new HashMap<>();

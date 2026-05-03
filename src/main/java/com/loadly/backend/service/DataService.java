@@ -163,33 +163,45 @@ public class DataService {
             for (int i = 0; i < n; i++) {
                 PlanVuelo vuelo  = vuelosRuta.get(i);
                 String    claveV = claveVuelo(vuelo);
- 
+
                 // Decrementar capacidad del vuelo
                 int capActualVuelo = capacidadDinamicaVuelos
                         .getOrDefault(claveV, vuelo.getCapacidad());
                 capacidadDinamicaVuelos.put(claveV,
                         capActualVuelo - envio.getCantidadMaletas());
- 
+
                 // RESET_VUELO: el mismo vuelo mañana tiene capacidad fresca.
                 // Se programa 24h después del despegue de hoy.
                 agendaEventos.add(new EventoLogistico(
                         despegues[i].plusHours(24), "RESET_VUELO",
                         claveV,
                         envio.getCantidadMaletas(), vuelo.getCapacidad()));
- 
-                // Decrementar almacén DESTINO del vuelo
-                decrementarAlmacen(vuelo.getDestino(), envio.getCantidadMaletas());
+
+                // IMPORTANTE: No decrementamos el almacén DESTINO ahora.
+                // Ese almacén recibirá espacio CUANDO el envío llegue (evento RECIBE_CARGA).
+                // Así evitamos bloquear capacidad antes de que el envío realmente llegue.
                 int capMaxDestino = capacidadOriginalAlmacen(vuelo.getDestino());
- 
+
                 if (i < n - 1) {
-                    // Almacén INTERMEDIO: libera cuando despega el siguiente vuelo
+                    // Almacén INTERMEDIO: 
+                    // 1. RECIBE_CARGA cuando llega (decrementa capacidad disponible)
+                    // 2. LIBERA_ALMACEN cuando despega el siguiente vuelo (devuelve espacio)
+                    agendaEventos.add(new EventoLogistico(
+                            llegadas[i], "RECIBE_CARGA",
+                            vuelo.getDestino(),
+                            envio.getCantidadMaletas(), capMaxDestino));
                     agendaEventos.add(new EventoLogistico(
                             despegues[i + 1], "LIBERA_ALMACEN",
                             vuelo.getDestino(),
                             envio.getCantidadMaletas(), capMaxDestino));
                 } else {
-                    // Almacén DESTINO FINAL: libera 10 min después de llegar
-                    // (tiempo de recojo por el cliente)
+                    // Almacén DESTINO FINAL:
+                    // 1. RECIBE_CARGA cuando llega (decrementa capacidad disponible)
+                    // 2. LIBERA_ALMACEN 10 min después de llegar (cliente recolecta)
+                    agendaEventos.add(new EventoLogistico(
+                            llegadas[i], "RECIBE_CARGA",
+                            vuelo.getDestino(),
+                            envio.getCantidadMaletas(), capMaxDestino));
                     agendaEventos.add(new EventoLogistico(
                             llegadas[i].plusMinutes(10), "LIBERA_ALMACEN",
                             vuelo.getDestino(),
@@ -218,9 +230,9 @@ public class DataService {
  
         while (!agendaEventos.isEmpty() &&
                !agendaEventos.peek().getHoraEvento().isAfter(relojActual)) {
- 
+
             EventoLogistico evento = agendaEventos.poll();
- 
+
             if ("LIBERA_ALMACEN".equals(evento.getTipo())) {
                 int capActual = capacidadDinamicaAlmacenes
                         .getOrDefault(evento.getCodigo(), 0);
@@ -228,7 +240,15 @@ public class DataService {
                         capActual + evento.getCantidad(),
                         evento.getCapacidadMaxima());
                 capacidadDinamicaAlmacenes.put(evento.getCodigo(), nueva);
- 
+
+            } else if ("RECIBE_CARGA".equals(evento.getTipo())) {
+                // Cuando el envío llega a un almacén, decrementa su capacidad disponible.
+                // Esto refleja que ahora ocupa espacio físico en el almacén.
+                int capActual = capacidadDinamicaAlmacenes
+                        .getOrDefault(evento.getCodigo(), 0);
+                int nueva = Math.max(0, capActual - evento.getCantidad());
+                capacidadDinamicaAlmacenes.put(evento.getCodigo(), nueva);
+
             } else if ("RESET_VUELO".equals(evento.getTipo())) {
                 // Restaura la cantidad decrementada sin pasarse de la cap máx
                 int capActual = capacidadDinamicaVuelos
