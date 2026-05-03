@@ -16,12 +16,17 @@ public class BuscadorRutasACO {
     private static final int TIEMPO_MINIMO_ESCALA  = 10;
     private static final int TIEMPO_RECOJO_DESTINO = 10;
     private static final int MAX_ESCALAS           = 6;
-    private static final int MAX_INTENTOS = 30;
-    private static final int FALLBACK_ASTAR_UMBRAL = 4; // intentar A* mucho antes si el modo estocástico no progresa
+    private static final int MAX_INTENTOS = 40;  // Compromiso: 30 original era poco, 50 era excesivo
+    private static final int FALLBACK_ASTAR_UMBRAL = 5; // Invocar A* un poco más temprano
 
     // ---------- Parámetros de la fórmula ACO ----------
     private static final double ALFA = 1.0;
-    private static final double BETA = 1.0; // Aumentado ligeramente para darle más peso al tiempo inicial
+    private static final double BETA = 1.0; // Mantiene la heurística de tiempo, pero sin volverla demasiado suave
+    // ---------- Optimización: Beam search width y cache ----------
+    private static final int BEAM_WIDTH = 6; // limitar candidatos considerados por paso
+    // ---------- Anti-colapso de almacenes (O(1) por candidato) ----------
+    private static final double MAX_OCUPACION_DESTINO_DURA = 0.97; // corte duro
+    private static final double UMBRAL_OCUPACION_ALTA = 0.85;      // penalización suave
 
     // =========================================================================
     //  MÉTODO PRINCIPAL CON REINTENTOS
@@ -90,10 +95,10 @@ public class BuscadorRutasACO {
         }
 
         // Si ni ACO ni A* funcionaron, intentos con parámetros relajados
-        final int RELAX_INTENTOS = 5;
-        final int RELAX_ESCALAS_DELTA = 2;
-        final int RELAX_TIEMPO_MIN_ESCALA = 5;
-        final double RELAX_PLAZO_MULTIPLIER = 1.5;
+        final int RELAX_INTENTOS = 7;  // Compromiso: 5 era poco, 10 era excesivo
+        final int RELAX_ESCALAS_DELTA = 2;  // Original, suficiente
+        final int RELAX_TIEMPO_MIN_ESCALA = 3;  // Reducido moderadamente de 5
+        final double RELAX_PLAZO_MULTIPLIER = 1.75;  // Moderadamente aumentado de 1.5
 
         for (int intento = 0; intento < RELAX_INTENTOS; intento++) {
             Map<String, Integer> capVuelosLocal    = new HashMap<>(capVuelos);
@@ -159,6 +164,9 @@ public class BuscadorRutasACO {
         long   tiempoAcumulado   = 0;
         String horaLlegadaActual = null;
 
+        // Cache local de duraciones por clave de vuelo para evitar recalcular GMT y bucles
+        Map<String, Long> duracionCache = new HashMap<>();
+
         for (int escala = 0; escala < maxEscalas; escala++) {
 
             if (aeropuertoActual.equals(destino)) break;
@@ -185,6 +193,16 @@ public class BuscadorRutasACO {
                     continue;
                 }
 
+                double ocupacionDestinoProyectada = ocupacionDestinoProyectada(
+                        vuelo,
+                        envio.getCantidadMaletas(),
+                        capAlmacenesLocal,
+                        mapaAeropuertos);
+                // Evita decisiones que dejan el destino prácticamente colapsado.
+                if (ocupacionDestinoProyectada >= MAX_OCUPACION_DESTINO_DURA) {
+                    continue;
+                }
+
                 String idVuelo = claveVuelo(vuelo);
                 if (capVuelosLocal.getOrDefault(idVuelo, vuelo.getCapacidad())
                         < envio.getCantidadMaletas()) {
@@ -199,7 +217,8 @@ public class BuscadorRutasACO {
                     espera = calcularTiempoEspera(horaLlegadaActual, vuelo.getHoraSalida());
                 }
 
-                long duracion = calcularDuracionMinutos(vuelo, mapaAeropuertos);
+                String claveDur = claveVuelo(vuelo);
+                long duracion = duracionCache.computeIfAbsent(claveDur, k -> calcularDuracionMinutos(vuelo, mapaAeropuertos));
                 long tiempoTotal = tiempoAcumulado + espera + duracion;
                 if (tiempoTotal > plazoDisponible) continue;
 
@@ -210,17 +229,77 @@ public class BuscadorRutasACO {
                     vuelo,
                     envio.getCantidadMaletas(),
                     capVuelosLocal,
-                    capAlmacenesLocal));
+                    capAlmacenesLocal,
+                    mapaAeropuertos));
                 factoresHub.add(calcularFactorConexion(
                     vuelo,
                     mapaVuelosPorOrigen));
             }
 
-            if (candidatos.isEmpty()) {
+                if (candidatos.isEmpty()) {
                 return crearRuta(envio, new ArrayList<>(), 0, EstadoRuta.INALCANZABLE);
-            }
+                }
 
-            // Pasamos las listas de tiempos al selector por ruleta
+                // OPTIMIZACIÓN: aplicar poda tipo beam para reducir candidatos
+                int beam = Math.min(BEAM_WIDTH, candidatos.size());
+                if (candidatos.size() > beam) {
+                // calcular score heurístico simple para ordenar
+                double[] scores = new double[candidatos.size()];
+                for (int i = 0; i < candidatos.size(); i++) {
+                    double tau = Math.pow(feromenaGrafo.getFeromona(candidatos.get(i)), ALFA);
+                    long tiempoPaso = esperas.get(i) + duraciones.get(i);
+                    double eta = Math.pow(1.0 / (tiempoPaso + 1.0), BETA);
+                    scores[i] = tau * eta * factoresCap.get(i) * factoresHub.get(i);
+                }
+                Integer[] idxs = new Integer[candidatos.size()];
+                for (int i = 0; i < idxs.length; i++) idxs[i] = i;
+                Arrays.sort(idxs, (a, b) -> Double.compare(scores[b], scores[a]));
+
+                List<PlanVuelo> candidatosBeam = new ArrayList<>(beam);
+                List<Long> esperasBeam = new ArrayList<>(beam);
+                List<Long> duracionesBeam = new ArrayList<>(beam);
+                List<Double> factoresCapBeam = new ArrayList<>(beam);
+                List<Double> factoresHubBeam = new ArrayList<>(beam);
+
+                for (int j = 0; j < beam; j++) {
+                    int i = idxs[j];
+                    candidatosBeam.add(candidatos.get(i));
+                    esperasBeam.add(esperas.get(i));
+                    duracionesBeam.add(duraciones.get(i));
+                    factoresCapBeam.add(factoresCap.get(i));
+                    factoresHubBeam.add(factoresHub.get(i));
+                }
+
+                int idx = seleccionarPorRuleta(
+                    candidatosBeam,
+                    esperasBeam,
+                    duracionesBeam,
+                    factoresCapBeam,
+                    factoresHubBeam,
+                    feromenaGrafo,
+                    random);
+
+                PlanVuelo elegido = candidatosBeam.get(idx);
+                long espera = esperasBeam.get(idx);
+                long duracion = duracionesBeam.get(idx);
+
+                String idVuelo = claveVuelo(elegido);
+                capVuelosLocal.put(idVuelo,
+                    capVuelosLocal.getOrDefault(idVuelo, elegido.getCapacidad())
+                    - envio.getCantidadMaletas());
+                capAlmacenesLocal.put(elegido.getDestino(),
+                    capAlmacenesLocal.getOrDefault(elegido.getDestino(), 0)
+                    - envio.getCantidadMaletas());
+
+                tiempoAcumulado  += espera + duracion;
+                horaLlegadaActual = elegido.getHoraLlegada();
+                aeropuertoActual  = elegido.getDestino();
+                visitados.add(elegido.getDestino());
+                vuelosElegidos.add(elegido);
+                continue;
+                }
+
+                // Si no hubo poda, usar selección completa por ruleta
                 int idx = seleccionarPorRuleta(
                     candidatos,
                     esperas,
@@ -230,23 +309,23 @@ public class BuscadorRutasACO {
                     feromenaGrafo,
                     random);
 
-            PlanVuelo elegido  = candidatos.get(idx);
-            long      espera   = esperas.get(idx);
-            long      duracion = duraciones.get(idx);
+                PlanVuelo elegido  = candidatos.get(idx);
+                long      espera   = esperas.get(idx);
+                long      duracion = duraciones.get(idx);
 
-            String idVuelo = claveVuelo(elegido);
-            capVuelosLocal.put(idVuelo,
+                String idVuelo = claveVuelo(elegido);
+                capVuelosLocal.put(idVuelo,
                     capVuelosLocal.getOrDefault(idVuelo, elegido.getCapacidad())
                     - envio.getCantidadMaletas());
-            capAlmacenesLocal.put(elegido.getDestino(),
+                capAlmacenesLocal.put(elegido.getDestino(),
                     capAlmacenesLocal.getOrDefault(elegido.getDestino(), 0)
                     - envio.getCantidadMaletas());
 
-            tiempoAcumulado  += espera + duracion;
-            horaLlegadaActual = elegido.getHoraLlegada();
-            aeropuertoActual  = elegido.getDestino();
-            visitados.add(elegido.getDestino());
-            vuelosElegidos.add(elegido);
+                tiempoAcumulado  += espera + duracion;
+                horaLlegadaActual = elegido.getHoraLlegada();
+                aeropuertoActual  = elegido.getDestino();
+                visitados.add(elegido.getDestino());
+                vuelosElegidos.add(elegido);
         }
 
         if (aeropuertoActual.equals(destino)) {
@@ -307,7 +386,8 @@ public class BuscadorRutasACO {
             }
         }
 
-        if (candidatos.size() <= 2 || (suma > 0.0 && (mejorPeso / suma) >= 0.60)) {
+        // Umbral más alto: menos selección determinista y más exploración controlada
+        if (candidatos.size() <= 2 || (suma > 0.0 && (mejorPeso / suma) >= 0.92)) {
             for (int i = 0; i < pesos.length; i++) {
                 if (pesos[i] == mejorPeso) {
                     return i;
@@ -385,7 +465,8 @@ public class BuscadorRutasACO {
             PlanVuelo vuelo,
             int cantidadMaletas,
             Map<String, Integer> capVuelosLocal,
-            Map<String, Integer> capAlmacenesLocal) {
+            Map<String, Integer> capAlmacenesLocal,
+            Map<String, Aeropuerto> mapaAeropuertos) {
 
         String idVuelo = claveVuelo(vuelo);
         int capacidadVueloRestante = capVuelosLocal.getOrDefault(idVuelo, vuelo.getCapacidad()) - cantidadMaletas;
@@ -394,7 +475,37 @@ public class BuscadorRutasACO {
         double ratioVuelo = Math.min(1.0, Math.max(0.0, capacidadVueloRestante / (double) Math.max(1, cantidadMaletas)));
         double ratioAlmacen = Math.min(1.0, Math.max(0.0, capacidadAlmacenRestante / (double) Math.max(1, cantidadMaletas)));
 
-        return 0.5 + (ratioVuelo * 0.25) + (ratioAlmacen * 0.25);
+        double base = 0.5 + (ratioVuelo * 0.25) + (ratioAlmacen * 0.25);
+
+        // Penalización continua para desincentivar destinos casi saturados sin bloquear todo.
+        double ocupacion = ocupacionDestinoProyectada(vuelo, cantidadMaletas, capAlmacenesLocal, mapaAeropuertos);
+        if (ocupacion <= UMBRAL_OCUPACION_ALTA) {
+            return base;
+        }
+
+        double exceso = (ocupacion - UMBRAL_OCUPACION_ALTA) / Math.max(1e-9, 1.0 - UMBRAL_OCUPACION_ALTA);
+        double factorRiesgo = Math.max(0.35, 1.0 - exceso);
+        return base * factorRiesgo;
+    }
+
+    private double ocupacionDestinoProyectada(
+            PlanVuelo vuelo,
+            int cantidadMaletas,
+            Map<String, Integer> capAlmacenesLocal,
+            Map<String, Aeropuerto> mapaAeropuertos) {
+
+        Aeropuerto destino = mapaAeropuertos.get(vuelo.getDestino());
+        int capacidadTotal = (destino != null && destino.getCapacidad() > 0) ? destino.getCapacidad() : Integer.MAX_VALUE;
+
+        int restanteActual = capAlmacenesLocal.getOrDefault(vuelo.getDestino(), capacidadTotal);
+        int restantePost = restanteActual - cantidadMaletas;
+
+        if (capacidadTotal <= 0 || capacidadTotal == Integer.MAX_VALUE) {
+            return 0.0;
+        }
+
+        double ocupacion = 1.0 - (restantePost / (double) capacidadTotal);
+        return Math.max(0.0, Math.min(1.5, ocupacion));
     }
 
     private double calcularFactorConexion(

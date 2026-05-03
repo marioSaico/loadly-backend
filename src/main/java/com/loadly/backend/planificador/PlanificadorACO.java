@@ -6,6 +6,13 @@ import com.loadly.backend.model.*;
 import com.loadly.backend.service.DataService;
 import org.springframework.stereotype.Component;
  
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
  
@@ -44,6 +51,11 @@ public class PlanificadorACO {
         if (enviosPendientes.isEmpty()) {
             return null; // El Main interpreta null como "sin envíos en esta ventana"
         }
+
+        enviosPendientes = filtrarEnviosAlcanzables(enviosPendientes, mapaVuelosPorOrigen);
+        if (enviosPendientes.isEmpty()) {
+            return null;
+        }
  
         // 3. Capacidades dinámicas actuales
         Map<String, Integer> capDinamicaVuelos    = dataService.getCapacidadDinamicaVuelos();
@@ -69,5 +81,46 @@ public class PlanificadorACO {
         }
  
         return mejorPlan;
+    }
+
+    private List<Envio> filtrarEnviosAlcanzables(List<Envio> envios,
+                                                 Map<String, List<PlanVuelo>> mapaVuelosPorOrigen) {
+        List<Envio> filtrados = new ArrayList<>(envios.size());
+        for (Envio envio : envios) {
+            if (esAlcanzable(envio.getAeropuertoOrigen(), envio.getAeropuertoDestino(), mapaVuelosPorOrigen)) {
+                filtrados.add(envio);
+            }
+        }
+        return filtrados;
+    }
+
+    private boolean esAlcanzable(String origen,
+                                 String destino,
+                                 Map<String, List<PlanVuelo>> mapaVuelosPorOrigen) {
+        if (origen == null || destino == null) {
+            return false;
+        }
+        if (origen.equals(destino)) {
+            return true;
+        }
+
+        Set<String> visitados = new HashSet<>();
+        Queue<String> cola = new ArrayDeque<>();
+        cola.add(origen);
+        visitados.add(origen);
+
+        while (!cola.isEmpty()) {
+            String actual = cola.poll();
+            for (PlanVuelo vuelo : mapaVuelosPorOrigen.getOrDefault(actual, List.of())) {
+                String siguiente = vuelo.getDestino();
+                if (destino.equals(siguiente)) {
+                    return true;
+                }
+                if (visitados.add(siguiente)) {
+                    cola.add(siguiente);
+                }
+            }
+        }
+        return false;
     }
 }

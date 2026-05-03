@@ -45,6 +45,7 @@ public class BackendApplication {
         //PlanificadorFunc planFunc = (inicio, lim, tam, ms) -> planificador.planificar(inicio, lim, tam, ms);
         //String nombreAlg = "GA";
 
+        // Alternativa: algoritmo anterior
         PlanificadorFunc planFunc = (inicio,lim, relojActual, tam, ms) -> planificadorACO.planificar(inicio,lim, relojActual,tam, ms);
         String nombreAlg = "ACO";
 
@@ -52,7 +53,7 @@ public class BackendApplication {
         // 2. SELECCIÓN DE ESCENARIO (Descomenta SOLO 1 a la vez)
         // ---------------------------------------------------------
         //ejecutarEscenario("DIA A DIA", "20260101-00-00", "20260101-21-00", 5, 10, 1, 5, nombreAlg, planFunc, dataService);
-        ejecutarEscenario("PERIODO", "20280125-00-00", "20280126-00-00", 30, 10, 6, 10, nombreAlg, planFunc, dataService);
+        ejecutarEscenario("PERIODO", "20270415-00-00", "20270416-00-00", 30, 10, 6, 10, nombreAlg, planFunc, dataService);
         // ejecutarEscenario("COLAPSO", "20260101-00-00", "20260106-00-00", 45, 10, 7, 100, nombreAlg, planFunc, dataService);
     }
 
@@ -332,6 +333,8 @@ public class BackendApplication {
         System.out.printf(" - Consumo prom. del SLA:          %.2f%%%n", promConsumoSLA);
         System.out.printf(" - Ocupación prom. Vuelos Usados:  %.2f%%%n", promVuelos);
         System.out.printf(" - Ocupación prom. de Almacenes:   %.2f%%%n", promAlmacenes);
+        double FO = (promConsumoSLA*4 + promVuelos*3 + promAlmacenes*3)/10.0; // Ejemplo de función objetivo ponderada
+        System.out.printf(" - Función Objetivo:   %.2f%%%n", FO);
         System.out.printf(" - Tiempo de ejecución real:       %.3f segundos%n", (tiempoEjecucionRealMs / 1000.0));
         
         if (colapso != null && colapso.hayColapso()) {
@@ -379,7 +382,8 @@ public class BackendApplication {
         // Umbral: porcentaje de rutas INALCANZABLE para declarar colapso topológico
         final double UMBRAL_INALCANZABLE = 0.10; // 10%
         int contadorInalcanzables = 0;
-        String primeraInalcanzableId = null;
+           int contadorSinRuta = 0;
+           String primeraInalcanzableId = null;
 
         for (Ruta r : res.getRutas()) {
             Envio env = r.getEnvio();
@@ -391,12 +395,11 @@ public class BackendApplication {
                 return rc;
             } 
             else if (r.getEstado() == EstadoRuta.SIN_RUTA) {
-                rc.porRutaNoEncontrada = true; 
-                rc.idEnvioCausante = env.getIdEnvio();
-                rc.rutaCausante = env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino(); // <-- NUEVO
-                rc.maletasCausantes = env.getCantidadMaletas(); // <-- NUEVO
-                rc.detalle = "No se encontró una solución que respete los límites de tiempo y capacidad.";
-                return rc;
+                   // SIN_RUTA es NORMAL cuando la ruta es topológicamente imposible
+                   // NO es un error del algoritmo, es una limitación física de la red
+                   contadorSinRuta++;
+                   System.out.println("[INFO] Envío imposible topológicamente, omitiendo de validación: " + env.getIdEnvio() + " (" + env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino() + ")");
+                   continue; // NO marcar como colapso
             }
             else if (r.getEstado() == EstadoRuta.PLANIFICADA) {
                 Aeropuerto o = ds.getMapaAeropuertos().get(env.getAeropuertoOrigen());

@@ -72,8 +72,8 @@ public class Colonia {
      *
      * Cada hormiga recibe:
      *   1. Capacidades CLONADAS para explorar su propio espacio.
-     *   2. Un ORDEN ALEATORIO DE ENVÍOS para que explores diferentes prioritizaciones
-     *      (emulando cómo el GA explora múltiples asignaciones/ordenamientos).
+     *   2. Un orden de envíos ligeramente distinto para evitar colisiones
+     *      sistemáticas sobre los mismos hubs y las mismas capacidades.
      *
      * BuscadorRutasACO consulta el FeromenaGrafo (solo lectura) para hacer la
      * selección probabilística en cada paso.
@@ -98,19 +98,13 @@ public class Colonia {
             Map<String, Integer> capVuelosClonada    = new HashMap<>(capVuelos);
             Map<String, Integer> capAlmacenesClonada = new HashMap<>(capAlmacenes);
 
-            // PERMUTACIÓN DINÁMICA: cada hormiga procesa envíos en orden aleatorio
-            // Esto permite explorar diferentes ordenamientos, similar a cómo GA
-            // explora múltiples asignaciones/recombinaciones en paralelo
-            List<Envio> enviospermutados = new ArrayList<>(envios);
-            Collections.shuffle(enviospermutados, random);
-
-            // Mapa para reordenar rutas: de vuelta al orden original
-            List<Ruta> rutasPorEnvio = new ArrayList<>();
-            for (int j = 0; j < envios.size(); j++) {
-                rutasPorEnvio.add(null); // placeholder
-            }
-
-            for (Envio envio : enviospermutados) {
+            // Cada hormiga recibe una permutación controlada del mismo conjunto de envíos.
+            // Esto mantiene la priorización global, pero rompe el patrón fijo que agota
+            // siempre las mismas capacidades en el mismo orden.
+            List<Envio> enviosHormiga = generarPermutacionControlada(envios, i, random);
+            List<Ruta> rutas = new ArrayList<>(envios.size());
+            
+            for (Envio envio : enviosHormiga) {
                 Ruta ruta = buscadorRutasACO.construirRuta(
                         envio,
                         mapaVuelosPorOrigen,
@@ -120,13 +114,38 @@ public class Colonia {
                         capAlmacenesClonada,
                         random
                 );
-                // Encontrar índice original del envío en la lista original
-                int indiceOriginal = envios.indexOf(envio);
-                rutasPorEnvio.set(indiceOriginal, ruta);
+                rutas.add(ruta);
             }
 
-            hormigas.add(new Hormiga(rutasPorEnvio));
+            hormigas.add(new Hormiga(rutas));
         }
+    }
+
+    private List<Envio> generarPermutacionControlada(List<Envio> envios, int hormigaId, Random random) {
+        if (envios == null || envios.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Envio> copia = new ArrayList<>(envios);
+        int blockSize = Math.max(4, copia.size() / Math.max(2, numHormigas));
+
+        List<Envio> resultado = new ArrayList<>(copia.size());
+        int bloqueIndex = 0;
+        for (int inicio = 0; inicio < copia.size(); inicio += blockSize) {
+            int fin = Math.min(inicio + blockSize, copia.size());
+            List<Envio> bloque = new ArrayList<>(copia.subList(inicio, fin));
+
+            int rotacion = (hormigaId + bloqueIndex) % Math.max(1, bloque.size());
+            Collections.rotate(bloque, rotacion);
+
+            Random localRandom = new Random(31L * hormigaId + 7L * bloqueIndex);
+            Collections.shuffle(bloque, localRandom);
+
+            resultado.addAll(bloque);
+            bloqueIndex++;
+        }
+
+        return resultado;
     }
  
     // =========================================================================

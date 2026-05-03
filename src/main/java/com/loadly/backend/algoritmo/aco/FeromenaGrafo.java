@@ -31,8 +31,8 @@ public class FeromenaGrafo {
     /** Nivel inicial de feromona en todos los tramos al arrancar. */
     private static final double FEROMONA_INICIAL = 1.0;
  
-    /** Tasa de evaporación por iteración (10%). */
-    private static final double RHO = 0.1;
+    /** Tasa de evaporación por iteración (18%). */
+    private static final double RHO = 0.18;
  
     /**
      * Factor de escala para el depósito de feromona.

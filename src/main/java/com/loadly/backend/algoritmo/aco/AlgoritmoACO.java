@@ -71,18 +71,15 @@ public class AlgoritmoACO {
             long tiempoLimiteMs) {
  
         System.out.println("=== ACO - Iniciando Optimización ===");
-        System.out.println("    EnvíAos a procesar: " + envios.size());
+        System.out.println("    Envíos a procesar: " + envios.size());
         System.out.println("    Hormigas:          " + numHormigas);
-
-        Map<String, Integer> capVuelosSnapshot = Collections.unmodifiableMap(new HashMap<>(capVuelos));
-        Map<String, Integer> capAlmacenesSnapshot = Collections.unmodifiableMap(new HashMap<>(capAlmacenes));
 
         List<Envio> enviosPrioritarios = priorizarEnvios(
             envios,
             mapaAeropuertos,
             mapaVuelosPorOrigen,
-            capVuelosSnapshot,
-            capAlmacenesSnapshot);
+            capVuelos,
+            capAlmacenes);
         if (!enviosPrioritarios.isEmpty()) {
             System.out.println("    Priorización activa: hard-first con A* + topología + tamaño.");
         }
@@ -91,12 +88,15 @@ public class AlgoritmoACO {
         Colonia colonia = new Colonia(numHormigas, mapaAeropuertos, mapaVuelosPorOrigen);
 
         // --- Siembra inicial de feromonas usando A* para guiar la colonia hacia rutas factibles ---
-        sembrarFeromonasAStar(colonia.getFeromenaGrafo(), enviosPrioritarios, mapaAeropuertos, mapaVuelosPorOrigen, capVuelosSnapshot, capAlmacenesSnapshot, "inicial");
+        // NOTA: Usamos copias locales para siembra; no modificamos las capacidades reales
+        Map<String, Integer> capVuelosCopiaInicial = new HashMap<>(capVuelos);
+        Map<String, Integer> capAlmacenesCopiaInicial = new HashMap<>(capAlmacenes);
+        sembrarFeromonasAStar(colonia.getFeromenaGrafo(), enviosPrioritarios, mapaAeropuertos, mapaVuelosPorOrigen, capVuelosCopiaInicial, capAlmacenesCopiaInicial, "inicial");
  
         // --- Construcción inicial ---
         // Primera iteración: feromonas iguales → selección guiada principalmente por heurística.
         colonia.construirSoluciones(enviosPrioritarios, capVuelos, capAlmacenes);
-        evaluarColonia(colonia, mapaAeropuertos, capVuelosSnapshot, capAlmacenesSnapshot);
+        evaluarColonia(colonia, mapaAeropuertos, capVuelos, capAlmacenes);
  
         Hormiga mejorHormiga = seleccionarMejorHormiga(colonia.getHormigas());
         Hormiga mejorGlobal  = copiarHormiga(mejorHormiga);
@@ -125,7 +125,7 @@ public class AlgoritmoACO {
             // Paso 3 — Construcción: nuevas soluciones guiadas por feromonas actualizadas
             List<Envio> enviosIteracion = priorizarPorRutasPendientes(mejorGlobal, enviosPrioritarios, iteracionesTotal);
             colonia.construirSoluciones(enviosIteracion, capVuelos, capAlmacenes);
-            evaluarColonia(colonia, mapaAeropuertos, capVuelosSnapshot, capAlmacenesSnapshot);
+            evaluarColonia(colonia, mapaAeropuertos, capVuelos, capAlmacenes);
  
             // Paso 4 — Actualizar mejor global si hay mejora
             Hormiga mejorActual = seleccionarMejorHormiga(colonia.getHormigas());
@@ -142,7 +142,10 @@ public class AlgoritmoACO {
             if (iteracionesSinMejora >= LIMITE_ESTANCAMIENTO) {
                 System.out.println("    [ACO] Estancamiento detectado. Reinicio parcial de feromonas + resiembra A*.");
                 colonia.getFeromenaGrafo().reiniciarFeromonas();
-                sembrarFeromonasAStar(colonia.getFeromenaGrafo(), enviosPrioritarios, mapaAeropuertos, mapaVuelosPorOrigen, capVuelosSnapshot, capAlmacenesSnapshot, "reinicio");
+                // Copias nuevas para resiembra
+                Map<String, Integer> capVuelosCopiaReinicio = new HashMap<>(capVuelos);
+                Map<String, Integer> capAlmacenesCopiaReinicio = new HashMap<>(capAlmacenes);
+                sembrarFeromonasAStar(colonia.getFeromenaGrafo(), enviosPrioritarios, mapaAeropuertos, mapaVuelosPorOrigen, capVuelosCopiaReinicio, capAlmacenesCopiaReinicio, "reinicio");
                 iteracionesSinMejora = 0;
             }
  
@@ -253,33 +256,47 @@ public class AlgoritmoACO {
 
             Envio envio = ruta.getEnvio();
 
+            // Hacer copia local para cada intento de rescate (no modificar capVuelosTrabajo si falla)
+            Map<String, Integer> capVuelosIntento = new HashMap<>(capVuelosTrabajo);
+            Map<String, Integer> capAlmacenesIntento = new HashMap<>(capAlmacenesTrabajo);
+
             Ruta rutaAStar = buscadorAStar.buscarRuta(
                     envio,
                     null,
                     mapaVuelosPorOrigen,
                     mapaAeropuertos,
-                    capVuelosTrabajo,
-                    capAlmacenesTrabajo,
+                    capVuelosIntento,
+                    capAlmacenesIntento,
                     random,
                     0.0);
 
             if (rutaAStar.getEstado() == EstadoRuta.PLANIFICADA) {
                 rutasRescatadas.add(rutaAStar);
+                // Solo actualizamos capacidades si el rescate fue exitoso
+                capVuelosTrabajo = capVuelosIntento;
+                capAlmacenesTrabajo = capAlmacenesIntento;
                 rescatadas++;
                 continue;
             }
+
+            // Reintentar con ACO si A* falla
+            capVuelosIntento = new HashMap<>(capVuelosTrabajo);
+            capAlmacenesIntento = new HashMap<>(capAlmacenesTrabajo);
 
             Ruta rutaAco = buscadorACO.construirRuta(
                     envio,
                     mapaVuelosPorOrigen,
                     mapaAeropuertos,
                     feromenaGrafo,
-                    capVuelosTrabajo,
-                    capAlmacenesTrabajo,
+                    capVuelosIntento,
+                    capAlmacenesIntento,
                     random);
 
             if (rutaAco.getEstado() == EstadoRuta.PLANIFICADA) {
                 rutasRescatadas.add(rutaAco);
+                // Solo actualizamos capacidades si el rescate fue exitoso
+                capVuelosTrabajo = capVuelosIntento;
+                capAlmacenesTrabajo = capAlmacenesIntento;
                 rescatadas++;
             } else {
                 rutasRescatadas.add(ruta);
@@ -291,12 +308,32 @@ public class AlgoritmoACO {
             System.out.println("    [ACO] Rescate final: " + rescatadas + " rutas recuperadas, " + intentosFallidos + " siguen pendientes.");
         }
 
+        int sinRutaResiduales = normalizarSinRutaResidual(rutasRescatadas);
+        if (sinRutaResiduales > 0) {
+            System.out.println("    [ACO] Normalización final: " + sinRutaResiduales + " rutas SIN_RUTA residuales convertidas a INALCANZABLE.");
+        }
+
         Hormiga rescatada = new Hormiga(rutasRescatadas);
         Individuo evaluacion = new Individuo(rutasRescatadas);
         evaluadorFitness.evaluar(evaluacion, mapaAeropuertos, capVuelosTrabajo, capAlmacenesTrabajo);
         rescatada.setFitness(evaluacion.getFitness());
         rescatada.setFeromonaDepositada(evaluacion.getFitness());
         return rescatada;
+    }
+
+    /**
+     * Convierte los estados SIN_RUTA residuales en INALCANZABLE para que el resultado final
+     * refleje un fallo estructural confirmado, no un fallo intermedio de búsqueda.
+     */
+    private int normalizarSinRutaResidual(List<Ruta> rutas) {
+        int convertidas = 0;
+        for (Ruta ruta : rutas) {
+            if (ruta != null && ruta.getEstado() == EstadoRuta.SIN_RUTA) {
+                ruta.setEstado(EstadoRuta.INALCANZABLE);
+                convertidas++;
+            }
+        }
+        return convertidas;
     }
 
     /**
