@@ -40,7 +40,7 @@ public class PlanificadorACO {
      * @param tiempoLimiteMs  Tiempo máximo de ejecución del ACO en ms (= Ta × 1000).
      * @return Mejor plan encontrado como Individuo, o null si no hay envíos pendientes.
      */
-    public Individuo planificar(String inicioEscenario, String fechaHoraLimite, String relojActual, int numHormigas, long tiempoLimiteMs) {
+    public Individuo planificar(String inicioEscenario, String fechaHoraLimite, int numHormigas, long tiempoLimiteMs) {
  
         // 1. Datos estáticos
         Map<String, Aeropuerto>      mapaAeropuertos     = dataService.getMapaAeropuertos();
@@ -77,7 +77,7 @@ public class PlanificadorACO {
         // 5. Confirmar plan y actualizar capacidades (igual que el GA)
         if (mejorPlan != null) {
             // Cambiar 'inicioEscenario' por 'fechaHoraLimite'
-            dataService.confirmarPlanYActualizarCapacidades(mejorPlan, relojActual);
+            dataService.confirmarPlanYActualizarCapacidades(mejorPlan, fechaHoraLimite);
         }
  
         return mejorPlan;
