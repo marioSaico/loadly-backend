@@ -7,6 +7,10 @@ import com.loadly.backend.planificador.PlanificadorACO;
 import com.loadly.backend.service.DataService;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
+import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.context.ApplicationContext;
 
 import java.time.LocalDate;
@@ -17,7 +21,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@SpringBootApplication
+@SpringBootApplication(exclude = {
+    DataSourceAutoConfiguration.class,
+    HibernateJpaAutoConfiguration.class,
+    org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration.class
+})
 public class BackendApplication {
 
     private static final DateTimeFormatter FMT_INPUT = DateTimeFormatter.ofPattern("yyyyMMdd-HH-mm");
@@ -32,6 +40,21 @@ public class BackendApplication {
 
     public static void main(String[] args) {
         ApplicationContext context = SpringApplication.run(BackendApplication.class, args);
+        
+        // ========================================
+        // MODO: SOLO VERIFICAR CONEXIÓN A BD
+        // ========================================
+        // Descomenta abajo para ejecutar algoritmos
+        
+        System.out.println("\n>>> API Backend iniciada correctamente");
+        System.out.println(">>> Accede a: http://localhost:8080/api/test/conexiones");
+        System.out.println(">>> O a: http://localhost:8080/api/test/health");
+    }
+
+    /**
+     * Método para ejecutar algoritmos (descomenta en main si lo necesitas)
+     */
+    public static void ejecutarAlgoritmos(ApplicationContext context) {
         Planificador planificador = context.getBean(Planificador.class);
         PlanificadorACO planificadorACO = context.getBean(PlanificadorACO.class);
         DataService dataService = context.getBean(DataService.class);

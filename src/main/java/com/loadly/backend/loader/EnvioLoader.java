@@ -120,4 +120,8 @@ public class EnvioLoader {
         
         return enviosPendientes;
     }
+
+    public void reset() {
+        cursorLineasPorArchivo.clear();
+    }
 }
