@@ -78,7 +78,7 @@ public class BackendApplication {
         // ejecutarEscenario("DIA A DIA", "20260101-20-40", "20260101-21-00", 5, 10, 1,
         // 5, nombreAlg, planFunc, dataService);
 
-        ejecutarEscenario("PERIODO", "20270515-00-00", "20270516-00-00", 30, 10, 6, 10, nombreAlg, planFunc,
+        ejecutarEscenario("PERIODO", "20260101-00-00", "20260102-00-00", 30, 10, 6, 10, nombreAlg, planFunc,
                 dataService);
 
         // ejecutarEscenario("COLAPSO", "20260101-00-00", "20260106-00-00", 45, 10, 7,
