@@ -1,7 +1,5 @@
 package com.loadly.backend.controller.api;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.loadly.backend.algoritmo.genetico.Individuo;
 import com.loadly.backend.dto.SimulacionEventDTO;
 import com.loadly.backend.dto.SimulacionEventDTO.*;
@@ -21,11 +19,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Controller SSE para la simulación de período.
- * Replica fielmente la lógica de BackendApplication.ejecutarEscenario()
- * pero emitiendo cada iteración como un evento SSE al frontend.
- */
 @RestController
 @RequestMapping("/api/simulacion")
 @CrossOrigin(origins = "*")
@@ -33,327 +26,150 @@ public class SimulacionPeriodoController {
 
     private static final DateTimeFormatter FMT_INPUT = DateTimeFormatter.ofPattern("yyyyMMdd-HH-mm");
     private static final DateTimeFormatter FMT_LOG = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final DateTimeFormatter FMT_DISPLAY = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     private static final DateTimeFormatter FMT_FECHA = DateTimeFormatter.ofPattern("yyyyMMdd");
 
-    @Autowired
-    private Planificador planificador;
+    @Autowired private Planificador planificador;
+    @Autowired private DataService dataService;
 
-    @Autowired
-    private DataService dataService;
-
-    private final ObjectMapper objectMapper;
-
-    public SimulacionPeriodoController() {
-        this.objectMapper = new ObjectMapper();
-        this.objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
-    }
-
-    /**
-     * GET /api/simulacion/periodo/stream
-     * 
-     * Ejecuta la simulación de período completa con SSE streaming.
-     * Parámetros fieles al BackendApplication.ejecutarEscenario():
-     * - inicio: "20270102-00-00"
-     * - fin: "20270107-00-00"
-     * - ta: 30 (segundos para el GA)
-     * - sa: 10 (salto de avance del reloj en minutos)
-     * - k: 6 (multiplicador ventana lectura)
-     * - tamano: 10 (población GA)
-     */
-    @GetMapping(value = "/periodo/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamSimulacion(
-            @RequestParam(defaultValue = "20270102-00-00") String inicio,
-            @RequestParam(defaultValue = "20270107-00-00") String fin,
-            @RequestParam(defaultValue = "30") int ta,
+    @GetMapping(value = "/periodo", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter ejecutarSimulacion(
+            @RequestParam String inicioStr, 
+            @RequestParam String finStr,
+            @RequestParam(defaultValue = "30") int taSegundos,
             @RequestParam(defaultValue = "10") int sa,
             @RequestParam(defaultValue = "6") int k,
             @RequestParam(defaultValue = "10") int tamano) {
 
-        // Timeout largo: la simulación puede durar ~1 hora
-        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
+        SseEmitter emitter = new SseEmitter(0L); 
 
-        // Ejecutar en un hilo separado para no bloquear el thread HTTP
-        Thread simulationThread = new Thread(() -> {
+        new Thread(() -> {
             try {
-                ejecutarSimulacion(emitter, inicio, fin, ta, sa, k, tamano);
-            } catch (Exception e) {
-                try {
-                    emitter.completeWithError(e);
-                } catch (Exception ignored) {}
-            }
-        });
-        simulationThread.setDaemon(true);
-        simulationThread.start();
+                LocalDateTime relojSimulado = LocalDateTime.parse(inicioStr, FMT_INPUT);
+                LocalDateTime finSimulacion = LocalDateTime.parse(finStr, FMT_INPUT);
+                LocalDateTime limiteLecturaDatos = relojSimulado;
 
-        emitter.onCompletion(() -> {
-            System.out.println("[SSE] Simulación completada - conexión cerrada");
-        });
-        emitter.onTimeout(() -> {
-            System.out.println("[SSE] Simulación timeout - conexión cerrada");
-        });
-        emitter.onError(e -> {
-            System.out.println("[SSE] Error en simulación: " + e.getMessage());
-        });
+                int sc = sa * k;
+                long tiempoLimiteMs = taSegundos * 1000L;
+                long inicioEscenarioMs = System.currentTimeMillis();
+
+                Map<String, List<long[]>> timelineAlmacenesGlobal = new HashMap<>();
+                List<Ruta> rutasHistorico = new ArrayList<>();
+                boolean colapsoDetectado = false;
+                ResultadoColapso colapsoFinal = null;
+
+                System.out.println("\n" + "=".repeat(80));
+                System.out.println("   INICIANDO ESCENARIO DESDE API (FRONTEND)");
+                System.out.println("=".repeat(80));
+
+                while ((limiteLecturaDatos.isBefore(finSimulacion) || limiteLecturaDatos.isEqual(finSimulacion)) && !colapsoDetectado) {
+                    String limiteLecturaStr = limiteLecturaDatos.format(FMT_INPUT);
+                    String relojActualStr = relojSimulado.format(FMT_INPUT);
+
+                    System.out.println("\n>>> [RELOJ: " + relojSimulado.format(FMT_LOG) + "] Planificando...");
+
+                    dataService.procesarEventosDelReloj(relojActualStr);
+                    Individuo resultado = planificador.planificar(inicioStr, limiteLecturaStr, tamano, tiempoLimiteMs);
+
+                    if (resultado != null) {
+                        ResultadoColapso colapso = detectarColapso(resultado, dataService, relojSimulado, timelineAlmacenesGlobal);
+
+                        if (colapso.hayColapso()) {
+                            imprimirAlertas(colapso, relojSimulado);
+                            colapsoFinal = colapso;
+                            colapsoDetectado = true;
+                            
+                            enviarEvento(emitter, SimulacionEventDTO.builder()
+                                    .tipo("COLAPSO")
+                                    .relojSimulado(relojSimulado.format(FMT_DISPLAY))
+                                    .colapso(ColapsoDTO.builder()
+                                            .tipoError(colapso.getTipoError()).idEnvioCausante(colapso.idEnvioCausante)
+                                            .rutaCausante(colapso.rutaCausante).maletasCausantes(colapso.maletasCausantes)
+                                            .ubicacionConflicto(colapso.ubicacionConflicto).detalle(colapso.detalle).build())
+                                    .build());
+                            break;
+                        } else {
+                            List<SimulacionEventDTO.RutaPlanificadaDTO> dtosIteracion = procesarReporteYGenerarDTOs(
+                                    resultado, dataService, timelineAlmacenesGlobal, rutasHistorico);
+
+                            if (!dtosIteracion.isEmpty()) {
+                                enviarEvento(emitter, SimulacionEventDTO.builder()
+                                        .tipo("ITERACION")
+                                        .relojSimulado(relojSimulado.format(FMT_DISPLAY))
+                                        .rutasPlanificadas(dtosIteracion)
+                                        .build());
+                            }
+                        }
+                    }
+
+                    if (!colapsoDetectado) {
+                        limiteLecturaDatos = limiteLecturaDatos.plusMinutes(sc);
+                        relojSimulado = relojSimulado.plusMinutes(sa);
+                    }
+                    Thread.sleep(100); 
+                }
+
+                long tiempoEjecucionRealMs = System.currentTimeMillis() - inicioEscenarioMs;
+                
+                // Imprimir el resumen final en la consola del backend
+                imprimirResumenFinal(dataService, colapsoFinal, relojSimulado, tiempoEjecucionRealMs, timelineAlmacenesGlobal, LocalDateTime.parse(inicioStr, FMT_INPUT));
+
+                // Enviar resumen al front
+                enviarEvento(emitter, SimulacionEventDTO.builder()
+                        .tipo("RESUMEN_FINAL")
+                        .resumenFinal(ResumenFinalDTO.builder()
+                                .totalEnviosPlanificados(rutasHistorico.size())
+                                .totalMaletasPlanificadas(rutasHistorico.stream().mapToInt(r -> r.getEnvio().getCantidadMaletas()).sum())
+                                .tiempoEjecucionRealSegundos(tiempoEjecucionRealMs / 1000.0)
+                                .build())
+                        .build());
+
+                emitter.complete();
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                emitter.completeWithError(e);
+            }
+        }).start();
 
         return emitter;
     }
 
-    /**
-     * Lógica de simulación fiel a BackendApplication.ejecutarEscenario()
-     */
-    private void ejecutarSimulacion(SseEmitter emitter, String inicioStr, String finStr,
-            int taSegundos, int sa, int k, int tamano) throws Exception {
-
-        // Reset del estado
-        dataService.resetEstadoExperimento();
-
-        LocalDateTime relojSimulado = LocalDateTime.parse(inicioStr, FMT_INPUT);
-        LocalDateTime finSimulacion = LocalDateTime.parse(finStr, FMT_INPUT);
-        LocalDateTime limiteLecturaDatos = relojSimulado;
-
-        int sc = sa * k;
-        long tiempoLimiteMs = taSegundos * 1000L;
-
-        // Calcular total de iteraciones estimadas
-        long totalMinutos = java.time.Duration.between(relojSimulado, finSimulacion).toMinutes();
-        int totalIteraciones = (int) Math.ceil((double) totalMinutos / sc);
-
-        boolean colapsoDetectado = false;
-        Map<String, List<long[]>> timelineAlmacenesGlobal = new HashMap<>();
-
-        long inicioEscenarioMs = System.currentTimeMillis();
-        int iteracion = 0;
-
-        System.out.println("\n" + "=".repeat(80));
-        System.out.println("   [SSE] INICIANDO SIMULACIÓN PERÍODO");
-        System.out.println("   Período: " + inicioStr + " → " + finStr);
-        System.out.println("   Parámetros: ta=" + taSegundos + "s, sa=" + sa + "min, k=" + k + ", sc=" + sc + "min, pop=" + tamano);
-        System.out.println("   Iteraciones estimadas: " + totalIteraciones);
-        System.out.println("=".repeat(80));
-
-        // --- EVENTO INICIO: Enviar datos de aeropuertos ---
-        List<AeropuertoSimDTO> aeropuertosDTO = dataService.getAeropuertos().stream()
-                .map(a -> AeropuertoSimDTO.builder()
-                        .codigo(a.getCodigo())
-                        .ciudad(a.getCiudad())
-                        .pais(a.getPais())
-                        .latitud(a.getLatitud())
-                        .longitud(a.getLongitud())
-                        .continente(a.getContinente())
-                        .capacidad(a.getCapacidad())
-                        .build())
-                .collect(Collectors.toList());
-
-        SimulacionEventDTO eventoInicio = SimulacionEventDTO.builder()
-                .tipo("INICIO")
-                .relojSimulado(relojSimulado.format(FMT_INPUT))
-                .limiteLectura(limiteLecturaDatos.format(FMT_INPUT))
-                .iteracionActual(0)
-                .totalIteracionesEstimadas(totalIteraciones)
-                .aeropuertos(aeropuertosDTO)
-                .build();
-
-        enviarEvento(emitter, eventoInicio);
-
-        // --- BUCLE PRINCIPAL (fiel a BackendApplication) ---
-        while ((limiteLecturaDatos.isBefore(finSimulacion) || limiteLecturaDatos.isEqual(finSimulacion))
-                && !colapsoDetectado) {
-
-            iteracion++;
-            String limiteLecturaStr = limiteLecturaDatos.format(FMT_INPUT);
-            String relojActualStr = relojSimulado.format(FMT_INPUT);
-
-            System.out.println("\n>>> [SSE Iter " + iteracion + "/" + totalIteraciones + "] [RELOJ: " 
-                    + relojSimulado.format(FMT_LOG) + "] Planificando envios hasta " 
-                    + limiteLecturaDatos.format(FMT_LOG));
-
-            // 1. Procesar eventos vencidos del reloj
-            dataService.procesarEventosDelReloj(relojActualStr);
-
-            // 2. Ejecutar el planificador (GA) — FIEL al BackendApplication
-            Individuo resultado = planificador.planificar(inicioStr, limiteLecturaStr, tamano, tiempoLimiteMs);
-
-            if (resultado != null) {
-                // 3. Verificar colapso
-                SimulacionEventDTO.ColapsoDTO colapsoDTO = detectarColapso(resultado, dataService, relojSimulado, timelineAlmacenesGlobal);
-
-                if (colapsoDTO != null) {
-                    // Evento de colapso
-                    colapsoDetectado = true;
-                    SimulacionEventDTO eventoColapso = SimulacionEventDTO.builder()
-                            .tipo("COLAPSO")
-                            .relojSimulado(relojSimulado.format(FMT_INPUT))
-                            .limiteLectura(limiteLecturaStr)
-                            .iteracionActual(iteracion)
-                            .totalIteracionesEstimadas(totalIteraciones)
-                            .colapso(colapsoDTO)
-                            .build();
-                    enviarEvento(emitter, eventoColapso);
-                } else {
-                    // 4. Procesar rutas y emitir evento de iteración
-                    procesarTimeline(resultado, dataService, timelineAlmacenesGlobal);
-                    
-                    List<RutaPlanificadaDTO> rutasDTO = convertirRutas(resultado, dataService);
-                    System.out.println("[ITERACION " + iteracion + "] Total rutas en resultado: " + resultado.getRutas().size() + " | Rutas filtradas enviadas: " + rutasDTO.size());
-                    EstadisticasIteracionDTO stats = calcularEstadisticas(resultado, dataService);
-
-                    SimulacionEventDTO eventoIteracion = SimulacionEventDTO.builder()
-                            .tipo("ITERACION")
-                            .relojSimulado(relojSimulado.format(FMT_INPUT))
-                            .limiteLectura(limiteLecturaStr)
-                            .iteracionActual(iteracion)
-                            .totalIteracionesEstimadas(totalIteraciones)
-                            .rutasPlanificadas(rutasDTO)
-                            .estadisticas(stats)
-                            .build();
-                    enviarEvento(emitter, eventoIteracion);
-                }
-            } else {
-                // Sin envíos en esta ventana, enviar evento vacío
-                SimulacionEventDTO eventoVacio = SimulacionEventDTO.builder()
-                        .tipo("ITERACION")
-                        .relojSimulado(relojSimulado.format(FMT_INPUT))
-                        .limiteLectura(limiteLecturaStr)
-                        .iteracionActual(iteracion)
-                        .totalIteracionesEstimadas(totalIteraciones)
-                        .rutasPlanificadas(new ArrayList<>())
-                        .estadisticas(EstadisticasIteracionDTO.builder()
-                                .enviosProcesados(0).planificados(0).sinRuta(0)
-                                .inalcanzables(0).enviosEnEspera(dataService.getEnviosEnEspera().size())
-                                .fitnessPromedio(0).totalMaletasPlanificadas(0).build())
-                        .build();
-                enviarEvento(emitter, eventoVacio);
-            }
-
-            // 5. Avanzar reloj (fiel al BackendApplication)
-            if (!colapsoDetectado) {
-                limiteLecturaDatos = limiteLecturaDatos.plusMinutes(sc);
-                relojSimulado = relojSimulado.plusMinutes(sa);
-            }
-        }
-
-        // --- EVENTO RESUMEN FINAL ---
-        long tiempoEjecucionRealMs = System.currentTimeMillis() - inicioEscenarioMs;
-        ResumenFinalDTO resumen = calcularResumenFinal(dataService, timelineAlmacenesGlobal,
-                LocalDateTime.parse(inicioStr, FMT_INPUT), relojSimulado, tiempoEjecucionRealMs,
-                colapsoDetectado);
-
-        SimulacionEventDTO eventoFinal = SimulacionEventDTO.builder()
-                .tipo("RESUMEN_FINAL")
-                .relojSimulado(relojSimulado.format(FMT_INPUT))
-                .iteracionActual(iteracion)
-                .totalIteracionesEstimadas(totalIteraciones)
-                .resumenFinal(resumen)
-                .build();
-        enviarEvento(emitter, eventoFinal);
-
-        emitter.complete();
-        System.out.println("[SSE] Simulación finalizada. Tiempo total: " 
-                + String.format("%.1f", tiempoEjecucionRealMs / 1000.0) + "s");
-    }
-
     // =========================================================================
-    // MÉTODOS DE CONVERSIÓN
+    // LÓGICA DE PROCESAMIENTO Y DTOs
     // =========================================================================
 
-    private List<RutaPlanificadaDTO> convertirRutas(Individuo resultado, DataService dataService) {
-        Map<String, Aeropuerto> mapa = dataService.getMapaAeropuertos();
-        List<RutaPlanificadaDTO> rutasDTO = new ArrayList<>();
+    private List<SimulacionEventDTO.RutaPlanificadaDTO> procesarReporteYGenerarDTOs(
+            Individuo resultado, DataService dataService, 
+            Map<String, List<long[]>> timelineAlmacenesGlobal, List<Ruta> rutasHistorico) {
 
-        int countPlanificada = 0, countSinRuta = 0, countInalcanzable = 0;
-        for (Ruta ruta : resultado.getRutas()) {
-            if (ruta.getEstado() == EstadoRuta.PLANIFICADA) countPlanificada++;
-            else if (ruta.getEstado() == EstadoRuta.SIN_RUTA) countSinRuta++;
-            else if (ruta.getEstado() == EstadoRuta.INALCANZABLE) countInalcanzable++;
-        }
-        System.out.println("  [ESTADOS] PLANIFICADA=" + countPlanificada + " SIN_RUTA=" + countSinRuta + " INALCANZABLE=" + countInalcanzable);
+        List<SimulacionEventDTO.RutaPlanificadaDTO> dtosGenerados = new ArrayList<>();
+        Map<String, Integer> ocupacionVuelos = new HashMap<>();
 
-        for (Ruta ruta : resultado.getRutas()) {
-            // Filtrar: solo rutas PLANIFICADAS con vuelos
-            if (ruta.getEstado() != EstadoRuta.PLANIFICADA) {
-                continue;
-            }
-            if (ruta.getVuelos() == null || ruta.getVuelos().isEmpty()) {
-                System.out.println("  [FILTRO] Ruta de " + ruta.getEnvio().getIdEnvio() + " descartada: SIN VUELOS asignados");
-                continue;
-            }
-            
-            List<VueloPlanificadoDTO> vuelosDTO = new ArrayList<>();
-            for (PlanVuelo v : ruta.getVuelos()) {
-                Aeropuerto ao = mapa.get(v.getOrigen());
-                Aeropuerto ad = mapa.get(v.getDestino());
-                vuelosDTO.add(VueloPlanificadoDTO.builder()
-                        .origen(v.getOrigen())
-                        .destino(v.getDestino())
-                        .horaSalida(v.getHoraSalida())
-                        .horaLlegada(v.getHoraLlegada())
-                        .capacidad(v.getCapacidad())
-                        .latOrigen(ao != null ? ao.getLatitud() : 0)
-                        .lngOrigen(ao != null ? ao.getLongitud() : 0)
-                        .latDestino(ad != null ? ad.getLatitud() : 0)
-                        .lngDestino(ad != null ? ad.getLongitud() : 0)
-                        .build());
-            }
-
-            rutasDTO.add(RutaPlanificadaDTO.builder()
-                    .idEnvio(ruta.getEnvio().getIdEnvio())
-                    .aeropuertoOrigen(ruta.getEnvio().getAeropuertoOrigen())
-                    .aeropuertoDestino(ruta.getEnvio().getAeropuertoDestino())
-                    .cantidadMaletas(ruta.getEnvio().getCantidadMaletas())
-                    .tiempoTotalMinutos(ruta.getTiempoTotalMinutos())
-                    .estado("PLANIFICADA")
-                    .fitness(resultado.getFitness())
-                    .vuelos(vuelosDTO)
-                    .build());
-        }
-        System.out.println("  [FINAL] Rutas enviadas al frontend: " + rutasDTO.size());
-        return rutasDTO;
-    }
-
-    private EstadisticasIteracionDTO calcularEstadisticas(Individuo resultado, DataService dataService) {
-        int planificados = 0, sinRuta = 0, inalcanzables = 0, totalMaletas = 0;
-        for (Ruta r : resultado.getRutas()) {
-            switch (r.getEstado()) {
-                case PLANIFICADA -> { planificados++; totalMaletas += r.getEnvio().getCantidadMaletas(); }
-                case SIN_RUTA -> sinRuta++;
-                case INALCANZABLE -> inalcanzables++;
-                default -> {}
-            }
-        }
-        return EstadisticasIteracionDTO.builder()
-                .enviosProcesados(resultado.getRutas().size())
-                .planificados(planificados)
-                .sinRuta(sinRuta)
-                .inalcanzables(inalcanzables)
-                .enviosEnEspera(dataService.getEnviosEnEspera().size())
-                .fitnessPromedio(resultado.getFitness())
-                .totalMaletasPlanificadas(totalMaletas)
-                .build();
-    }
-
-    // =========================================================================
-    // TIMELINE DE ALMACENES (Fiel a BackendApplication.imprimirReporteIntervalo)
-    // =========================================================================
-
-    private void procesarTimeline(Individuo resultado, DataService dataService,
-            Map<String, List<long[]>> timelineAlmacenesGlobal) {
-
-        List<Ruta> rutasPlanificadas = resultado.getRutas().stream()
+        List<Ruta> rutasOrdenadas = resultado.getRutas().stream()
                 .filter(r -> r.getEstado() == EstadoRuta.PLANIFICADA && r.getVuelos() != null && !r.getVuelos().isEmpty())
+                .sorted(Comparator.comparing(r -> {
+                    Envio e = r.getEnvio();
+                    int gmt = dataService.getMapaAeropuertos().get(e.getAeropuertoOrigen()).getGmt();
+                    return LocalDateTime.of(LocalDate.parse(e.getFechaRegistro(), FMT_FECHA),
+                            LocalTime.of(e.getHoraRegistro(), e.getMinutoRegistro())).minusHours(gmt);
+                }))
                 .collect(Collectors.toList());
 
-        for (Ruta r : rutasPlanificadas) {
+        for (Ruta r : rutasOrdenadas) {
+            rutasHistorico.add(r);
             Envio envio = r.getEnvio();
             int gmtO = dataService.getMapaAeropuertos().get(envio.getAeropuertoOrigen()).getGmt();
-            LocalDateTime regGMT = LocalDateTime.of(
-                    LocalDate.parse(envio.getFechaRegistro(), FMT_FECHA),
-                    LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro()))
-                    .minusHours(gmtO);
+            LocalDateTime regGMT = LocalDateTime.of(LocalDate.parse(envio.getFechaRegistro(), FMT_FECHA),
+                    LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro())).minusHours(gmtO);
 
             agregarEventoTimeline(timelineAlmacenesGlobal, envio.getAeropuertoOrigen(), regGMT, +envio.getCantidadMaletas());
 
             LocalDateTime cursor = regGMT;
             for (PlanVuelo v : r.getVuelos()) {
+                String clave = v.getOrigen() + "-" + v.getDestino() + "-" + v.getHoraSalida();
+                ocupacionVuelos.merge(clave, envio.getCantidadMaletas(), Integer::sum);
+
                 int gmtVOrig = dataService.getMapaAeropuertos().get(v.getOrigen()).getGmt();
                 int gmtVDest = dataService.getMapaAeropuertos().get(v.getDestino()).getGmt();
 
@@ -361,197 +177,393 @@ public class SimulacionPeriodoController {
                 LocalDateTime despegue = cursor.with(minutosALocalTime(minSGMT));
                 if (despegue.isBefore(cursor)) despegue = despegue.plusDays(1);
 
-                int duracion = (convertirAMinutos(v.getHoraLlegada()) - gmtVDest * 60)
-                        - (convertirAMinutos(v.getHoraSalida()) - gmtVOrig * 60);
+                int duracion = (convertirAMinutos(v.getHoraLlegada()) - gmtVDest * 60) - (convertirAMinutos(v.getHoraSalida()) - gmtVOrig * 60);
                 if (duracion < 0) duracion += 1440;
                 LocalDateTime llegada = despegue.plusMinutes(duracion);
 
                 agregarEventoTimeline(timelineAlmacenesGlobal, v.getOrigen(), despegue, -envio.getCantidadMaletas());
                 agregarEventoTimeline(timelineAlmacenesGlobal, v.getDestino(), llegada, +envio.getCantidadMaletas());
+
                 cursor = llegada;
             }
             agregarEventoTimeline(timelineAlmacenesGlobal, envio.getAeropuertoDestino(), cursor, -envio.getCantidadMaletas());
         }
+
+        for (Ruta r : rutasOrdenadas) {
+            imprimirDetalleRuta(r, dataService, ocupacionVuelos, timelineAlmacenesGlobal);
+            dtosGenerados.add(construirRutaDTO(r, dataService, ocupacionVuelos, timelineAlmacenesGlobal));
+        }
+
+        return dtosGenerados;
+    }
+
+    private SimulacionEventDTO.RutaPlanificadaDTO construirRutaDTO(Ruta r, DataService ds, Map<String, Integer> ocupacionVuelos, Map<String, List<long[]>> timeline) {
+        Envio env = r.getEnvio();
+        Aeropuerto origen = ds.getMapaAeropuertos().get(env.getAeropuertoOrigen());
+        Aeropuerto destino = ds.getMapaAeropuertos().get(env.getAeropuertoDestino());
+
+        LocalDateTime regGMT = LocalDateTime.of(LocalDate.parse(env.getFechaRegistro(), FMT_FECHA),
+                LocalTime.of(env.getHoraRegistro(), env.getMinutoRegistro())).minusHours(origen.getGmt());
+
+        long horasTotales = r.getTiempoTotalMinutos() / 60;
+        long minutosRestantes = r.getTiempoTotalMinutos() % 60;
+        long slaHoras = (origen != null && destino != null && origen.getContinente().equals(destino.getContinente())) ? 24 : 48;
+
+        List<SimulacionEventDTO.VueloPlanificadoDTO> tramos = new ArrayList<>();
+        LocalDateTime cursor = regGMT;
+        int paso = 1;
+
+        for (PlanVuelo v : r.getVuelos()) {
+            Aeropuerto ao = ds.getMapaAeropuertos().get(v.getOrigen());
+            Aeropuerto ad = ds.getMapaAeropuertos().get(v.getDestino());
+            
+            int minSGMT = (convertirAMinutos(v.getHoraSalida()) - ao.getGmt() * 60 + 1440) % 1440;
+            LocalDateTime despegue = cursor.with(minutosALocalTime(minSGMT));
+            if (despegue.isBefore(cursor)) despegue = despegue.plusDays(1);
+
+            int duracion = (convertirAMinutos(v.getHoraLlegada()) - ad.getGmt() * 60) - (convertirAMinutos(v.getHoraSalida()) - ao.getGmt() * 60);
+            if (duracion < 0) duracion += 1440;
+            LocalDateTime llegada = despegue.plusMinutes(duracion);
+
+            String claveV = v.getOrigen() + "-" + v.getDestino() + "-" + v.getHoraSalida();
+
+            tramos.add(SimulacionEventDTO.VueloPlanificadoDTO.builder()
+                    .orden(paso++)
+                    .origen(v.getOrigen()).destino(v.getDestino())
+                    .sale(despegue.toLocalTime().toString()).llega(llegada.toLocalTime().toString())
+                    .maletasVuelo(ocupacionVuelos.getOrDefault(claveV, 0)).capacidadVuelo(v.getCapacidad())
+                    .ocupacionAlmacenOrigen(getOcupacionAlmacen(timeline, v.getOrigen(), despegue))
+                    .capacidadAlmacenOrigen(ao.getCapacidad())
+                    .ocupacionAlmacenDestino(getOcupacionAlmacen(timeline, v.getDestino(), llegada)) // Destino agregado
+                    .capacidadAlmacenDestino(ad.getCapacidad())
+                    .build());
+            
+            cursor = llegada;
+        }
+
+        return SimulacionEventDTO.RutaPlanificadaDTO.builder()
+                .idEnvio(env.getIdEnvio()).origen(env.getAeropuertoOrigen()).destino(env.getAeropuertoDestino())
+                .maletas(env.getCantidadMaletas()).fechaRegistro(regGMT.format(FMT_DISPLAY))
+                .fechaLlegada(cursor.format(FMT_DISPLAY))
+                .duracion(String.format("%02dh %02dm", horasTotales, minutosRestantes))
+                .sla(slaHoras + "h").tramos(tramos).build();
+    }
+
+    private void enviarEvento(SseEmitter emitter, SimulacionEventDTO dto) {
+        try { emitter.send(SseEmitter.event().name(dto.getTipo()).data(dto)); } catch (Exception ignored) {}
     }
 
     // =========================================================================
-    // DETECCIÓN DE COLAPSO (Fiel a BackendApplication.detectarColapso)
+    // UTILIDADES CLONADAS EXACTAMENTE DEL MAIN
     // =========================================================================
 
-    private SimulacionEventDTO.ColapsoDTO detectarColapso(Individuo res, DataService ds, LocalDateTime reloj,
-            Map<String, List<long[]>> timelineGlobal) {
+    private static void agregarEventoTimeline(Map<String, List<long[]>> timeline, String aero, LocalDateTime t, int d) {
+        timeline.computeIfAbsent(aero, k -> new ArrayList<>()).add(new long[] { t.toEpochSecond(ZoneOffset.UTC) / 60, d });
+    }
 
-        Map<String, Integer> ocupacionVuelos = new HashMap<>();
+    private static int getOcupacionAlmacen(Map<String, List<long[]>> timeline, String aero, LocalDateTime despegueGMT) {
+        long minLimit = despegueGMT.toEpochSecond(ZoneOffset.UTC) / 60;
+        int ocupacion = 0;
+        for (long[] ev : timeline.getOrDefault(aero, new ArrayList<>())) {
+            if (ev[0] <= minLimit) ocupacion += (int) ev[1];
+        }
+        return Math.max(0, ocupacion);
+    }
+
+    private static int convertirAMinutos(String h) {
+        String[] p = h.split(":");
+        return Integer.parseInt(p[0]) * 60 + Integer.parseInt(p[1]);
+    }
+
+    private static LocalTime minutosALocalTime(int m) {
+        return LocalTime.of((m / 60) % 24, m % 60);
+    }
+
+    // =========================================================================
+    // LÓGICA DE DETECCIÓN DE COLAPSO FORENSE (IDÉNTICA)
+    // =========================================================================
+    static class EventoForense {
+        long minuto; int delta; String idEnvio;
+        EventoForense(long m, int d, String id) { this.minuto = m; this.delta = d; this.idEnvio = id; }
+    }
+
+    private static ResultadoColapso detectarColapso(Individuo res, DataService ds, LocalDateTime reloj, Map<String, List<long[]>> timelineGlobal) {
+        ResultadoColapso rc = new ResultadoColapso();
+        Map<String, Integer> ocupacionVuelosActuales = new HashMap<>();
 
         for (Ruta r : res.getRutas()) {
             Envio env = r.getEnvio();
             if (r.getEstado() == EstadoRuta.INALCANZABLE) {
-                return SimulacionEventDTO.ColapsoDTO.builder()
-                        .tipoError("ERROR TOPOLÓGICO (SIN RUTA FACTIBLE)")
-                        .idEnvioCausante(env.getIdEnvio())
-                        .rutaCausante(env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino())
-                        .maletasCausantes(env.getCantidadMaletas())
-                        .detalle("No existe conexión para " + env.getAeropuertoOrigen() + " → " + env.getAeropuertoDestino())
-                        .build();
+                rc.topologico = true; rc.idEnvioCausante = env.getIdEnvio();
+                rc.rutaCausante = env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino();
+                rc.maletasCausantes = env.getCantidadMaletas();
+                rc.detalle = "No existe conexión física o vuelos factibles para llegar de " + env.getAeropuertoOrigen() + " a " + env.getAeropuertoDestino();
+                return rc;
             } else if (r.getEstado() == EstadoRuta.SIN_RUTA) {
-                return SimulacionEventDTO.ColapsoDTO.builder()
-                        .tipoError("ERROR DE OPTIMIZACIÓN (NO SE PUDO ASIGNAR RUTA)")
-                        .idEnvioCausante(env.getIdEnvio())
-                        .rutaCausante(env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino())
-                        .maletasCausantes(env.getCantidadMaletas())
-                        .detalle("No se encontró ruta que respete límites de tiempo y capacidad.")
-                        .build();
+                rc.porRutaNoEncontrada = true; rc.idEnvioCausante = env.getIdEnvio();
+                rc.rutaCausante = env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino();
+                rc.maletasCausantes = env.getCantidadMaletas();
+                rc.detalle = "No se encontró una solución que respete los límites de tiempo y capacidad.";
+                return rc;
             } else if (r.getEstado() == EstadoRuta.PLANIFICADA) {
                 Aeropuerto o = ds.getMapaAeropuertos().get(env.getAeropuertoOrigen());
                 Aeropuerto d = ds.getMapaAeropuertos().get(env.getAeropuertoDestino());
                 long sla = (o != null && d != null && o.getContinente().equals(d.getContinente())) ? 24 : 48;
 
                 if (r.getTiempoTotalMinutos() > sla * 60) {
-                    return SimulacionEventDTO.ColapsoDTO.builder()
-                            .tipoError("INCUMPLIMIENTO DE SLA (TIEMPO EXCEDIDO)")
-                            .idEnvioCausante(env.getIdEnvio())
-                            .rutaCausante(env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino())
-                            .maletasCausantes(env.getCantidadMaletas())
-                            .detalle(String.format("Tiempo %dh %dm excede SLA de %dh",
-                                    r.getTiempoTotalMinutos() / 60, r.getTiempoTotalMinutos() % 60, sla))
-                            .build();
+                    rc.porSLA = true; rc.idEnvioCausante = env.getIdEnvio();
+                    rc.rutaCausante = env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino();
+                    rc.maletasCausantes = env.getCantidadMaletas();
+                    rc.detalle = String.format("El tiempo calculado (%dh %dm) excede el SLA de %dh", r.getTiempoTotalMinutos() / 60, r.getTiempoTotalMinutos() % 60, sla);
+                    return rc;
                 }
                 if (r.getVuelos() != null) {
                     for (PlanVuelo v : r.getVuelos()) {
                         String key = v.getOrigen() + "-" + v.getDestino() + "-" + v.getHoraSalida();
-                        int nuevaOc = ocupacionVuelos.getOrDefault(key, 0) + env.getCantidadMaletas();
-                        ocupacionVuelos.put(key, nuevaOc);
+                        int nuevaOc = ocupacionVuelosActuales.getOrDefault(key, 0) + env.getCantidadMaletas();
+                        ocupacionVuelosActuales.put(key, nuevaOc);
                         if (nuevaOc > v.getCapacidad()) {
-                            return SimulacionEventDTO.ColapsoDTO.builder()
-                                    .tipoError("EXCESO DE CAPACIDAD EN VUELO")
-                                    .idEnvioCausante(env.getIdEnvio())
-                                    .rutaCausante(env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino())
-                                    .maletasCausantes(env.getCantidadMaletas())
-                                    .detalle(String.format("Vuelo %s->%s: %d/%d", v.getOrigen(), v.getDestino(), nuevaOc, v.getCapacidad()))
-                                    .build();
+                            rc.porEspacioVuelo = true; rc.idEnvioCausante = env.getIdEnvio();
+                            rc.rutaCausante = env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino();
+                            rc.maletasCausantes = env.getCantidadMaletas();
+                            rc.detalle = String.format("El Vuelo %s->%s ha superado su capacidad física. Requerido: %d | Máximo: %d", v.getOrigen(), v.getDestino(), nuevaOc, v.getCapacidad());
+                            return rc;
                         }
                     }
                 }
             }
         }
 
-        // Verificar almacenes (simplificado respecto a BackendApplication)
-        // No retornar colapso por almacenes para evitar falsos positivos en streaming
-        return null;
+        Map<String, List<EventoForense>> tlForense = new HashMap<>();
+        for (Map.Entry<String, List<long[]>> entry : timelineGlobal.entrySet()) {
+            List<EventoForense> lista = new ArrayList<>();
+            for (long[] ev : entry.getValue()) lista.add(new EventoForense(ev[0], (int) ev[1], "HISTORICO"));
+            tlForense.put(entry.getKey(), lista);
+        }
+
+        for (Ruta r : res.getRutas()) {
+            if (r.getEstado() == EstadoRuta.PLANIFICADA && r.getVuelos() != null) {
+                Envio env = r.getEnvio();
+                Aeropuerto o = ds.getMapaAeropuertos().get(env.getAeropuertoOrigen());
+                LocalDateTime cursor = LocalDateTime.of(LocalDate.parse(env.getFechaRegistro(), FMT_FECHA),
+                        LocalTime.of(env.getHoraRegistro(), env.getMinutoRegistro())).minusHours(o.getGmt());
+
+                for (PlanVuelo v : r.getVuelos()) {
+                    int gmtO = ds.getMapaAeropuertos().get(v.getOrigen()).getGmt();
+                    int gmtD = ds.getMapaAeropuertos().get(v.getDestino()).getGmt();
+                    int minSGMT = (convertirAMinutos(v.getHoraSalida()) - gmtO * 60 + 1440) % 1440;
+                    LocalDateTime despegue = cursor.with(minutosALocalTime(minSGMT));
+                    if (despegue.isBefore(cursor)) despegue = despegue.plusDays(1);
+
+                    int dur = (convertirAMinutos(v.getHoraLlegada()) - gmtD * 60) - (convertirAMinutos(v.getHoraSalida()) - gmtO * 60);
+                    LocalDateTime llegada = despegue.plusMinutes(dur < 0 ? dur + 1440 : dur);
+
+                    tlForense.computeIfAbsent(v.getOrigen(), k -> new ArrayList<>()).add(new EventoForense(despegue.toEpochSecond(ZoneOffset.UTC) / 60, -env.getCantidadMaletas(), env.getIdEnvio()));
+                    tlForense.computeIfAbsent(v.getDestino(), k -> new ArrayList<>()).add(new EventoForense(llegada.toEpochSecond(ZoneOffset.UTC) / 60, +env.getCantidadMaletas(), env.getIdEnvio()));
+                    cursor = llegada;
+                }
+                tlForense.computeIfAbsent(env.getAeropuertoDestino(), k -> new ArrayList<>()).add(new EventoForense(cursor.toEpochSecond(ZoneOffset.UTC) / 60, -env.getCantidadMaletas(), env.getIdEnvio()));
+            }
+        }
+
+        for (Map.Entry<String, List<EventoForense>> entry : tlForense.entrySet()) {
+            String aero = entry.getKey();
+            int maxCap = ds.getMapaAeropuertos().get(aero).getCapacidad();
+            List<EventoForense> eventos = entry.getValue();
+
+            eventos.sort((a, b) -> a.minuto != b.minuto ? Long.compare(a.minuto, b.minuto) : Integer.compare(a.delta, b.delta));
+
+            int ocupacion = 0;
+            for (EventoForense ev : eventos) {
+                ocupacion += ev.delta;
+                if (ocupacion > maxCap) {
+                    rc.porEspacioAlmacen = true; rc.idEnvioCausante = ev.idEnvio; rc.ubicacionConflicto = aero;
+                    rc.detalle = String.format("Límite superado a las %s GMT. Ocupación: %d | Capacidad: %d",
+                            LocalDateTime.ofEpochSecond(ev.minuto * 60, 0, ZoneOffset.UTC).format(FMT_LOG), ocupacion, maxCap);
+                    return rc;
+                }
+            }
+        }
+        return rc;
     }
 
-    // =========================================================================
-    // RESUMEN FINAL (Fiel a BackendApplication.imprimirResumenFinal)
-    // =========================================================================
+    private static void imprimirDetalleRuta(Ruta r, DataService dataService, Map<String, Integer> ocupacionVuelos, Map<String, List<long[]>> timelineAlmacenes) {
+        Envio env = r.getEnvio();
+        Aeropuerto origen = dataService.getMapaAeropuertos().get(env.getAeropuertoOrigen());
+        Aeropuerto destino = dataService.getMapaAeropuertos().get(env.getAeropuertoDestino());
 
-    private ResumenFinalDTO calcularResumenFinal(DataService dataService,
-            Map<String, List<long[]>> timelineAlmacenes,
-            LocalDateTime relojInicio, LocalDateTime relojParada,
-            long tiempoEjecucionRealMs, boolean colapsoDetectado) {
+        LocalDateTime regGMT = LocalDateTime.of(LocalDate.parse(env.getFechaRegistro(), FMT_FECHA), LocalTime.of(env.getHoraRegistro(), env.getMinutoRegistro())).minusHours(origen.getGmt());
 
+        long horasTotales = r.getTiempoTotalMinutos() / 60;
+        long minutosRestantes = r.getTiempoTotalMinutos() % 60;
+        long slaHoras = (origen != null && destino != null && origen.getContinente().equals(destino.getContinente())) ? 24 : 48;
+
+        System.out.println("-----------------------------------------------------------------------------------------");
+        System.out.printf("| ENVÍO: %-10s | %s -> %s | MALETAS: %-40d |%n", env.getIdEnvio(), env.getAeropuertoOrigen(), env.getAeropuertoDestino(), env.getCantidadMaletas());
+        System.out.printf("| REGISTRO: %-16s | LLEGADA: %-46s |%n", regGMT.format(FMT_DISPLAY), regGMT.plusMinutes(r.getTiempoTotalMinutos()).format(FMT_DISPLAY));
+        System.out.printf("| DURACIÓN: %02dh %02dm           | SLA: %dh                                               |%n", horasTotales, minutosRestantes, slaHoras);
+        System.out.println("-----------------------------------------------------------------------------------------");
+
+        LocalDateTime cursor = regGMT;
+        int paso = 1;
+        for (PlanVuelo v : r.getVuelos()) {
+            Aeropuerto ao = dataService.getMapaAeropuertos().get(v.getOrigen());
+            int gmtO = ao.getGmt();
+            int gmtD = dataService.getMapaAeropuertos().get(v.getDestino()).getGmt();
+
+            int minSGMT = (convertirAMinutos(v.getHoraSalida()) - gmtO * 60 + 1440) % 1440;
+            LocalDateTime despegue = cursor.with(minutosALocalTime(minSGMT));
+            if (despegue.isBefore(cursor)) despegue = despegue.plusDays(1);
+
+            int duracion = (convertirAMinutos(v.getHoraLlegada()) - gmtD * 60) - (convertirAMinutos(v.getHoraSalida()) - gmtO * 60);
+            if (duracion < 0) duracion += 1440;
+            LocalDateTime llegada = despegue.plusMinutes(duracion);
+
+            int ocupadoAlm = getOcupacionAlmacen(timelineAlmacenes, v.getOrigen(), despegue);
+            String claveV = v.getOrigen() + "-" + v.getDestino() + "-" + v.getHoraSalida();
+
+            System.out.printf("| (%d) %s->%-4s | Sale: %s | Llega: %s | Vuelo: %3d/%-3d | Almacen %s: %3d/%-3d |%n",
+                    paso++, v.getOrigen(), v.getDestino(), despegue.toLocalTime(), llegada.toLocalTime(),
+                    ocupacionVuelos.getOrDefault(claveV, 0), v.getCapacidad(), v.getOrigen(), ocupadoAlm, ao.getCapacidad());
+            cursor = llegada;
+        }
+        System.out.println("-----------------------------------------------------------------------------------------\n");
+    }
+
+    private static void imprimirAlertas(ResultadoColapso rc, LocalDateTime reloj) {
+        System.out.println("\n    " + "!".repeat(70));
+        System.out.println("    [!] ¡COLAPSO DETECTADO EN EL SISTEMA!");
+        System.out.println("    [!] MOMENTO DEL SISTEMA: " + reloj.format(FMT_LOG));
+        System.out.println("    [!] TIPO DE FALLO:       " + rc.getTipoError());
+        System.out.println("    [!] ENVÍO CAUSANTE:      " + rc.idEnvioCausante + " | RUTA: " + rc.rutaCausante + " | MALETAS: " + rc.maletasCausantes);
+        if (rc.ubicacionConflicto != null) System.out.println("    [!] LUGAR CONFLICTO:     " + rc.ubicacionConflicto);
+        System.out.println("    [!] DETALLE TÉCNICO:     " + rc.detalle);
+        System.out.println("    " + "!".repeat(70) + "\n");
+    }
+
+    private static void imprimirResumenFinal(DataService dataService, ResultadoColapso colapso, LocalDateTime relojParada, long tiempoEjecucionRealMs, Map<String, List<long[]>> timelineAlmacenes, LocalDateTime relojInicio) {
         List<Ruta> rutasHistorico = dataService.getRutasPlanificadasHistorico();
-        int totalMaletas = 0;
+
+        System.out.println("\n" + "=".repeat(120));
+        System.out.println("   RESUMEN DEL ESCENARIO - CONSOLIDADO FINAL");
+        System.out.println("=".repeat(120));
+        System.out.printf(" %-12s | %-7s | %-12s | %-10s | %-6s | %-6s | %-9s | %s%n", "ENVÍO", "MALETAS", "RUTA", "TIEMPO", "% SLA", "LÍMITE", "ESTADO", "ITINERARIO");
+        System.out.println("-".repeat(120));
+
+        int totalMaletasPlanificadas = 0;
         double sumaConsumoSLA = 0;
         Map<String, Integer> usoVuelo = new HashMap<>();
         Map<String, Integer> capVuelo = new HashMap<>();
 
         for (Ruta r : rutasHistorico) {
-            totalMaletas += r.getEnvio().getCantidadMaletas();
+            totalMaletasPlanificadas += r.getEnvio().getCantidadMaletas();
+            String itinerario = r.getVuelos().stream().map(v -> v.getOrigen() + "->" + v.getDestino()).collect(Collectors.joining(", "));
+
             Aeropuerto o = dataService.getMapaAeropuertos().get(r.getEnvio().getAeropuertoOrigen());
             Aeropuerto d = dataService.getMapaAeropuertos().get(r.getEnvio().getAeropuertoDestino());
             long slaHoras = (o != null && d != null && o.getContinente().equals(d.getContinente())) ? 24 : 48;
-            sumaConsumoSLA += (r.getTiempoTotalMinutos() * 100.0) / (slaHoras * 60);
+
+            double consumoSLA = (r.getTiempoTotalMinutos() * 100.0) / (slaHoras * 60);
+            sumaConsumoSLA += consumoSLA;
+            String estadoSLA = (r.getTiempoTotalMinutos() <= (slaHoras * 60)) ? " OK" : " NO";
+
+            System.out.printf(" %-12s | %-7d | %-12s | %2dh %02dm    | %5.1f%% | %2dh    | %-9s | [%s]%n",
+                    r.getEnvio().getIdEnvio(), r.getEnvio().getCantidadMaletas(),
+                    r.getEnvio().getAeropuertoOrigen() + "->" + r.getEnvio().getAeropuertoDestino(),
+                    r.getTiempoTotalMinutos() / 60, r.getTiempoTotalMinutos() % 60, consumoSLA, slaHoras, estadoSLA, itinerario);
 
             if (r.getVuelos() != null) {
                 for (PlanVuelo v : r.getVuelos()) {
                     String clave = v.getOrigen() + "-" + v.getDestino() + "-" + v.getHoraSalida();
-                    usoVuelo.merge(clave, r.getEnvio().getCantidadMaletas(), Integer::sum);
+                    usoVuelo.put(clave, usoVuelo.getOrDefault(clave, 0) + r.getEnvio().getCantidadMaletas());
                     capVuelo.put(clave, v.getCapacidad());
                 }
             }
         }
 
-        // Promedio de vuelos
-        long totalMaletasEnVuelos = 0, totalCapVuelos = 0;
+        long totalMaletasEnVuelos = 0, totalCapacidadDeVuelosUsados = 0;
         for (String clave : usoVuelo.keySet()) {
             totalMaletasEnVuelos += usoVuelo.get(clave);
-            totalCapVuelos += capVuelo.get(clave);
+            totalCapacidadDeVuelosUsados += capVuelo.get(clave);
         }
-        double promVuelos = totalCapVuelos == 0 ? 0 : (totalMaletasEnVuelos * 100.0) / totalCapVuelos;
+        double promVuelos = totalCapacidadDeVuelosUsados == 0 ? 0 : (totalMaletasEnVuelos * 100.0) / totalCapacidadDeVuelosUsados;
+        double promConsumoSLA = rutasHistorico.isEmpty() ? 0 : sumaConsumoSLA / rutasHistorico.size();
 
-        // Promedio de SLA
-        double promSLA = rutasHistorico.isEmpty() ? 0 : sumaConsumoSLA / rutasHistorico.size();
-
-        // Promedio de almacenes
-        double sumaPctAlm = 0;
+        double sumaPorcentajesAlm = 0;
         int almacenesUsados = 0;
         long inicioMin = relojInicio.toEpochSecond(ZoneOffset.UTC) / 60;
         long finMin = relojParada.toEpochSecond(ZoneOffset.UTC) / 60;
-        long totalMinutos = finMin - inicioMin;
+        long totalMinutosSimulacion = finMin - inicioMin;
 
-        if (totalMinutos > 0) {
+        if (totalMinutosSimulacion > 0) {
             for (Map.Entry<String, List<long[]>> entry : timelineAlmacenes.entrySet()) {
                 Aeropuerto aero = dataService.getMapaAeropuertos().get(entry.getKey());
                 if (aero == null || aero.getCapacidad() == 0) continue;
 
                 List<long[]> eventos = new ArrayList<>(entry.getValue());
                 eventos.sort(Comparator.comparingLong(a -> a[0]));
-                long area = 0;
-                long lastTime = inicioMin;
+
+                long areaMaletaMinutos = 0, lastTime = inicioMin;
                 int currentOc = 0;
+
                 for (long[] ev : eventos) {
-                    long t = Math.max(inicioMin, Math.min(ev[0], finMin));
-                    area += currentOc * (t - lastTime);
+                    long tiempoEvento = Math.max(inicioMin, Math.min(ev[0], finMin));
+                    areaMaletaMinutos += currentOc * (tiempoEvento - lastTime);
                     currentOc += (int) ev[1];
-                    lastTime = t;
+                    lastTime = tiempoEvento;
                 }
-                area += currentOc * (finMin - lastTime);
-                double ocProm = (double) area / totalMinutos;
-                sumaPctAlm += (ocProm * 100.0) / aero.getCapacidad();
+                areaMaletaMinutos += currentOc * (finMin - lastTime);
+
+                double ocupacionPromedioMaletas = (double) areaMaletaMinutos / totalMinutosSimulacion;
+                sumaPorcentajesAlm += (ocupacionPromedioMaletas * 100.0) / aero.getCapacidad();
                 almacenesUsados++;
             }
         }
-        double promAlm = almacenesUsados == 0 ? 0 : sumaPctAlm / almacenesUsados;
+        double promAlmacenes = almacenesUsados == 0 ? 0 : sumaPorcentajesAlm / almacenesUsados;
 
-        double FO = (promSLA * 4 + promVuelos * 3 + promAlm * 3) / 10;
-
-        return ResumenFinalDTO.builder()
-                .totalEnviosPlanificados(rutasHistorico.size())
-                .totalMaletasPlanificadas(totalMaletas)
-                .consumoPromedioSLA(promSLA)
-                .ocupacionPromedioVuelos(promVuelos)
-                .ocupacionPromedioAlmacenes(promAlm)
-                .funcionObjetivo(FO)
-                .tiempoEjecucionRealSegundos(tiempoEjecucionRealMs / 1000.0)
-                .colapsoDetectado(colapsoDetectado)
-                .build();
-    }
-
-    // =========================================================================
-    // HELPERS
-    // =========================================================================
-
-    private void enviarEvento(SseEmitter emitter, SimulacionEventDTO evento) {
-        try {
-            emitter.send(SseEmitter.event()
-                    .name(evento.getTipo())
-                    .data(evento, MediaType.APPLICATION_JSON));
-        } catch (Exception e) {
-            System.err.println("[SSE] Error enviando evento: " + e.getMessage());
+        int enviosNoPlanificados = 0, maletasNoPlanificadas = 0;
+        if (colapso != null && colapso.hayColapso()) {
+            enviosNoPlanificados = dataService.getEnviosEnEspera().size();
+            maletasNoPlanificadas = dataService.getEnviosEnEspera().stream().mapToInt(Envio::getCantidadMaletas).sum();
         }
+
+        System.out.println("\n" + "=".repeat(80));
+        System.out.println(" ESTADÍSTICAS FINALES DEL ESCENARIO");
+        System.out.println(" - Envíos procesados exitosamente: " + rutasHistorico.size());
+        System.out.println(" - Total de maletas planificadas:  " + totalMaletasPlanificadas);
+        if (colapso != null && colapso.hayColapso()) {
+            System.out.println(" - Envíos NO planificados (Fallo): " + enviosNoPlanificados);
+            System.out.println(" - Maletas NO planificadas:        " + maletasNoPlanificadas);
+        }
+        System.out.printf(" - Consumo prom. del SLA:          %.2f%%%n", promConsumoSLA);
+        System.out.printf(" - Ocupación prom. Vuelos Usados:  %.2f%%%n", promVuelos);
+        System.out.printf(" - Ocupación prom. de Almacenes:   %.2f%%%n", promAlmacenes);
+        double FO = (promConsumoSLA * 4 + promVuelos * 3 + promAlmacenes * 3) / 10;
+        System.out.printf(" - Funcion Objetivo:               %.2f%%%n", FO);
+        System.out.printf(" - Tiempo de ejecución real:       %.3f segundos%n", (tiempoEjecucionRealMs / 1000.0));
+
+        if (colapso != null && colapso.hayColapso()) {
+            System.out.println(" - [!] ESTADO: COLAPSO DETECTADO en el reloj " + relojParada.format(FMT_LOG));
+        } else {
+            System.out.println(" - [OK] ESTADO: Simulación completada sin interrupciones limitantes.");
+        }
+        System.out.println("=".repeat(80));
     }
 
-    private void agregarEventoTimeline(Map<String, List<long[]>> timeline, String aero, LocalDateTime t, int d) {
-        timeline.computeIfAbsent(aero, x -> new ArrayList<>())
-                .add(new long[]{t.toEpochSecond(ZoneOffset.UTC) / 60, d});
-    }
+    static class ResultadoColapso {
+        boolean topologico = false, porSLA = false, porEspacioAlmacen = false, porEspacioVuelo = false, porRutaNoEncontrada = false;
+        String idEnvioCausante = "N/A", rutaCausante = "N/A", ubicacionConflicto = null, detalle = "";
+        int maletasCausantes = 0;
 
-    private int convertirAMinutos(String h) {
-        String[] p = h.split(":");
-        return Integer.parseInt(p[0]) * 60 + Integer.parseInt(p[1]);
-    }
+        boolean hayColapso() { return topologico || porSLA || porEspacioAlmacen || porEspacioVuelo || porRutaNoEncontrada; }
 
-    private LocalTime minutosALocalTime(int m) {
-        return LocalTime.of((m / 60) % 24, m % 60);
+        String getTipoError() {
+            if (topologico) return "ERROR TOPOLÓGICO (SIN RUTA FACTIBLE)";
+            if (porRutaNoEncontrada) return "ERROR DE OPTIMIZACIÓN (NO SE PUDO ASIGNAR RUTA)";
+            if (porSLA) return "INCUMPLIMIENTO DE SLA (TIEMPO EXCEDIDO)";
+            if (porEspacioAlmacen) return "EXCESO DE CAPACIDAD EN ALMACÉN";
+            if (porEspacioVuelo) return "EXCESO DE CAPACIDAD EN VUELO";
+            return "MOTIVO DESCONOCIDO";
+        }
     }
 }
