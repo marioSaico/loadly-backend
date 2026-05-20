@@ -11,8 +11,9 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class SimulacionEventDTO {
-    private String tipo; // "ITERACION", "COLAPSO", "RESUMEN_FINAL"
-    private String relojSimulado;
+    private String tipo; // Puede ser: "ITERACION", "COLAPSO", "RESUMEN_FINAL"
+    private String relojSimulado; // El reloj base (Sa)
+    private String limiteLectura; // Hasta donde leyó el algoritmo (Sc)
     
     private List<RutaPlanificadaDTO> rutasPlanificadas;
     private ColapsoDTO colapso;
@@ -54,12 +55,18 @@ public class SimulacionEventDTO {
         private int maletasCausantes;
         private String ubicacionConflicto;
         private String detalle;
+        private String relojColapso;
     }
 
     @Data @Builder
     public static class ResumenFinalDTO {
         private int totalEnviosPlanificados;
         private int totalMaletasPlanificadas;
-        private double tiempoEjecucionRealSegundos;
+        private double consumoPromedioSLA;
+        private double ocupacionPromedioVuelos;
+        private double ocupacionPromedioAlmacenes;
+        private double funcionObjetivo;
+        private double tiempoEjecucionSegundos;
+        private String estadoFinal;
     }
 }
