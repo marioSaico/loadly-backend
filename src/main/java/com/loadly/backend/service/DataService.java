@@ -6,8 +6,10 @@ import com.loadly.backend.model.*;
 import lombok.Data;
 import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
- 
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -132,11 +134,20 @@ public class DataService {
             LocalDateTime[] despegues = new LocalDateTime[n];
             LocalDateTime[] llegadas  = new LocalDateTime[n];
  
-            // Primer vuelo: espera desde hora de registro del envío
+            // 1. Obtenemos la fecha y hora exacta en la que el paquete llegó físicamente al aeropuerto
+            LocalDateTime fechaLlegadaPaquete = LocalDateTime.of(
+                    LocalDate.parse(envio.getFechaRegistro(), DateTimeFormatter.ofPattern("yyyyMMdd")),
+                    LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro())
+            );
+
+            // 2. Calculamos los minutos que el paquete tiene que esperar sentado en el almacén hasta su vuelo
             long esperaPrimero = calcularMinutosHastaVuelo(
                     envio.getHoraRegistro(), envio.getMinutoRegistro(),
                     vuelosRuta.get(0).getHoraSalida());
-            despegues[0] = relojActual.plusMinutes(esperaPrimero);
+
+            // 3. El despegue real es simplemente: Hora en que llegó el paquete + su tiempo de espera. 
+            // ¡Ya no dependemos del reloj del planificador!
+            despegues[0] = fechaLlegadaPaquete.plusMinutes(esperaPrimero);
             llegadas[0]  = despegues[0].plusMinutes(
                     calcularDuracionVueloGMT(vuelosRuta.get(0)));
  
