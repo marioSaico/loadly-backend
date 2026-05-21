@@ -6,7 +6,6 @@ import com.loadly.backend.dto.SimulacionEventDTO.*;
 import com.loadly.backend.model.*;
 import com.loadly.backend.planificador.Planificador;
 import com.loadly.backend.service.DataService;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -36,8 +35,7 @@ public class SimulacionPeriodoController {
     private final Planificador planificador;
     private final DataService dataService;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
-
-    // AQUÍ GUARDAMOS EL ÚLTIMO RESUMEN GENERADO
+    
     private ResumenFinalDTO ultimoResumen = null;
 
     public SimulacionPeriodoController(Planificador planificador, DataService dataService) {
@@ -45,9 +43,6 @@ public class SimulacionPeriodoController {
         this.dataService = dataService;
     }
 
-    // =========================================================================
-    // 1. API DE SIMULACIÓN (SSE) - SOLO PLANIFICACIÓN Y COLAPSOS
-    // =========================================================================
     @GetMapping(value = "/periodo/iniciar", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter iniciarSimulacion(
             @RequestParam String inicioStr,
@@ -57,9 +52,8 @@ public class SimulacionPeriodoController {
             @RequestParam(defaultValue = "6") int k,
             @RequestParam(defaultValue = "10") int tamano) {
 
-        SseEmitter emitter = new SseEmitter(0L); // Timeout infinito para que no se corte
+        SseEmitter emitter = new SseEmitter(0L);
 
-        // Aquí usamos el hilo secundario para "bombear" datos al Front-end
         executor.execute(() -> {
             try {
                 ejecutarEscenario(emitter, inicioStr, finStr, taSegundos, sa, k, tamano);
@@ -68,25 +62,17 @@ public class SimulacionPeriodoController {
             }
         });
 
-        return emitter; // Retornamos el tubo inmediatamente
+        return emitter;
     }
 
-    // =========================================================================
-    // 2. NUEVA API: OBTENER EL RESUMEN FINAL
-    // =========================================================================
     @GetMapping(value = "/periodo/resumen", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ResumenFinalDTO> obtenerResumenFinal() {
         if (ultimoResumen == null) {
-            // Si nadie ha corrido la simulación aún, devolvemos un 204 No Content
             return ResponseEntity.noContent().build(); 
         }
-        // Devolvemos el JSON limpio y directo
         return ResponseEntity.ok(ultimoResumen);
     }
 
-    // =========================================================================
-    // LÓGICA DEL MOTOR
-    // =========================================================================
     private void ejecutarEscenario(SseEmitter emitter, String inicioStr, String finStr, int taSegundos, int sa, int k, int tamano) throws Exception {
 
         LocalDateTime relojSimulado      = LocalDateTime.parse(inicioStr, FMT_INPUT);
@@ -106,9 +92,9 @@ public class SimulacionPeriodoController {
         while ((limiteLecturaDatos.isBefore(finSimulacion) || limiteLecturaDatos.isEqual(finSimulacion)) && !colapsoDetectado) {
 
             String limiteLecturaStr = limiteLecturaDatos.format(FMT_INPUT);
-            String relojActualStr   = relojSimulado.format(FMT_INPUT);
 
             dataService.procesarEventosDelReloj(limiteLecturaStr);
+            
             Individuo resultado = planificador.planificar(inicioStr, limiteLecturaStr, tamano, tiempoLimiteMs);
 
             if (resultado != null) {
@@ -131,12 +117,9 @@ public class SimulacionPeriodoController {
 
         long tiempoEjecucionRealMs = System.currentTimeMillis() - inicioEscenarioMs;
         generarYGuardarResumen(dataService, colapsoFinal, limiteLecturaDatos, tiempoEjecucionRealMs, timelineAlmacenesGlobal, LocalDateTime.parse(inicioStr, FMT_INPUT), ocupacionVuelosGlobal);
-        emitter.complete(); // Cerramos la conexión elegantemente
+        
+        emitter.complete(); 
     }
-
-    // =========================================================================
-    // MÉTODOS DE MAPEO (Reemplazan a los System.out.println)
-    // =========================================================================
 
     private void enviarIteracion(SseEmitter emitter, Individuo resultado, DataService dataService, 
                                  Map<String, List<long[]>> timelineAlmacenesGlobal, 
@@ -153,7 +136,6 @@ public class SimulacionPeriodoController {
                 }))
                 .collect(Collectors.toList());
         
-        List<RutaPlanificadaDTO> rutasDTO = new ArrayList<>();
 
         for (Ruta r : rutasOrdenadas) {
             Envio envio = r.getEnvio();
@@ -163,13 +145,46 @@ public class SimulacionPeriodoController {
 
             agregarEventoTimeline(timelineAlmacenesGlobal, envio.getAeropuertoOrigen(), regGMT, +envio.getCantidadMaletas());
 
+            LocalDateTime cursor = regGMT;
+            for (PlanVuelo v : r.getVuelos()) {
+                String clave = v.getOrigen() + "-" + v.getDestino() + "-" + v.getHoraSalida();
+                ocupacionVuelosGlobal.merge(clave, envio.getCantidadMaletas(), Integer::sum);
+
+                int gmtVOrig = dataService.getMapaAeropuertos().get(v.getOrigen()).getGmt();
+                int gmtVDest = dataService.getMapaAeropuertos().get(v.getDestino()).getGmt();
+
+                int minSGMT = (convertirAMinutos(v.getHoraSalida()) - gmtVOrig * 60 + 1440) % 1440;
+                LocalDateTime despegue = cursor.with(minutosALocalTime(minSGMT));
+                if (despegue.isBefore(cursor)) despegue = despegue.plusDays(1);
+
+                int duracion = (convertirAMinutos(v.getHoraLlegada()) - gmtVDest * 60) - (convertirAMinutos(v.getHoraSalida()) - gmtVOrig * 60);
+                if (duracion < 0) duracion += 1440;
+                LocalDateTime llegada = despegue.plusMinutes(duracion);
+
+                agregarEventoTimeline(timelineAlmacenesGlobal, v.getOrigen(), despegue, -envio.getCantidadMaletas());
+                agregarEventoTimeline(timelineAlmacenesGlobal, v.getDestino(), llegada, +envio.getCantidadMaletas());
+
+                cursor = llegada;
+            }
+            
+            cursor = cursor.plusMinutes(10);
+            agregarEventoTimeline(timelineAlmacenesGlobal, envio.getAeropuertoDestino(), cursor, -envio.getCantidadMaletas());
+        }
+
+        List<RutaPlanificadaDTO> rutasDTO = new ArrayList<>();
+        
+        for (Ruta r : rutasOrdenadas) {
+            Envio envio = r.getEnvio();
+            int gmtO = dataService.getMapaAeropuertos().get(envio.getAeropuertoOrigen()).getGmt();
+            LocalDateTime regGMT = LocalDateTime.of(LocalDate.parse(envio.getFechaRegistro(), FMT_FECHA),
+                    LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro())).minusHours(gmtO);
+
             List<VueloPlanificadoDTO> tramosDTO = new ArrayList<>();
             LocalDateTime cursor = regGMT;
             int paso = 1;
 
             for (PlanVuelo v : r.getVuelos()) {
                 String clave = v.getOrigen() + "-" + v.getDestino() + "-" + v.getHoraSalida();
-                ocupacionVuelosGlobal.merge(clave, envio.getCantidadMaletas(), Integer::sum);
 
                 Aeropuerto ao = dataService.getMapaAeropuertos().get(v.getOrigen());
                 Aeropuerto ad = dataService.getMapaAeropuertos().get(v.getDestino());
@@ -182,9 +197,7 @@ public class SimulacionPeriodoController {
                 if (duracion < 0) duracion += 1440;
                 LocalDateTime llegada = despegue.plusMinutes(duracion);
 
-                agregarEventoTimeline(timelineAlmacenesGlobal, v.getOrigen(), despegue, -envio.getCantidadMaletas());
-                agregarEventoTimeline(timelineAlmacenesGlobal, v.getDestino(), llegada, +envio.getCantidadMaletas());
-
+                // Como la línea de tiempo se llenó en el Bucle 1, ahora esto reflejará TODAS las maletas
                 int ocupadoAlmOrig = getOcupacionAlmacen(timelineAlmacenesGlobal, v.getOrigen(), despegue);
                 int ocupadoAlmDest = getOcupacionAlmacen(timelineAlmacenesGlobal, v.getDestino(), llegada);
 
@@ -194,7 +207,7 @@ public class SimulacionPeriodoController {
                         .destino(v.getDestino())
                         .sale(despegue.toLocalTime().toString())
                         .llega(llegada.toLocalTime().toString())
-                        .maletasVuelo(ocupacionVuelosGlobal.get(clave))
+                        .maletasVuelo(ocupacionVuelosGlobal.getOrDefault(clave, 0))
                         .capacidadVuelo(v.getCapacidad())
                         .ocupacionAlmacenOrigen(ocupadoAlmOrig)
                         .capacidadAlmacenOrigen(ao.getCapacidad())
@@ -205,9 +218,6 @@ public class SimulacionPeriodoController {
                 cursor = llegada;
             }
             
-            cursor = cursor.plusMinutes(10);
-            agregarEventoTimeline(timelineAlmacenesGlobal, envio.getAeropuertoDestino(), cursor, -envio.getCantidadMaletas());
-
             Aeropuerto origen = dataService.getMapaAeropuertos().get(envio.getAeropuertoOrigen());
             Aeropuerto destino = dataService.getMapaAeropuertos().get(envio.getAeropuertoDestino());
             long horasTotales = r.getTiempoTotalMinutos() / 60;
@@ -323,7 +333,6 @@ public class SimulacionPeriodoController {
         double promAlmacenes = almacenesUsados == 0 ? 0 : sumaPorcentajesAlm / almacenesUsados;
         double FO = (promConsumoSLA*4 + promVuelos*3 + promAlmacenes*3)/10;
 
-        // Guardamos en la variable global en lugar de hacer emitter.send()
         this.ultimoResumen = ResumenFinalDTO.builder()
                 .totalEnviosPlanificados(rutasHistorico.size())
                 .totalMaletasPlanificadas(totalMaletasPlanificadas)
@@ -334,12 +343,7 @@ public class SimulacionPeriodoController {
                 .tiempoEjecucionSegundos(tiempoEjecucionRealMs / 1000.0)
                 .estadoFinal(colapso != null && colapso.hayColapso() ? "COLAPSO DETECTADO" : "SIMULACION EXITOSA")
                 .build();
-
     }
-
-    // =========================================================================
-    // HELPERS COPIADOS LITERALMENTE DE TU MAIN
-    // =========================================================================
 
     private static void agregarEventoTimeline(Map<String, List<long[]>> timeline, String aero, LocalDateTime t, int d) {
         timeline.computeIfAbsent(aero, k -> new ArrayList<>()).add(new long[]{t.toEpochSecond(ZoneOffset.UTC) / 60, d});
