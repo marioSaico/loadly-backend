@@ -93,6 +93,8 @@ public class BackendApplication {
             String tipoAlgoritmo, PlanificadorFunc planFunc,
             DataService dataService) {
 
+        dataService.resetEstado();
+
         LocalDateTime relojSimulado      = LocalDateTime.parse(inicioStr, FMT_INPUT);
         LocalDateTime finSimulacion      = LocalDateTime.parse(finStr,    FMT_INPUT);
         LocalDateTime limiteLecturaDatos = relojSimulado;
