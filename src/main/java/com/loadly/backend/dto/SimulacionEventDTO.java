@@ -13,6 +13,9 @@ import java.util.List;
 public class SimulacionEventDTO {
     private String tipo; // "ITERACION", "COLAPSO", "RESUMEN_FINAL"
     private String relojSimulado;
+    private Integer iteracionActual;
+    private Integer totalIteracionesEstimadas;
+    private List<AeropuertoDTO> aeropuertos;
     
     private List<RutaPlanificadaDTO> rutasPlanificadas;
     private ColapsoDTO colapso;

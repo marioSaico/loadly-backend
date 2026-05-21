@@ -1,6 +1,7 @@
 package com.loadly.backend.controller.api;
 
 import com.loadly.backend.algoritmo.genetico.Individuo;
+import com.loadly.backend.dto.AeropuertoDTO;
 import com.loadly.backend.dto.SimulacionEventDTO;
 import com.loadly.backend.dto.SimulacionEventDTO.*;
 import com.loadly.backend.model.*;
@@ -61,6 +62,24 @@ public class SimulacionPeriodoController {
                 System.out.println("\n" + "=".repeat(80));
                 System.out.println("   INICIANDO ESCENARIO DESDE API (FRONTEND)");
                 System.out.println("=".repeat(80));
+
+                enviarEvento(emitter, SimulacionEventDTO.builder()
+                    .tipo("INICIO")
+                    .relojSimulado(relojSimulado.format(FMT_DISPLAY))
+                    .aeropuertos(dataService.getAeropuertos().stream()
+                        .map(a -> new AeropuertoDTO(
+                            a.getId(),
+                            a.getCodigo(),
+                            a.getCiudad(),
+                            a.getPais(),
+                            a.getAbreviatura(),
+                            a.getGmt(),
+                            a.getCapacidad(),
+                            a.getLatitud(),
+                            a.getLongitud(),
+                            a.getContinente()))
+                        .collect(Collectors.toList()))
+                    .build());
 
                 while ((limiteLecturaDatos.isBefore(finSimulacion) || limiteLecturaDatos.isEqual(finSimulacion)) && !colapsoDetectado) {
                     String limiteLecturaStr = limiteLecturaDatos.format(FMT_INPUT);
