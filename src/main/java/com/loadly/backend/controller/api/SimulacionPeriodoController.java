@@ -75,6 +75,8 @@ public class SimulacionPeriodoController {
 
     private void ejecutarEscenario(SseEmitter emitter, String inicioStr, String finStr, int taSegundos, int sa, int k, int tamano) throws Exception {
 
+        dataService.resetEstado();
+
         LocalDateTime relojSimulado      = LocalDateTime.parse(inicioStr, FMT_INPUT);
         LocalDateTime finSimulacion      = LocalDateTime.parse(finStr,    FMT_INPUT);
         LocalDateTime limiteLecturaDatos = relojSimulado;

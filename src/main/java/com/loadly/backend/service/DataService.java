@@ -273,10 +273,10 @@ public class DataService {
     }
  
     // =========================================================================
-    // 4. RESET EXPERIMENTO
+    // 4. RESET ESTADO
     // =========================================================================
  
-    public void resetEstadoExperimento() {
+    public void resetEstado() {
         this.capacidadDinamicaAlmacenes.clear();
         for (Aeropuerto a : aeropuertos) {
             capacidadDinamicaAlmacenes.put(a.getCodigo(), a.getCapacidad());
