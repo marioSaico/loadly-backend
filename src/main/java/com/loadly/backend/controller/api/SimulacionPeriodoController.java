@@ -225,14 +225,22 @@ public class SimulacionPeriodoController {
             long horasTotales = r.getTiempoTotalMinutos() / 60;
             long minutosRestantes = r.getTiempoTotalMinutos() % 60;
             long slaHoras = (origen != null && destino != null && origen.getContinente().equals(destino.getContinente())) ? 24 : 48;
+            LocalDateTime recojoGMT = regGMT.plusMinutes(r.getTiempoTotalMinutos());
+            int ocupadoRegistro = getOcupacionAlmacen(timelineAlmacenesGlobal, envio.getAeropuertoOrigen(), regGMT);
+            int ocupadoRecojo   = getOcupacionAlmacen(timelineAlmacenesGlobal, envio.getAeropuertoDestino(), recojoGMT);
 
             rutasDTO.add(RutaPlanificadaDTO.builder()
                     .idEnvio(envio.getIdEnvio())
+                    .idCliente(envio.getIdCliente())
                     .origen(envio.getAeropuertoOrigen())
                     .destino(envio.getAeropuertoDestino())
                     .maletas(envio.getCantidadMaletas())
                     .fechaRegistro(regGMT.format(FMT_DISPLAY))
-                    .fechaLlegada(regGMT.plusMinutes(r.getTiempoTotalMinutos()).format(FMT_DISPLAY))
+                    .fechaRecojo(recojoGMT.format(FMT_DISPLAY))
+                    .ocupacionAlmacenRegistro(ocupadoRegistro)
+                    .capacidadAlmacenRegistro(origen != null ? origen.getCapacidad() : 0)
+                    .ocupacionAlmacenRecojo(ocupadoRecojo)
+                    .capacidadAlmacenRecojo(destino != null ? destino.getCapacidad() : 0)
                     .duracion(String.format("%02dh %02dm", horasTotales, minutosRestantes))
                     .sla(slaHoras + "h")
                     .tramos(tramosDTO)

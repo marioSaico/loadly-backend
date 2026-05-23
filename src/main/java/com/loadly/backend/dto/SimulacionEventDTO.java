@@ -22,11 +22,16 @@ public class SimulacionEventDTO {
     @Data @Builder
     public static class RutaPlanificadaDTO {
         private String idEnvio;
+        private String idCliente;
         private String origen;
         private String destino;
         private int maletas;
         private String fechaRegistro;
-        private String fechaLlegada;
+        private String fechaRecojo;
+        private int ocupacionAlmacenRegistro;
+        private int capacidadAlmacenRegistro;
+        private int ocupacionAlmacenRecojo;
+        private int capacidadAlmacenRecojo;
         private String duracion;
         private String sla;
         private List<VueloPlanificadoDTO> tramos;
