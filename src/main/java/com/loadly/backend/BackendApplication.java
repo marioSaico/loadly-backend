@@ -50,7 +50,10 @@ public class BackendApplication {
         System.out.println(">>> Accede a: http://localhost:8080/api/test/conexiones");
         System.out.println(">>> O a: http://localhost:8080/api/test/health");
 
-        ejecutarAlgoritmos(context);
+
+        //Cuando se quiera probar el API comentar esta linea. 
+        //Cuando se quiera probar el algoritmo en el main descomentar esta linea
+        //ejecutarAlgoritmos(context);
     }
 
     /**
@@ -80,6 +83,10 @@ public class BackendApplication {
         // ejecutarEscenario("DIA A DIA", "20260101-20-40", "20260101-21-00", 5, 10, 1,
         // 5, nombreAlg, planFunc, dataService);
 
+        //PRUEBA ESCENARIO PERIODO 5 DIAS EN JULIO 2026
+        //ejecutarEscenario("PERIODO", "20260713-00-00", "20260718-00-00", 30, 10, 6, 10, nombreAlg, planFunc,
+        //        dataService);
+        //PRUEBA ESCENARIO PERIODO 5 DIAS, PERO SOLO DE 1 DIA DE ENERO 2026 (este es de prueba no ma)
         ejecutarEscenario("PERIODO", "20260101-00-00", "20260102-00-00", 30, 10, 6, 10, nombreAlg, planFunc,
                 dataService);
 
@@ -92,6 +99,8 @@ public class BackendApplication {
             int taSegundos, int sa, int k, int tamano,
             String tipoAlgoritmo, PlanificadorFunc planFunc,
             DataService dataService) {
+
+        dataService.resetEstado();
 
         LocalDateTime relojSimulado      = LocalDateTime.parse(inicioStr, FMT_INPUT);
         LocalDateTime finSimulacion      = LocalDateTime.parse(finStr,    FMT_INPUT);
@@ -215,15 +224,34 @@ public class BackendApplication {
         long minutosRestantes = r.getTiempoTotalMinutos() % 60;
         long slaHoras = (origen != null && destino != null && origen.getContinente().equals(destino.getContinente())) ? 24 : 48;
 
-        // [MODIFICADO] Tabla más ancha para que quepa el Almacén Destino
-        System.out.println("---------------------------------------------------------------------------------------------------------------------------");
-        System.out.printf("| ENVÍO: %-10s | %s -> %s | MALETAS: %-64d |%n",
-                env.getIdEnvio(), env.getAeropuertoOrigen(), env.getAeropuertoDestino(), env.getCantidadMaletas());
-        System.out.printf("| REGISTRO: %-16s | LLEGADA: %-70s |%n",
-                regGMT.format(FMT_DISPLAY), regGMT.plusMinutes(r.getTiempoTotalMinutos()).format(FMT_DISPLAY));
-        System.out.printf("| DURACIÓN: %02dh %02dm           | SLA: %dh                                                                                   |%n",
+        // 1. Calculamos la fecha de recojo exacta en GMT
+        LocalDateTime recojoGMT = regGMT.plusMinutes(r.getTiempoTotalMinutos());
+
+        // 2. Tomamos la foto de ocupación usando 'timelineAlmacenes' y 'env' (los nombres correctos de tu función)
+        int ocupadoRegistro = getOcupacionAlmacen(timelineAlmacenes, env.getAeropuertoOrigen(), regGMT);
+        int ocupadoRecojo   = getOcupacionAlmacen(timelineAlmacenes, env.getAeropuertoDestino(), recojoGMT);
+
+        // 3. Separadores adaptables y limpios
+        String separadorGrueso = "=".repeat(120);
+        String separadorFino   = "-".repeat(120);
+
+        System.out.println(separadorGrueso);
+        System.out.printf("| ENVÍO: %-10s | RUTA: %s -> %s | CLIENTE: %-10s | MALETAS: %d %n",
+                env.getIdEnvio(), env.getAeropuertoOrigen(), env.getAeropuertoDestino(), env.getIdCliente(), env.getCantidadMaletas());
+        System.out.println(separadorFino);
+
+        // 4. Formato de "Tarjeta" Vertical (Mucho más limpio y legible)
+        System.out.printf("| REGISTRO : %s  (Alm. Reg %s: %d/%d)%n", 
+                regGMT.format(FMT_DISPLAY), env.getAeropuertoOrigen(), ocupadoRegistro, origen.getCapacidad());
+        
+        System.out.printf("| RECOJO   : %s  (Alm. Recojo %s: %d/%d)%n", 
+                recojoGMT.format(FMT_DISPLAY), env.getAeropuertoDestino(), ocupadoRecojo, destino.getCapacidad());
+        
+        System.out.printf("| TIEMPO   : %02dh %02dm           (SLA: %dh)%n", 
                 horasTotales, minutosRestantes, slaHoras);
-        System.out.println("---------------------------------------------------------------------------------------------------------------------------");
+        
+        System.out.println(separadorFino);
+        System.out.println("| TRAMOS DE VUELO:");
 
         LocalDateTime cursor = regGMT;
         int paso = 1;
@@ -246,14 +274,14 @@ public class BackendApplication {
             String claveV = v.getOrigen() + "-" + v.getDestino() + "-" + v.getHoraSalida();
 
             // [MODIFICADO] Mostramos ambas columnas usando solo los métodos originales de DataService
-            System.out.printf("| (%d) %s->%-4s | Sale: %s | Llega: %s | Vuelo: %3d/%-3d | Alm.Orig %s: %3d/%-3d | Alm.Dest %s: %3d/%-3d |%n",
+            System.out.printf("| [%d] %s -> %-4s | Sale: %s | Llega: %s | Vuelo: %3d/%-3d | Alm. Orig %s: %3d/%-3d | Alm. Dest %s: %3d/%-3d |%n",
                     paso++, v.getOrigen(), v.getDestino(), despegue.toLocalTime(), llegada.toLocalTime(),
                     ocupacionVuelos.getOrDefault(claveV, 0), v.getCapacidad(),
                     v.getOrigen(), ocupadoAlmOrig, ao.getCapacidad(),
                     v.getDestino(), ocupadoAlmDest, dataService.getMapaAeropuertos().get(v.getDestino()).getCapacidad());
             cursor = llegada;
         }
-        System.out.println("---------------------------------------------------------------------------------------------------------------------------\n");
+        System.out.println(separadorGrueso + "\n");
     }
 
     private static void imprimirResumenFinal(DataService dataService, ResultadoColapso colapso, LocalDateTime relojParada, long tiempoEjecucionRealMs, Map<String, List<long[]>> timelineAlmacenes, LocalDateTime relojInicio) {
