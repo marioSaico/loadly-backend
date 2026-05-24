@@ -50,7 +50,7 @@ public class BackendApplication {
         System.out.println(">>> Accede a: http://localhost:8080/api/test/conexiones");
         System.out.println(">>> O a: http://localhost:8080/api/test/health");
 
-        //ejecutarAlgoritmos(context);
+        ejecutarAlgoritmos(context);
     }
 
     /**
