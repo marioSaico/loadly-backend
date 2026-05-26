@@ -55,13 +55,13 @@ public class DataService {
         this.planVueloService = planVueloService;
     }
  
-    @PostConstruct
     public void inicializar() {
-        // Cargar aeropuertos desde base de datos en lugar de archivo
-        this.mapaAeropuertos = cargarAeropuertosDesdeBD();
-        this.aeropuertos = new ArrayList<>(this.mapaAeropuertos.values());
+        // Cargar aeropuertos desde base de datos e indexarlos
+        this.aeropuertos = cargarAeropuertosDesdeBD();
+        this.mapaAeropuertos = this.aeropuertos.stream()
+                .collect(Collectors.toMap(Aeropuerto::getCodigo, a -> a));
 
-        // Cargar vuelos desde base de datos en lugar de archivo
+        // Cargar vuelos desde base de datos e indexarlos
         this.vuelos = cargarVuelosDesdeBD();
  
         this.mapaVuelosPorOrigen = vuelos.stream()
@@ -85,14 +85,14 @@ public class DataService {
     /**
      * Carga los aeropuertos desde la base de datos y los convierte al modelo interno
      */
-    public Map<String, Aeropuerto> cargarAeropuertosDesdeBD() {
-        Map<String, AeropuertoDTO> mapaDTO = aeropuertoService.obtenerMapaTodos();
-        Map<String, Aeropuerto> nuevoMapa = new HashMap<>();
+    public List<Aeropuerto> cargarAeropuertosDesdeBD() {
+        List<AeropuertoDTO> listaDTO = aeropuertoService.obtenerTodos();
+        List<Aeropuerto> nuevaLista = new ArrayList<>();
 
-        for (Map.Entry<String, AeropuertoDTO> entry : mapaDTO.entrySet()) {
-            nuevoMapa.put(entry.getKey(), convertirAModelo(entry.getValue()));
+        for (AeropuertoDTO dto : listaDTO) {
+            nuevaLista.add(convertirAModelo(dto));
         }
-        return nuevoMapa;
+        return nuevaLista;
     }
 
     /**
@@ -157,14 +157,21 @@ public class DataService {
     // 1. GESTIÓN DE ENVÍOS (Backlog)
     // =========================================================================
  
+    /**
+     * Carga archivos en memoria desde el front-end
+     */
+    public void cargarEnviosDesdeArchivos(Map<String, List<String>> archivos) {
+        this.envioLoader.setArchivosEnMemoria(archivos, this.aeropuertos);
+    }
+
     public List<Envio> obtenerEnviosPendientes(String inicioEscenario, String fechaHoraLimite) {
         List<Envio> enviosRecienLlegados = envioLoader.cargarPendientes(
-            "src/main/resources/data/envios",
+            null, // No usamos ruta física si ya está en memoria
             inicioEscenario,
             fechaHoraLimite,
             this.aeropuertos
         );
- 
+        
         if (!enviosRecienLlegados.isEmpty()) {
             this.enviosEnEspera.addAll(enviosRecienLlegados);
         }

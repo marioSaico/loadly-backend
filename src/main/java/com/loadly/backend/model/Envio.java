@@ -1,6 +1,7 @@
 package com.loadly.backend.model;
 
 import lombok.Data;
+import java.time.LocalDateTime;
 
 @Data
 public class Envio {
@@ -14,5 +15,8 @@ public class Envio {
     private int cantidadMaletas;
     private String idCliente;
     private boolean planificado;
+
+    // Campo optimizado para filtrado rápido en memoria
+    private LocalDateTime tiempoRegistroGMT;
 
 }

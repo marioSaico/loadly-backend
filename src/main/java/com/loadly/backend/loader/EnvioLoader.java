@@ -4,91 +4,49 @@ import com.loadly.backend.model.Aeropuerto;
 import com.loadly.backend.model.Envio;
 import org.springframework.stereotype.Component;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.File;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Component
 public class EnvioLoader {
 
-    // Memoria caché para saber en qué línea nos quedamos en cada archivo
-    // Clave: Nombre del archivo, Valor: Número de línea donde nos detuvimos la última vez
-    private final Map<String, Integer> cursorLineasPorArchivo = new HashMap<>();
+    private static final DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("yyyyMMdd");
 
-    public List<Envio> cargarPendientes(String rutaCarpeta, String fechaInicioStr, String fechaHoraLimiteStr, List<Aeropuerto> aeropuertos) {
-        List<Envio> enviosPendientes = new ArrayList<>();
-        File carpeta = new File(rutaCarpeta);
+    // Memoria caché para saber en qué posición nos quedamos en cada lista de envíos
+    private final Map<String, Integer> cursorEnviosPorArchivo = new ConcurrentHashMap<>();
+    
+    // Almacenamiento optimizado de los envíos parseados (objetos en lugar de strings para ahorrar RAM)
+    private final Map<String, List<Envio>> enviosPorArchivo = new ConcurrentHashMap<>();
+
+    /**
+     * Carga y parsea archivos en memoria de forma optimizada y en paralelo.
+     */
+    public void setArchivosEnMemoria(Map<String, List<String>> archivosRaw, List<Aeropuerto> aeropuertos) {
+        this.enviosPorArchivo.clear();
+        this.cursorEnviosPorArchivo.clear();
 
         Map<String, Integer> mapaGmt = aeropuertos.stream()
                 .collect(Collectors.toMap(Aeropuerto::getCodigo, Aeropuerto::getGmt));
 
-        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("yyyyMMdd");
-        
-        // --- PARSEO DEL LÍMITE ---
-        String[] limitePartes = fechaHoraLimiteStr.split("-");
-        LocalDate limiteDate = LocalDate.parse(limitePartes[0], dateFmt);
-        LocalDateTime relojGlobalGMT = LocalDateTime.of(limiteDate, LocalTime.of(Integer.parseInt(limitePartes[1]), Integer.parseInt(limitePartes[2])));
-
-        // --- PARSEO DEL INICIO (NUEVO) ---
-        String[] inicioPartes = fechaInicioStr.split("-");
-        LocalDate inicioDate = LocalDate.parse(inicioPartes[0], dateFmt);
-        LocalDateTime relojInicioGMT = LocalDateTime.of(inicioDate, LocalTime.of(Integer.parseInt(inicioPartes[1]), Integer.parseInt(inicioPartes[2])));
-
-        File[] archivos = carpeta.listFiles((dir, nombre) -> nombre.startsWith("_envios_") && nombre.endsWith("_.txt"));
-        if (archivos == null) return enviosPendientes;
-
-        for (File archivo : archivos) {
-            String nombreArchivo = archivo.getName();
+        // Procesamiento en paralelo de los archivos para parsearlos a objetos
+        archivosRaw.entrySet().parallelStream().forEach(entry -> {
+            String nombreArchivo = entry.getKey();
             String codigoOrigen = nombreArchivo.replace("_envios_", "").replace("_.txt", "");
-            int gmtOrigen = mapaGmt.getOrDefault(codigoOrigen, 0);
+            List<String> lineas = entry.getValue();
+            
+            List<Envio> listaEnvios = new ArrayList<>();
+            for (String linea : lineas) {
+                linea = linea.trim();
+                if (linea.isEmpty()) continue;
 
-            int lineaInicio = cursorLineasPorArchivo.getOrDefault(nombreArchivo, 0);
-            int lineasLeidasEnEstaRonda = 0;
-
-            try (BufferedReader br = new BufferedReader(new FileReader(archivo))) {
-                String linea;
-                int numeroLineaActual = 0;
-
-                while ((linea = br.readLine()) != null) {
-                    numeroLineaActual++;
-
-                    if (numeroLineaActual <= lineaInicio) {
-                        continue;
-                    }
-
-                    linea = linea.trim();
-                    if (linea.isEmpty()) {
-                        lineasLeidasEnEstaRonda++;
-                        continue;
-                    }
-
+                try {
                     String[] campos = linea.split("-");
-                    LocalDate fechaLocal = LocalDate.parse(campos[1], dateFmt);
-                    LocalDateTime tiempoLocal = LocalDateTime.of(fechaLocal, LocalTime.of(Integer.parseInt(campos[2]), Integer.parseInt(campos[3])));
-                    LocalDateTime tiempoGMT = tiempoLocal.minusHours(gmtOrigen);
-
-                    // 🚀 LÓGICA DE DESCARTAR BASURA ANTIGUA: 
-                    // Si el paquete es de 2026 y el escenario arranca en 2027, lo saltamos pero el cursor avanza
-                    if (tiempoGMT.isBefore(relojInicioGMT)) {
-                        lineasLeidasEnEstaRonda++;
-                        continue; 
-                    }
-
-                    // 🚀 LÓGICA DE FRENO: Si es del futuro respecto a nuestro salto actual (Sa), paramos
-                    if (tiempoGMT.isAfter(relojGlobalGMT) || tiempoGMT.isEqual(relojGlobalGMT)) {
-                        break; 
-                    }
-
                     Envio envio = new Envio();
                     envio.setIdEnvio(campos[0]);
                     envio.setFechaRegistro(campos[1]);
@@ -99,29 +57,98 @@ public class EnvioLoader {
                     envio.setCantidadMaletas(Integer.parseInt(campos[5]));
                     envio.setIdCliente(campos[6]);
                     envio.setPlanificado(false);
+                    
+                    // Pre-calculamos el tiempo GMT para filtrado instantáneo
+                    int gmtOrigen = mapaGmt.getOrDefault(codigoOrigen, 0);
+                    LocalDate fechaLocal = LocalDate.parse(envio.getFechaRegistro(), dateFmt);
+                    LocalDateTime tiempoLocal = LocalDateTime.of(fechaLocal, LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro()));
+                    envio.setTiempoRegistroGMT(tiempoLocal.minusHours(gmtOrigen));
 
-                    enviosPendientes.add(envio);
-                    lineasLeidasEnEstaRonda++;
+                    listaEnvios.add(envio);
+                } catch (Exception ignored) {}
+            }
+            // Ordenar por tiempo para permitir uso de cursores y búsqueda eficiente
+            listaEnvios.sort(Comparator.comparing(Envio::getTiempoRegistroGMT));
+            this.enviosPorArchivo.put(nombreArchivo, listaEnvios);
+        });
+    }
+
+    public List<Envio> cargarPendientes(String rutaCarpeta, String fechaInicioStr, String fechaHoraLimiteStr, List<Aeropuerto> aeropuertos) {
+        // Fallback si no hay nada en memoria y se pide una ruta (opcional)
+        if (enviosPorArchivo.isEmpty() && rutaCarpeta != null) {
+            cargarDesdeDisco(rutaCarpeta, aeropuertos);
+        }
+
+        // --- PARSEO DE FECHAS LÍMITE ---
+        String[] limitePartes = fechaHoraLimiteStr.split("-");
+        LocalDate limiteDate = LocalDate.parse(limitePartes[0], dateFmt);
+        LocalDateTime relojGlobalGMT = LocalDateTime.of(limiteDate, LocalTime.of(Integer.parseInt(limitePartes[1]), Integer.parseInt(limitePartes[2])));
+
+        String[] inicioPartes = fechaInicioStr.split("-");
+        LocalDate inicioDate = LocalDate.parse(inicioPartes[0], dateFmt);
+        LocalDateTime relojInicioGMT = LocalDateTime.of(inicioDate, LocalTime.of(Integer.parseInt(inicioPartes[1]), Integer.parseInt(inicioPartes[2])));
+
+        // PROCESAMIENTO PARALELO: Filtramos los envíos que caen en la ventana de tiempo actual
+        List<Envio> enviosPendientes = enviosPorArchivo.entrySet().parallelStream()
+            .flatMap(entry -> {
+                String nombreArchivo = entry.getKey();
+                List<Envio> envios = entry.getValue();
+                
+                int cursorIdx = cursorEnviosPorArchivo.getOrDefault(nombreArchivo, 0);
+                List<Envio> filtrados = new ArrayList<>();
+                int nuevosConsumidos = 0;
+
+                for (int i = cursorIdx; i < envios.size(); i++) {
+                    Envio e = envios.get(i);
+                    LocalDateTime tGmt = e.getTiempoRegistroGMT();
+
+                    // Descartar si es anterior al inicio del escenario
+                    if (tGmt.isBefore(relojInicioGMT)) {
+                        nuevosConsumidos++;
+                        continue; 
+                    }
+
+                    // Si ya llegamos al tiempo del reloj simulado actual, paramos para este archivo
+                    if (tGmt.isAfter(relojGlobalGMT) || tGmt.isEqual(relojGlobalGMT)) {
+                        break; 
+                    }
+
+                    filtrados.add(e);
+                    nuevosConsumidos++;
                 }
                 
-                cursorLineasPorArchivo.put(nombreArchivo, lineaInicio + lineasLeidasEnEstaRonda);
-
-            } catch (Exception e) {
-                System.err.println("Error leyendo " + archivo.getName() + ": " + e.getMessage());
-            }
-        }
+                // Actualizar cursor de forma atómica para no volver a procesar estos envíos
+                cursorEnviosPorArchivo.put(nombreArchivo, cursorIdx + nuevosConsumidos);
+                return filtrados.stream();
+            })
+            .collect(Collectors.toList());
         
-        enviosPendientes.sort(Comparator.comparing(envio -> {
-            LocalDate fecha = LocalDate.parse(envio.getFechaRegistro(), dateFmt);
-            LocalDateTime tiempoLocal = LocalDateTime.of(fecha, LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro()));
-            int gmt = mapaGmt.getOrDefault(envio.getAeropuertoOrigen(), 0);
-            return tiempoLocal.minusHours(gmt);
-        }));
-        
+        // Garantizar orden total para el motor de planificación
+        enviosPendientes.sort(Comparator.comparing(Envio::getTiempoRegistroGMT));
         return enviosPendientes;
     }
 
+    private void cargarDesdeDisco(String rutaCarpeta, List<Aeropuerto> aeropuertos) {
+        File carpeta = new File(rutaCarpeta);
+        if (!carpeta.exists() || !carpeta.isDirectory()) return;
+
+        File[] archivos = carpeta.listFiles((dir, nombre) -> nombre.startsWith("_envios_") && nombre.endsWith("_.txt"));
+        if (archivos == null) return;
+
+        Map<String, List<String>> archivosRaw = new HashMap<>();
+        for (File archivo : archivos) {
+            try (java.util.Scanner scanner = new java.util.Scanner(archivo)) {
+                List<String> lineas = new ArrayList<>();
+                while (scanner.hasNextLine()) {
+                    lineas.add(scanner.nextLine());
+                }
+                archivosRaw.put(archivo.getName(), lineas);
+            } catch (Exception ignored) {}
+        }
+        setArchivosEnMemoria(archivosRaw, aeropuertos);
+    }
+
     public void reset() {
-        cursorLineasPorArchivo.clear();
+        cursorEnviosPorArchivo.clear();
     }
 }

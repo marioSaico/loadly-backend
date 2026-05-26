@@ -43,7 +43,7 @@ public class SimulacionPeriodoController {
         this.dataService = dataService;
     }
 
-    @GetMapping(value = "/periodo/iniciar", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @GetMapping(value = "/periodo/iniciar", produces = MediaType.TEXT_EVENT_STREAM_VALUE)    
     public SseEmitter iniciarSimulacion(
             @RequestParam String inicioStr,
             @RequestParam String finStr,
@@ -74,7 +74,7 @@ public class SimulacionPeriodoController {
     }
 
     private void ejecutarEscenario(SseEmitter emitter, String inicioStr, String finStr, int taSegundos, int sa, int k, int tamano) throws Exception {
-
+        dataService.inicializar();
         dataService.resetEstado();
 
         LocalDateTime relojSimulado      = LocalDateTime.parse(inicioStr, FMT_INPUT);
