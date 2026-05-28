@@ -6,7 +6,6 @@ import com.loadly.backend.dto.SimulacionEventDTO.*;
 import com.loadly.backend.model.*;
 import com.loadly.backend.planificador.Planificador;
 import com.loadly.backend.service.DataService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -32,6 +31,9 @@ public class SimulacionPeriodoController {
     private static final DateTimeFormatter FMT_DISPLAY = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     private static final DateTimeFormatter FMT_FECHA = DateTimeFormatter.ofPattern("yyyyMMdd");
 
+    private volatile boolean simulacionDetenida = false;
+    private volatile boolean simulacionPausada  = false;
+
     private final Planificador planificador;
     private final DataService dataService;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -47,10 +49,13 @@ public class SimulacionPeriodoController {
     public SseEmitter iniciarSimulacion(
             @RequestParam String inicioStr,
             @RequestParam String finStr,
-            @RequestParam(defaultValue = "30") int taSegundos,
-            @RequestParam(defaultValue = "10") int sa,
-            @RequestParam(defaultValue = "6") int k,
+            @RequestParam(defaultValue = "60") int taSegundos,
+            @RequestParam(defaultValue = "3") int sa,
+            @RequestParam(defaultValue = "120") int k,
             @RequestParam(defaultValue = "10") int tamano) {
+
+        simulacionDetenida = false;
+        simulacionPausada  = false;
 
         SseEmitter emitter = new SseEmitter(0L);
 
@@ -63,6 +68,24 @@ public class SimulacionPeriodoController {
         });
 
         return emitter;
+    }
+    @PostMapping("/periodo/pausar")
+    public ResponseEntity<String> pausarSimulacion() {
+        simulacionPausada = true;
+        return ResponseEntity.ok("Simulación pausada");
+    }
+
+    @PostMapping("/periodo/reanudar")
+    public ResponseEntity<String> reanudarSimulacion() {
+        simulacionPausada = false;
+        return ResponseEntity.ok("Simulación reanudada");
+    }
+
+    @PostMapping("/periodo/detener")
+    public ResponseEntity<String> detenerSimulacion() {
+        simulacionDetenida = true;
+        simulacionPausada  = false; // por si estaba pausada
+        return ResponseEntity.ok("Simulación detenida");
     }
 
     @GetMapping(value = "/periodo/resumen", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -82,7 +105,10 @@ public class SimulacionPeriodoController {
 
         int  sc             = sa * k;
         LocalDateTime limiteLecturaDatos = relojSimulado.plusMinutes(sc); // -> NUEVO CAMBIO
-        long tiempoLimiteMs = taSegundos * 1000L;
+        long TA_MAX_MS = taSegundos * 1000L; //tope estandarizado (Ta real del GA + margen)
+        long tiempoLimiteMs = 25_000L;  // Ta real del GA (lo que realmente tarda en planificar)
+
+        long saMs = (long) sa * 60 * 1000L;
 
         boolean colapsoDetectado = false;
         ResultadoColapso colapsoFinal = null;
@@ -92,6 +118,33 @@ public class SimulacionPeriodoController {
         long inicioEscenarioMs = System.currentTimeMillis();
 
         while ((limiteLecturaDatos.isBefore(finSimulacion) || limiteLecturaDatos.isEqual(finSimulacion)) && !colapsoDetectado) {
+
+            // ── Chequeo detención ──────────────────────────────────────────
+            if (simulacionDetenida) {
+                emitter.send(SimulacionEventDTO.builder()
+                        .tipo("DETENIDA")
+                        .relojSimulado(relojSimulado.format(FMT_LOG))
+                        .build());
+                emitter.complete();
+                return;
+            }
+
+            // ── Chequeo pausa ──────────────────────────────────────────────
+            while (simulacionPausada && !simulacionDetenida) {
+                Thread.sleep(500);
+            }
+            
+            // Si mientras pausaba se pidió detener
+            if (simulacionDetenida) {
+                emitter.send(SimulacionEventDTO.builder()
+                        .tipo("DETENIDA")
+                        .relojSimulado(relojSimulado.format(FMT_LOG))
+                        .build());
+                emitter.complete();
+                return;
+            }
+
+            long iteracionInicioMs = System.currentTimeMillis();
 
             String limiteLecturaStr = limiteLecturaDatos.format(FMT_INPUT);
 
@@ -107,6 +160,45 @@ public class SimulacionPeriodoController {
                     colapsoFinal = colapso;
                     enviarColapso(emitter, colapso, relojSimulado, limiteLecturaDatos);
                 } else {
+                    // ── Esperar hasta TA_MAX antes de enviar al frontend ───────────
+                    long tiempoUsadoMs = System.currentTimeMillis() - iteracionInicioMs;
+                    System.out.printf("    [Tiempo real iteracion: %.1fs | TA_MAX: %.1fs]%n",
+                            tiempoUsadoMs / 1000.0, TA_MAX_MS / 1000.0);
+                    if (tiempoUsadoMs < TA_MAX_MS) {
+                        long tiempoRestanteMs = TA_MAX_MS - tiempoUsadoMs;
+                        long finEspera = System.currentTimeMillis() + tiempoRestanteMs;
+                        
+                        while (System.currentTimeMillis() < finEspera) {
+                            if (simulacionDetenida) {
+                                emitter.send(SimulacionEventDTO.builder()
+                                        .tipo("DETENIDA")
+                                        .relojSimulado(relojSimulado.format(FMT_LOG))
+                                        .build());
+                                emitter.complete();
+                                return;
+                            }
+                            if (simulacionPausada) {
+                                // Guarda cuánto falta y espera reanudación
+                                long tiempoFaltante = finEspera - System.currentTimeMillis();
+                                while (simulacionPausada && !simulacionDetenida) {
+                                    Thread.sleep(500);
+                                }
+                                if (simulacionDetenida) {
+                                    emitter.send(SimulacionEventDTO.builder()
+                                            .tipo("DETENIDA")
+                                            .relojSimulado(relojSimulado.format(FMT_LOG))
+                                            .build());
+                                    emitter.complete();
+                                    return;
+                                }
+                                // Al reanudar, recalcula el fin con el tiempo que faltaba
+                                finEspera = System.currentTimeMillis() + tiempoFaltante;
+                            }
+                            Thread.sleep(500);
+                        }
+                    }
+                    // ── Recién aquí se envía el bloque al frontend ─────────────────
+                    System.out.printf("    Bloque planificado enviado a FRONTEND%n");
                     enviarIteracion(emitter, resultado, dataService, timelineAlmacenesGlobal, ocupacionVuelosGlobal, relojSimulado, limiteLecturaDatos);
                 }
             }
@@ -114,6 +206,46 @@ public class SimulacionPeriodoController {
             if (!colapsoDetectado) {
                 limiteLecturaDatos = limiteLecturaDatos.plusMinutes(sc);
                 relojSimulado      = relojSimulado.plusMinutes(sa);
+                // ── Pausa restante para completar Sa (siempre fija = Sa - TA_MAX) ─
+                long tiempoEsperaMs = saMs - TA_MAX_MS;
+                if (tiempoEsperaMs > 500) {
+                    System.out.printf("    [Pausa: %.1fs para completar Sa=%dmin en tiempo real]%n",
+                            tiempoEsperaMs / 1000.0, sa);
+                    try {
+                        long finSa = System.currentTimeMillis() + tiempoEsperaMs;
+                        while (System.currentTimeMillis() < finSa) {
+                            if (simulacionDetenida) {
+                                emitter.send(SimulacionEventDTO.builder()
+                                        .tipo("DETENIDA")
+                                        .relojSimulado(relojSimulado.format(FMT_LOG))
+                                        .build());
+                                emitter.complete();
+                                return;
+                            }
+                            if (simulacionPausada) {
+                                long tiempoFaltante = finSa - System.currentTimeMillis();
+                                while (simulacionPausada && !simulacionDetenida) {
+                                    Thread.sleep(500);
+                                }
+                                if (simulacionDetenida) {
+                                    emitter.send(SimulacionEventDTO.builder()
+                                            .tipo("DETENIDA")
+                                            .relojSimulado(relojSimulado.format(FMT_LOG))
+                                            .build());
+                                    emitter.complete();
+                                    return;
+                                }
+                                // Recalcula con el tiempo que faltaba
+                                finSa = System.currentTimeMillis() + tiempoFaltante;
+                            }
+                            Thread.sleep(500);
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        emitter.completeWithError(e);
+                        return;
+                    }
+                }
             }
         }
 
