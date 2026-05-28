@@ -79,9 +79,9 @@ public class SimulacionPeriodoController {
 
         LocalDateTime relojSimulado      = LocalDateTime.parse(inicioStr, FMT_INPUT);
         LocalDateTime finSimulacion      = LocalDateTime.parse(finStr,    FMT_INPUT);
-        LocalDateTime limiteLecturaDatos = relojSimulado;
 
         int  sc             = sa * k;
+        LocalDateTime limiteLecturaDatos = relojSimulado.plusMinutes(sc); // -> NUEVO CAMBIO
         long tiempoLimiteMs = taSegundos * 1000L;
 
         boolean colapsoDetectado = false;
