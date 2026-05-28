@@ -52,7 +52,7 @@ public class BackendApplication {
 
         //Cuando se quiera probar el API comentar esta linea. 
         //Cuando se quiera probar el algoritmo en el main descomentar esta linea
-        //ejecutarAlgoritmos(context);
+        ejecutarAlgoritmos(context);
     }
 
     /**
@@ -79,15 +79,35 @@ public class BackendApplication {
         // ---------------------------------------------------------
         // 2. SELECCIÓN DE ESCENARIO (Descomenta SOLO 1 a la vez)
         // ---------------------------------------------------------
-        // ejecutarEscenario("DIA A DIA", "20260101-20-40", "20260101-21-00", 5, 10, 1,
-        // 5, nombreAlg, planFunc, dataService);
+        // Parámetros: (nombre, inicio, fin, taSegundos, saMinutos, k, tamano, ...)
+        //
+        // FÓRMULAS CLAVE:
+        //   Sc (min datos/iter) = sa * k
+        //   Iteraciones         = 7200 / Sc
+        //   Tiempo real total   = 7200 / k  minutos  
+        //   Restricción         : taSegundos < saMinutos * 60  (Ta < Sa)
+        //   Relación prof.      : saMinutos * 60 = 5 * taSegundos  (o factor 8)
+        //
+        // DÍA A DÍA  — ventana corta para prueba rápida
+        //   Ta=30s | Sa=3min | K=1 | Sc=3min | cada iter tarda 3min real
+        // ejecutarEscenario("DIA A DIA", "20260101-20-00", "20260101-21-00", 30, 3, 1, 50, nombreAlg, planFunc, dataService);
 
-        //PRUEBA ESCENARIO PERIODO 5 DIAS EN JULIO 2026
-        //ejecutarEscenario("PERIODO", "20260713-00-00", "20260718-00-00", 30, 10, 6, 10, nombreAlg, planFunc,
-        //        dataService);
+        // PERÍODO 5 DÍAS — ~60 min de ejecución real
+        //   Ta=10s | Sa=3min | K=120 | Sc=360min | 20 iter | 60min real
+        //Primera fecha 
+        ejecutarEscenario("PERIODO", "20260720-08-15", "20260725-08-15", 10, 3, 120, 10, nombreAlg, planFunc, dataService);
+        //Segunda fecha 
+        //ejecutarEscenario("PERIODO", "20260815-13-32", "20260820-13-32", 10, 3, 120, 10, nombreAlg, planFunc, dataService);
+        //Tercera fecha 
+        //ejecutarEscenario("PERIODO", "20261105-22-45", "20261110-22-45", 10, 3, 120, 10, nombreAlg, planFunc, dataService);
+        //Cuarta fecha 
+        //ejecutarEscenario("PERIODO", "20270220-10-23", "20270225-10-23", 10, 3, 120, 10, nombreAlg, planFunc, dataService);
+        //Quinta fecha 
+        //ejecutarEscenario("PERIODO", "20270314-04-04", "20270319-04-04", 10, 3, 120, 10, nombreAlg, planFunc, dataService);
+                
         //PRUEBA ESCENARIO PERIODO 5 DIAS, PERO SOLO DE 1 DIA DE ENERO 2026 (este es de prueba no ma)
-        ejecutarEscenario("PERIODO", "20260101-00-00", "20260102-00-00", 30, 10, 6, 10, nombreAlg, planFunc,
-                dataService);
+        //ejecutarEscenario("PERIODO", "20260101-00-00", "20260102-00-00", 30, 10, 6, 10, nombreAlg, planFunc,
+        //        dataService);
 
         // ejecutarEscenario("COLAPSO", "20260101-00-00", "20260106-00-00", 45, 10, 7,
         // 100, nombreAlg, planFunc, dataService);
@@ -103,10 +123,24 @@ public class BackendApplication {
 
         LocalDateTime relojSimulado      = LocalDateTime.parse(inicioStr, FMT_INPUT);
         LocalDateTime finSimulacion      = LocalDateTime.parse(finStr,    FMT_INPUT);
-        LocalDateTime limiteLecturaDatos = relojSimulado;
 
         int  sc             = sa * k;
+        LocalDateTime limiteLecturaDatos = relojSimulado.plusMinutes(sc); // -> NUEVO CAMBIO
         long tiempoLimiteMs = taSegundos * 1000L;
+
+        // ── PLANIFICACIÓN PROGRAMADA FIJA ──────────────────────────────────────
+        // saMs: duración REAL de cada ciclo completo (Ta corre + pausa hasta Sa)
+        // Relación obligatoria: taSegundos < sa * 60  (Ta < Sa)
+        // Relación recomendada: sa * 60 = 5 * taSegundos  (Sa ≈ 5 × Ta)
+        //
+        // Tiempo real total del escenario = 7200 / k  minutos  (Sa se cancela)
+        // Iteraciones totales             = 7200 / sc
+        // ──────────────────────────────────────────────────────────────────────
+        long saMs = (long) sa * 60 * 1000L;
+
+        if (tiempoLimiteMs >= saMs) {
+            System.out.println("[ADVERTENCIA] Ta (" + taSegundos + "s) debe ser menor que Sa (" + sa + "min = " + sa*60 + "s). Ajusta los parámetros.");
+        }
 
         boolean colapsoDetectado = false;
         ResultadoColapso colapsoFinal = null;
@@ -118,11 +152,22 @@ public class BackendApplication {
         System.out.println("\n" + "=".repeat(80));
         System.out.println("   INICIANDO ESCENARIO [" + tipoAlgoritmo + "]: " + nombre);
         System.out.println("   Período: " + inicioStr + " → " + finStr);
+        System.out.println("   Ta: " + taSegundos + "s");
+        System.out.println("   Sa: " + sa + "min");
+        System.out.println("   K: " + k);
+        System.out.println("   Tamaño: " + tamano);
+        System.out.println("   Sc: " + sc);
         System.out.println("=".repeat(80));
 
         long inicioEscenarioMs = System.currentTimeMillis();
 
+        long maxTiempoIteracionMs = 0; // variable momentanea
+
+        final long TA_MAX_MS = 30_000L; 
+
         while ((limiteLecturaDatos.isBefore(finSimulacion) || limiteLecturaDatos.isEqual(finSimulacion)) && !colapsoDetectado) {
+
+            long iteracionInicioMs = System.currentTimeMillis(); // ← tiempo real del inicio del ciclo
 
             String limiteLecturaStr = limiteLecturaDatos.format(FMT_INPUT);
             String relojActualStr   = relojSimulado.format(FMT_INPUT);
@@ -141,6 +186,25 @@ public class BackendApplication {
                     colapsoDetectado = true;
                     colapsoFinal = colapso;
                 } else {
+                    //ESTA SECCIÓN SE DESCOMENTARA CUANDO SE ENCUENTRE EL TA_MAX_MS ADECUADO
+                    //-------------------------------------------------------------------------------------------
+                    // ── Esperar hasta TA_MAX antes de imprimir/enviar ──────────────
+                    /*long tiempoUsadoMs = System.currentTimeMillis() - iteracionInicioMs;
+                    if (tiempoUsadoMs > maxTiempoIteracionMs) {
+                        maxTiempoIteracionMs = tiempoUsadoMs;
+                    }
+                    System.out.printf("    [Tiempo real iteracion: %.1fs | TA_MAX: %.1fs]%n",
+                            tiempoUsadoMs / 1000.0, TA_MAX_MS / 1000.0);
+                    if (tiempoUsadoMs < TA_MAX_MS) {
+                        try {
+                            Thread.sleep(TA_MAX_MS - tiempoUsadoMs);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                    }*/
+                    //-------------------------------------------------------------------------------------------
+                    // ── Recién aquí se imprime/envía el bloque ─────────────────────
                     // Pasamos la memoria global de vuelos a la impresión para guardar los datos
                     imprimirReporteIntervalo(resultado, dataService, timelineAlmacenesGlobal, ocupacionVuelosGlobal);
                 }
@@ -149,10 +213,40 @@ public class BackendApplication {
             if (!colapsoDetectado) {
                 limiteLecturaDatos = limiteLecturaDatos.plusMinutes(sc);
                 relojSimulado      = relojSimulado.plusMinutes(sa);
+                //ESTA SECCIÓN SE ELIMINARA CUANDO SE ENCUENTRE EL TA_MAX_MS ADECUADO
+                //-----------------------------------------------------------------------------------------
+                // ── PLANIFICACIÓN PROGRAMADA FIJA: completar ciclo Sa ─────────────
+                // El GA ya consumió tiempoLimiteMs (=Ta). Esperamos el resto de Sa
+                // para que cada ciclo dure exactamente Sa minutos en tiempo real.
+                long tiempoUsadoMs  = System.currentTimeMillis() - iteracionInicioMs;
+                if (tiempoUsadoMs > maxTiempoIteracionMs) {
+                    maxTiempoIteracionMs = tiempoUsadoMs;
+                }
+                System.out.printf("    [Tiempo real iteracion: %.1fs (Ta configurado: %ds)]%n", 
+                    tiempoUsadoMs / 1000.0, taSegundos);
+                //-----------------------------------------------------------------------------------------
+                //ESTA SECCIÓN SE DESCOMENTARA CUANDO SE ENCUENTRE EL TA_MAX_MS ADECUADO
+                //------------------------------------------------------------------------------------------
+                // Pausa restante para completar Sa (siempre fija = Sa - TA_MAX)
+                /*long tiempoEsperaMs = saMs - TA_MAX_MS;
+                if (tiempoEsperaMs > 500) { // solo si queda más de 0.5s
+                    System.out.printf("    [Pausa: %.1fs para completar Sa=%dmin en tiempo real]%n",
+                            tiempoEsperaMs / 1000.0, sa);
+                    try {
+                        Thread.sleep(tiempoEsperaMs);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        System.out.println("[ADVERTENCIA] Simulación interrumpida durante la pausa.");
+                        break;
+                    }
+                }*/
+               //------------------------------------------------------------------------------------------
             }
         }
 
         long tiempoEjecucionRealMs = System.currentTimeMillis() - inicioEscenarioMs;
+        System.out.printf("%n>>> Iteracion mas lenta: %.1fs | Ta configurado: %ds | Margen sugerido Ta: %.1fs%n",
+            maxTiempoIteracionMs / 1000.0, taSegundos, (maxTiempoIteracionMs / 1000.0) + 5);
         imprimirResumenFinal(dataService, colapsoFinal, limiteLecturaDatos, tiempoEjecucionRealMs, timelineAlmacenesGlobal, LocalDateTime.parse(inicioStr, FMT_INPUT));
     }
 
