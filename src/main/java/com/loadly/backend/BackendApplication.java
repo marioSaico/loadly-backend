@@ -50,6 +50,7 @@ public class BackendApplication {
         System.out.println(">>> Accede a: http://localhost:8080/api/test/conexiones");
         System.out.println(">>> O a: http://localhost:8080/api/test/health");
 
+
         //Cuando se quiera probar el API comentar esta linea. 
         //Cuando se quiera probar el algoritmo en el main descomentar esta linea
         //ejecutarAlgoritmos(context);
@@ -119,6 +120,7 @@ public class BackendApplication {
             String tipoAlgoritmo, PlanificadorFunc planFunc,
             DataService dataService) {
 
+        dataService.inicializar(); // Carga datos desde BD antes de cada escenario
         dataService.resetEstado();
 
         LocalDateTime relojSimulado      = LocalDateTime.parse(inicioStr, FMT_INPUT);
