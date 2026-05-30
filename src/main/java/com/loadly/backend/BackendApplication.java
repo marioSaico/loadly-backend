@@ -53,7 +53,7 @@ public class BackendApplication {
 
         //Cuando se quiera probar el API comentar esta linea. 
         //Cuando se quiera probar el algoritmo en el main descomentar esta linea
-        //ejecutarAlgoritmos(context);
+        ejecutarAlgoritmos(context);
     }
 
     /**
@@ -84,10 +84,10 @@ public class BackendApplication {
         // 5, nombreAlg, planFunc, dataService);
 
         //PRUEBA ESCENARIO PERIODO 5 DIAS EN JULIO 2026
-        //ejecutarEscenario("PERIODO", "20260713-00-00", "20260718-00-00", 30, 10, 6, 10, nombreAlg, planFunc,
-        //        dataService);
+        ejecutarEscenario("PERIODO", "20260713-00-00", "20260718-00-00", 30, 10, 6, 10, nombreAlg, planFunc,
+               dataService);
         //PRUEBA ESCENARIO PERIODO 5 DIAS, PERO SOLO DE 1 DIA DE ENERO 2026 (este es de prueba no ma)
-        ejecutarEscenario("PERIODO", "20260101-00-00", "20260102-00-00", 30, 10, 6, 10, nombreAlg, planFunc,dataService);
+        //ejecutarEscenario("PERIODO", "20260101-00-00", "20260102-00-00", 30, 10, 6, 10, nombreAlg, planFunc,dataService);
 
         // ejecutarEscenario("COLAPSO", "20260101-00-00", "20260106-00-00", 45, 10, 7,
         // 100, nombreAlg, planFunc, dataService);
