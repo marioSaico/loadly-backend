@@ -49,7 +49,7 @@ public class EnvioController {
             }
 
             // Inicializar datos maestros si no están cargados
-            dataService.inicializar();
+            //dataService.inicializar();
             dataService.cargarEnviosDesdeArchivos(archivosContenido);
 
             return ResponseEntity.ok(new ResponseDTO<>(true, "Carpeta cargada exitosamente: " + files.length + " archivos", null));

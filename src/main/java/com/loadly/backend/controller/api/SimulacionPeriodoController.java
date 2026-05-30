@@ -21,12 +21,15 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/simulacion")
 @CrossOrigin(origins = "*")
 public class SimulacionPeriodoController {
+
+    private static final long SSE_TIMEOUT_MS = TimeUnit.DAYS.toMillis(1);
 
     private static final DateTimeFormatter FMT_INPUT = DateTimeFormatter.ofPattern("yyyyMMdd-HH-mm");
     private static final DateTimeFormatter FMT_LOG = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -64,7 +67,7 @@ public class SimulacionPeriodoController {
         simulacionDetenida = false;
         simulacionPausada  = false;
 
-        SseEmitter emitter = new SseEmitter(600000L);  // 10 minutos timeout
+        SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
 
         executor.execute(() -> {
             try {
@@ -160,8 +163,8 @@ public class SimulacionPeriodoController {
 
             System.out.printf("    [DEBUG] Procesando eventos del reloj: %s%n", limiteLecturaStr);
             dataService.procesarEventosDelReloj(limiteLecturaStr);
-            List<Envio> enviosPend = dataService.obtenerEnviosPendientes(inicioStr, limiteLecturaStr);
-            System.out.printf("    [DEBUG] Envíos disponibles para planificar: %d%n", enviosPend.size());
+            //List<Envio> enviosPend = dataService.obtenerEnviosPendientes(inicioStr, limiteLecturaStr);
+            //System.out.printf("    [DEBUG] Envíos disponibles para planificar: %d%n", enviosPend.size());
             
             System.out.printf("    [DEBUG] Llamando a planificar con tamano=%d, tiempoLimiteMs=%d%n", tamano, tiempoLimiteMs);
             Individuo resultado = planificador.planificar(inicioStr, limiteLecturaStr, tamano, tiempoLimiteMs);
