@@ -107,7 +107,7 @@ public class SimulacionPeriodoController {
     private void ejecutarEscenario(SseEmitter emitter, String inicioStr, String finStr, int taSegundos, int sa, int k, int tamano) throws Exception {
         
         // Cargar aeropuertos y planes de vuelo desde BD
-        dataService.inicializar();
+        //dataService.inicializar();
         
         dataService.resetEstado();
 
