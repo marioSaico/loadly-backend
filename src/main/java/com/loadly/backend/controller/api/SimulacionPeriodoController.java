@@ -29,8 +29,6 @@ import java.util.stream.Collectors;
 @CrossOrigin(origins = "*")
 public class SimulacionPeriodoController {
 
-    private static final long SSE_TIMEOUT_MS = TimeUnit.DAYS.toMillis(1);
-
     private static final DateTimeFormatter FMT_INPUT = DateTimeFormatter.ofPattern("yyyyMMdd-HH-mm");
     private static final DateTimeFormatter FMT_LOG = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final DateTimeFormatter FMT_DISPLAY = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
@@ -67,7 +65,7 @@ public class SimulacionPeriodoController {
         simulacionDetenida = false;
         simulacionPausada  = false;
 
-        SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
+        SseEmitter emitter = new SseEmitter(0L);
 
         executor.execute(() -> {
             try {
