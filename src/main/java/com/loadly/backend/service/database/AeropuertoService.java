@@ -10,6 +10,9 @@ import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import java.util.stream.Collectors;
+import java.util.Map;
+
 /**
  * Servicio para operaciones de Aeropuertos
  */
@@ -18,6 +21,14 @@ public class AeropuertoService {
 
     @Autowired
     private DatabaseManager databaseManager;
+
+    /**
+     * Obtiene todos los aeropuertos como un Mapa indexado por código
+     */
+    public Map<String, AeropuertoDTO> obtenerMapaTodos() {
+        return obtenerTodos().stream()
+                .collect(Collectors.toMap(AeropuertoDTO::getCodigo, dto -> dto));
+    }
 
     /**
      * Obtiene todos los aeropuertos

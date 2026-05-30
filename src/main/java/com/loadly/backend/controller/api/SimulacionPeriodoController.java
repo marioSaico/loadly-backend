@@ -6,6 +6,8 @@ import com.loadly.backend.dto.SimulacionEventDTO.*;
 import com.loadly.backend.model.*;
 import com.loadly.backend.planificador.Planificador;
 import com.loadly.backend.service.DataService;
+import com.loadly.backend.service.database.AeropuertoService;
+import com.loadly.backend.service.database.PlanVueloService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +21,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @RestController
@@ -36,16 +39,21 @@ public class SimulacionPeriodoController {
 
     private final Planificador planificador;
     private final DataService dataService;
+    private final AeropuertoService aeropuertoService;
+    private final PlanVueloService planVueloService;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     
     private ResumenFinalDTO ultimoResumen = null;
 
-    public SimulacionPeriodoController(Planificador planificador, DataService dataService) {
+    public SimulacionPeriodoController(Planificador planificador, DataService dataService, 
+                                       AeropuertoService aeropuertoService, PlanVueloService planVueloService) {
         this.planificador = planificador;
         this.dataService = dataService;
+        this.aeropuertoService = aeropuertoService;
+        this.planVueloService = planVueloService;
     }
 
-    @GetMapping(value = "/periodo/iniciar", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @GetMapping(value = "/periodo/iniciar", produces = MediaType.TEXT_EVENT_STREAM_VALUE)    
     public SseEmitter iniciarSimulacion(
             @RequestParam String inicioStr,
             @RequestParam String finStr,
@@ -97,7 +105,10 @@ public class SimulacionPeriodoController {
     }
 
     private void ejecutarEscenario(SseEmitter emitter, String inicioStr, String finStr, int taSegundos, int sa, int k, int tamano) throws Exception {
-
+        
+        // Cargar aeropuertos y planes de vuelo desde BD
+        dataService.inicializar();
+        
         dataService.resetEstado();
 
         LocalDateTime relojSimulado      = LocalDateTime.parse(inicioStr, FMT_INPUT);
@@ -148,10 +159,15 @@ public class SimulacionPeriodoController {
 
             String limiteLecturaStr = limiteLecturaDatos.format(FMT_INPUT);
 
+            System.out.printf("    [DEBUG] Procesando eventos del reloj: %s%n", limiteLecturaStr);
             dataService.procesarEventosDelReloj(limiteLecturaStr);
+            //List<Envio> enviosPend = dataService.obtenerEnviosPendientes(inicioStr, limiteLecturaStr);
+            //System.out.printf("    [DEBUG] Envíos disponibles para planificar: %d%n", enviosPend.size());
             
+            System.out.printf("    [DEBUG] Llamando a planificar con tamano=%d, tiempoLimiteMs=%d%n", tamano, tiempoLimiteMs);
             Individuo resultado = planificador.planificar(inicioStr, limiteLecturaStr, tamano, tiempoLimiteMs);
-
+            System.out.printf("    [DEBUG] Planificador retornó: %s%n", (resultado != null ? "INDIVIDUO" : "NULL"));
+            
             if (resultado != null) {
                 ResultadoColapso colapso = detectarColapso(resultado, dataService, relojSimulado, timelineAlmacenesGlobal, ocupacionVuelosGlobal);
                 

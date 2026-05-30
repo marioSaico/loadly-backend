@@ -1,8 +1,12 @@
 package com.loadly.backend.service;
  
 import com.loadly.backend.algoritmo.genetico.Individuo;
+import com.loadly.backend.dto.AeropuertoDTO;
+import com.loadly.backend.dto.PlanVueloDTO;
 import com.loadly.backend.loader.*;
 import com.loadly.backend.model.*;
+import com.loadly.backend.service.database.AeropuertoService;
+import com.loadly.backend.service.database.PlanVueloService;
 import lombok.Data;
 import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
@@ -17,9 +21,9 @@ import java.util.stream.Collectors;
 @Service
 public class DataService {
  
-    private final AeropuertoLoader aeropuertoLoader;
-    private final PlanVueloLoader planVueloLoader;
     private final EnvioLoader envioLoader;
+    private final AeropuertoService aeropuertoService;
+    private final PlanVueloService planVueloService;
  
     private List<Aeropuerto> aeropuertos;
     private List<PlanVuelo> vuelos;
@@ -43,21 +47,23 @@ public class DataService {
     private static final DateTimeFormatter FORMATO_RELOJ =
             DateTimeFormatter.ofPattern("yyyyMMdd-HH-mm");
  
-    public DataService(AeropuertoLoader aeropuertoLoader,
-                       PlanVueloLoader planVueloLoader,
-                       EnvioLoader envioLoader) {
-        this.aeropuertoLoader = aeropuertoLoader;
-        this.planVueloLoader  = planVueloLoader;
+    public DataService(EnvioLoader envioLoader,
+                       AeropuertoService aeropuertoService,
+                       PlanVueloService planVueloService) {
         this.envioLoader      = envioLoader;
+        this.aeropuertoService = aeropuertoService;
+        this.planVueloService = planVueloService;
     }
  
-    @PostConstruct
     public void inicializar() {
-        this.aeropuertos = aeropuertoLoader.cargar("src/main/resources/data/aeropuertos.txt");
-        this.vuelos      = planVueloLoader.cargar("src/main/resources/data/planes_vuelo.txt");
- 
-        this.mapaAeropuertos = aeropuertos.stream()
+        // Cargar aeropuertos desde base de datos e indexarlos
+        this.aeropuertos = cargarAeropuertosDesdeBD();
+        this.mapaAeropuertos = this.aeropuertos.stream()
                 .collect(Collectors.toMap(Aeropuerto::getCodigo, a -> a));
+
+        // Cargar vuelos desde base de datos e indexarlos
+        this.vuelos = cargarVuelosDesdeBD();
+ 
         this.mapaVuelosPorOrigen = vuelos.stream()
                 .filter(v -> !v.isCancelado())
                 .collect(Collectors.groupingBy(PlanVuelo::getOrigen));
@@ -72,22 +78,100 @@ public class DataService {
             capacidadDinamicaVuelos.put(claveVuelo(v), v.getCapacidad());
         }
  
-        System.out.println("Aeropuertos cargados e indexados: " + aeropuertos.size());
+        System.out.println("Aeropuertos cargados de BD: " + aeropuertos.size());
         System.out.println("Vuelos cargados e indexados: "      + vuelos.size());
+    }
+
+    /**
+     * Carga los aeropuertos desde la base de datos y los convierte al modelo interno
+     */
+    public List<Aeropuerto> cargarAeropuertosDesdeBD() {
+        List<AeropuertoDTO> listaDTO = aeropuertoService.obtenerTodos();
+        List<Aeropuerto> nuevaLista = new ArrayList<>();
+
+        for (AeropuertoDTO dto : listaDTO) {
+            nuevaLista.add(convertirAModelo(dto));
+        }
+        return nuevaLista;
+    }
+
+    /**
+     * Mapper de AeropuertoDTO a Aeropuerto (modelo interno)
+     */
+    private Aeropuerto convertirAModelo(AeropuertoDTO dto) {
+        if (dto == null) return null;
+        Aeropuerto model = new Aeropuerto();
+        model.setId(dto.getIdAeropuerto() != null ? dto.getIdAeropuerto() : 0);
+        model.setCodigo(dto.getCodigo());
+        model.setCiudad(dto.getCiudad());
+        model.setPais(dto.getPais());
+        model.setAbreviatura(dto.getAbreviatura());
+        model.setGmt(dto.getGmt() != null ? dto.getGmt() : 0);
+        model.setCapacidad(dto.getCapacidad() != null ? dto.getCapacidad() : 0);
+        model.setLatitud(dto.getLatitud() != null ? dto.getLatitud() : 0.0);
+        model.setLongitud(dto.getLongitud() != null ? dto.getLongitud() : 0.0);
+        model.setContinente(dto.getContinente());
+        return model;
+    }
+
+    /**
+     * Carga los vuelos desde la base de datos y los convierte al modelo interno
+     */
+    public List<PlanVuelo> cargarVuelosDesdeBD() {
+        List<PlanVueloDTO> listaDTO = planVueloService.obtenerTodos();
+        List<AeropuertoDTO> todosAeropuertos = aeropuertoService.obtenerTodos();
+        
+        // Mapa ID -> Código para resolver origen/destino
+        Map<Integer, String> mapaIdACodigo = todosAeropuertos.stream()
+                .collect(Collectors.toMap(AeropuertoDTO::getIdAeropuerto, AeropuertoDTO::getCodigo));
+
+        List<PlanVuelo> nuevaLista = new ArrayList<>();
+        for (PlanVueloDTO dto : listaDTO) {
+            nuevaLista.add(convertirAModelo(dto, mapaIdACodigo));
+        }
+        return nuevaLista;
+    }
+
+    /**
+     * Mapper de PlanVueloDTO a PlanVuelo (modelo interno)
+     */
+    private PlanVuelo convertirAModelo(PlanVueloDTO dto, Map<Integer, String> mapaIdACodigo) {
+        if (dto == null) return null;
+        PlanVuelo model = new PlanVuelo();
+        
+        model.setOrigen(mapaIdACodigo.getOrDefault(dto.getIdAeropuertoOrigen(), "UNKNOWN"));
+        model.setDestino(mapaIdACodigo.getOrDefault(dto.getIdAeropuertoDestino(), "UNKNOWN"));
+        
+        // Formatear LocalTime a HH:mm
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
+        model.setHoraSalida(dto.getHoraSalida() != null ? dto.getHoraSalida().format(timeFormatter) : "00:00");
+        model.setHoraLlegada(dto.getHoraLlegada() != null ? dto.getHoraLlegada().format(timeFormatter) : "00:00");
+        
+        model.setCapacidad(dto.getCapacidad() != null ? dto.getCapacidad() : 0);
+        model.setCancelado(dto.getCancelado() != null && dto.getCancelado());
+        
+        return model;
     }
  
     // =========================================================================
     // 1. GESTIÓN DE ENVÍOS (Backlog)
     // =========================================================================
  
+    /**
+     * Carga archivos en memoria desde el front-end
+     */
+    public void cargarEnviosDesdeArchivos(Map<String, List<String>> archivos) {
+        this.envioLoader.setArchivosEnMemoria(archivos, this.aeropuertos);
+    }
+
     public List<Envio> obtenerEnviosPendientes(String inicioEscenario, String fechaHoraLimite) {
         List<Envio> enviosRecienLlegados = envioLoader.cargarPendientes(
-            "src/main/resources/data/envios",
+            null, // No usamos ruta física si ya está en memoria
             inicioEscenario,
             fechaHoraLimite,
             this.aeropuertos
         );
- 
+        
         if (!enviosRecienLlegados.isEmpty()) {
             this.enviosEnEspera.addAll(enviosRecienLlegados);
         }

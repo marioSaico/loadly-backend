@@ -2,12 +2,20 @@ package com.loadly.backend.controller.api;
 
 import com.loadly.backend.dto.EnvioDTO;
 import com.loadly.backend.dto.ResponseDTO;
+import com.loadly.backend.service.DataService;
 import com.loadly.backend.service.database.EnvioService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Controlador API para Envíos
@@ -19,6 +27,37 @@ public class EnvioController {
 
     @Autowired
     private EnvioService envioService;
+
+    @Autowired
+    private DataService dataService;
+
+    /**
+     * POST /api/envios/cargar-carpeta - Carga múltiples archivos de envío en memoria
+     */
+    @PostMapping("/cargar-carpeta")
+    public ResponseEntity<ResponseDTO<String>> cargarCarpeta(@RequestParam("files") MultipartFile[] files) {
+        try {
+            Map<String, List<String>> archivosContenido = new HashMap<>();
+
+            for (MultipartFile file : files) {
+                if (file.isEmpty()) continue;
+                
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
+                    List<String> lineas = reader.lines().collect(Collectors.toList());
+                    archivosContenido.put(file.getOriginalFilename(), lineas);
+                }
+            }
+
+            // Inicializar datos maestros si no están cargados
+            dataService.inicializar();
+            dataService.cargarEnviosDesdeArchivos(archivosContenido);
+
+            return ResponseEntity.ok(new ResponseDTO<>(true, "Carpeta cargada exitosamente: " + files.length + " archivos", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(new ResponseDTO<>(false, "Error al cargar carpeta: " + e.getMessage()));
+        }
+    }
 
     /**
      * GET /api/envios - Obtiene todos los envíos
