@@ -108,8 +108,6 @@ public class SimulacionPeriodoController {
         
         // Cargar aeropuertos y planes de vuelo desde BD
         //dataService.inicializar();
-        
-        dataService.resetEstado();
 
         LocalDateTime relojSimulado      = LocalDateTime.parse(inicioStr, FMT_INPUT);
         LocalDateTime finSimulacion      = LocalDateTime.parse(finStr,    FMT_INPUT);
