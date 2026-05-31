@@ -157,13 +157,13 @@ public class SimulacionPeriodoController {
 
             String limiteLecturaStr = limiteLecturaDatos.format(FMT_INPUT);
 
-            System.out.printf("    [DEBUG] Procesando eventos del reloj: %s%n", limiteLecturaStr);
-            dataService.procesarEventosDelReloj(limiteLecturaStr);
             //List<Envio> enviosPend = dataService.obtenerEnviosPendientes(inicioStr, limiteLecturaStr);
             //System.out.printf("    [DEBUG] Envíos disponibles para planificar: %d%n", enviosPend.size());
             
             System.out.printf("    [DEBUG] Llamando a planificar con tamano=%d, tiempoLimiteMs=%d%n", tamano, tiempoLimiteMs);
             Individuo resultado = planificador.planificar(inicioStr, limiteLecturaStr, tamano, tiempoLimiteMs);
+            System.out.printf("    [DEBUG] Procesando eventos del reloj: %s%n", limiteLecturaStr);
+            dataService.procesarEventosDelReloj(limiteLecturaStr);
             System.out.printf("    [DEBUG] Planificador retornó: %s%n", (resultado != null ? "INDIVIDUO" : "NULL"));
             
             if (resultado != null) {
