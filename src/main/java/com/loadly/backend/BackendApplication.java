@@ -53,7 +53,7 @@ public class BackendApplication {
 
         //Cuando se quiera probar el API comentar esta linea. 
         //Cuando se quiera probar el algoritmo en el main descomentar esta linea
-        ejecutarAlgoritmos(context);
+        //ejecutarAlgoritmos(context);
     }
 
     /**
