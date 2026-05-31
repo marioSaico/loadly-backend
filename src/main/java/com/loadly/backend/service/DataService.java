@@ -80,6 +80,7 @@ public class DataService {
  
         System.out.println("Aeropuertos cargados de BD: " + aeropuertos.size());
         System.out.println("Vuelos cargados e indexados: "      + vuelos.size());
+        logMemoria("Inicialización");
     }
 
     /**
@@ -307,6 +308,8 @@ public class DataService {
  
         // Eliminar del backlog los envíos que consiguieron ruta
         this.enviosEnEspera.removeIf(enviosPlanificadosEnEstaRonda::contains);
+        
+        logMemoria("Planificación Finalizada");
     }
  
     // =========================================================================
@@ -372,7 +375,9 @@ public class DataService {
         this.enviosEnEspera.clear();
         this.rutasPlanificadasHistorico.clear();
         this.agendaEventos.clear();
-        this.envioLoader.reset();
+        this.envioLoader.limpiarTodo();
+        System.out.println(">>> MEMORIA LIBERADA: Simulación/Planificación finalizada. Objetos eliminados del Heap.");
+        logMemoria("Post-Limpieza");
     }
  
     // =========================================================================
@@ -477,5 +482,20 @@ public class DataService {
     public Map<String, Integer>          getCapacidadDinamicaVuelos()    { return capacidadDinamicaVuelos; }
     public List<Envio>                   getEnviosEnEspera()             { return enviosEnEspera; }
     public List<Ruta>                    getRutasPlanificadasHistorico()  { return rutasPlanificadasHistorico; }
+
+    // =========================================================================
+    // 8. LOGS DE MEMORIA
+    // =========================================================================
+
+    public void logMemoria(String tag) {
+        Runtime runtime = Runtime.getRuntime();
+        long maxMemory = runtime.maxMemory() / (1024 * 1024);
+        long totalMemory = runtime.totalMemory() / (1024 * 1024);
+        long freeMemory = runtime.freeMemory() / (1024 * 1024);
+        long usedMemory = totalMemory - freeMemory;
+
+        System.out.printf("[%s] RAM Usada: %dMB | RAM Total: %dMB | RAM Max: %dMB | Envíos Pendientes: %d | Rutas Histórico: %d%n",
+                tag, usedMemory, totalMemory, maxMemory, enviosEnEspera.size(), rutasPlanificadasHistorico.size());
+    }
 }
  

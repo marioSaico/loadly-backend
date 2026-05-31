@@ -93,6 +93,7 @@ public class BackendApplication {
         //   Ta=30s | Sa=3min | K=1 | Sc=3min | cada iter tarda 3min real
         // ejecutarEscenario("DIA A DIA", "20260101-20-00", "20260101-21-00", 30, 3, 1, 50, nombreAlg, planFunc, dataService);
 
+
         // PERÍODO 5 DÍAS — ~60 min de ejecución real
         //   Ta=10s | Sa=3min | K=120 | Sc=360min | 20 iter | 60min real
         //Primera fecha 
@@ -248,6 +249,7 @@ public class BackendApplication {
         /*System.out.printf("%n>>> Iteracion mas lenta: %.1fs | Ta configurado: %ds | Margen sugerido Ta: %.1fs%n",
             maxTiempoIteracionMs / 1000.0, taSegundos, (maxTiempoIteracionMs / 1000.0) + 5);*/
         imprimirResumenFinal(dataService, colapsoFinal, limiteLecturaDatos, tiempoEjecucionRealMs, timelineAlmacenesGlobal, LocalDateTime.parse(inicioStr, FMT_INPUT));
+        dataService.resetEstado();
     }
 
     private static void imprimirReporteIntervalo(

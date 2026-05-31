@@ -60,6 +60,20 @@ public class EnvioController {
     }
 
     /**
+     * DELETE /api/envios/limpiar - Libera toda la memoria de envíos cargados
+     */
+    @DeleteMapping("/limpiar")
+    public ResponseEntity<ResponseDTO<String>> limpiarMemoria() {
+        try {
+            dataService.resetEstado();
+            return ResponseEntity.ok(new ResponseDTO<>(true, "Memoria de envíos liberada correctamente", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(new ResponseDTO<>(false, "Error al liberar memoria: " + e.getMessage()));
+        }
+    }
+
+    /**
      * GET /api/envios - Obtiene todos los envíos
      */
     @GetMapping

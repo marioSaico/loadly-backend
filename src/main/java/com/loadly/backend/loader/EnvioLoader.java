@@ -21,13 +21,21 @@ public class EnvioLoader {
     // Memoria caché para saber en qué posición nos quedamos en cada lista de envíos
     private final Map<String, Integer> cursorEnviosPorArchivo = new ConcurrentHashMap<>();
     
-    // Almacenamiento optimizado de los envíos parseados (objetos en lugar de strings para ahorrar RAM)
     private final Map<String, List<Envio>> enviosPorArchivo = new ConcurrentHashMap<>();
+
+    private void logMemoria(String tag) {
+        Runtime runtime = Runtime.getRuntime();
+        long totalMemory = runtime.totalMemory() / (1024 * 1024);
+        long freeMemory = runtime.freeMemory() / (1024 * 1024);
+        long usedMemory = totalMemory - freeMemory;
+        System.out.printf("[EnvioLoader - %s] RAM Usada: %dMB | Total: %dMB%n", tag, usedMemory, totalMemory);
+    }
 
     /**
      * Carga y parsea archivos en memoria de forma optimizada y en paralelo.
      */
     public void setArchivosEnMemoria(Map<String, List<String>> archivosRaw, List<Aeropuerto> aeropuertos) {
+        logMemoria("ANTES de parsear");
         this.enviosPorArchivo.clear();
         this.cursorEnviosPorArchivo.clear();
 
@@ -71,6 +79,7 @@ public class EnvioLoader {
             listaEnvios.sort(Comparator.comparing(Envio::getTiempoRegistroGMT));
             this.enviosPorArchivo.put(nombreArchivo, listaEnvios);
         });
+        logMemoria("DESPUÉS de parsear");
     }
 
     public List<Envio> cargarPendientes(String rutaCarpeta, String fechaInicioStr, String fechaHoraLimiteStr, List<Aeropuerto> aeropuertos) {
@@ -119,6 +128,27 @@ public class EnvioLoader {
                 
                 // Actualizar cursor de forma atómica para no volver a procesar estos envíos
                 cursorEnviosPorArchivo.put(nombreArchivo, cursorIdx + nuevosConsumidos);
+                
+                // --- OPTIMIZACIÓN: Limpieza de RAM ---
+                // Si ya procesamos una cantidad considerable del archivo, removemos los elementos de la lista
+                if (nuevosConsumidos > 0) {
+                    List<Envio> listaOriginal = enviosPorArchivo.get(nombreArchivo);
+                    if (listaOriginal != null && cursorIdx + nuevosConsumidos > 0) {
+                        // Creamos una nueva sublista con lo que falta para liberar los objetos viejos
+                        // Esto ayuda al GC a recolectar los Envíos que ya "pasaron" en el tiempo
+                        int totalProcesados = cursorIdx + nuevosConsumidos;
+                        if (totalProcesados < listaOriginal.size()) {
+                            List<Envio> restante = new ArrayList<>(listaOriginal.subList(totalProcesados, listaOriginal.size()));
+                            enviosPorArchivo.put(nombreArchivo, restante);
+                            cursorEnviosPorArchivo.put(nombreArchivo, 0); // Reset cursor porque la lista ahora empieza de 0
+                        } else {
+                            enviosPorArchivo.remove(nombreArchivo);
+                            cursorEnviosPorArchivo.remove(nombreArchivo);
+                        }
+                        logMemoria("Limpieza RAM - Archivo: " + nombreArchivo + " | Quitados: " + nuevosConsumidos);
+                    }
+                }
+
                 return filtrados.stream();
             })
             .collect(Collectors.toList());
@@ -150,5 +180,15 @@ public class EnvioLoader {
 
     public void reset() {
         cursorEnviosPorArchivo.clear();
+    }
+
+    /**
+     * Limpia absolutamente toda la memoria de envíos cargados.
+     */
+    public void limpiarTodo() {
+        this.enviosPorArchivo.clear();
+        this.cursorEnviosPorArchivo.clear();
+        System.gc(); // Sugerir limpieza inmediata
+        logMemoria("Limpieza total");
     }
 }
