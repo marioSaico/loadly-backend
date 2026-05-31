@@ -119,6 +119,6 @@ public class Fitness {
         }
  
         // [CORREGIDO] Inversión matemática original para maximizar el fitness (0 a 1)
-        individuo.setFitness(1000000.0 / (1.0 + costoTotal));
+        individuo.setFitness(10000000.0 / (1.0 + costoTotal));
     }
 }
