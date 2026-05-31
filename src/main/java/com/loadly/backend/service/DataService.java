@@ -375,7 +375,9 @@ public class DataService {
         this.enviosEnEspera.clear();
         this.rutasPlanificadasHistorico.clear();
         this.agendaEventos.clear();
-        this.envioLoader.reset();
+        this.envioLoader.limpiarTodo();
+        System.out.println(">>> MEMORIA LIBERADA: Simulación/Planificación finalizada. Objetos eliminados del Heap.");
+        logMemoria("Post-Limpieza");
     }
  
     // =========================================================================

@@ -155,6 +155,7 @@ public class BackendApplication {
 
         long tiempoEjecucionRealMs = System.currentTimeMillis() - inicioEscenarioMs;
         imprimirResumenFinal(dataService, colapsoFinal, limiteLecturaDatos, tiempoEjecucionRealMs, timelineAlmacenesGlobal, LocalDateTime.parse(inicioStr, FMT_INPUT));
+        dataService.resetEstado();
     }
 
     private static void imprimirReporteIntervalo(

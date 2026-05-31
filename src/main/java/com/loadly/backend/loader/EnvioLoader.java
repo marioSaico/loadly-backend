@@ -181,4 +181,14 @@ public class EnvioLoader {
     public void reset() {
         cursorEnviosPorArchivo.clear();
     }
+
+    /**
+     * Limpia absolutamente toda la memoria de envíos cargados.
+     */
+    public void limpiarTodo() {
+        this.enviosPorArchivo.clear();
+        this.cursorEnviosPorArchivo.clear();
+        System.gc(); // Sugerir limpieza inmediata
+        logMemoria("Limpieza total");
+    }
 }

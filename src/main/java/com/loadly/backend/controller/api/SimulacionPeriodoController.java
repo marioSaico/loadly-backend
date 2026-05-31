@@ -120,6 +120,7 @@ public class SimulacionPeriodoController {
         long tiempoEjecucionRealMs = System.currentTimeMillis() - inicioEscenarioMs;
         generarYGuardarResumen(dataService, colapsoFinal, limiteLecturaDatos, tiempoEjecucionRealMs, timelineAlmacenesGlobal, LocalDateTime.parse(inicioStr, FMT_INPUT), ocupacionVuelosGlobal);
         
+        dataService.resetEstado();
         emitter.complete(); 
     }
 
