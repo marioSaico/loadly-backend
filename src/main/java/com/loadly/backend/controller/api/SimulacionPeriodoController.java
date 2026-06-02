@@ -93,6 +93,7 @@ public class SimulacionPeriodoController {
     public ResponseEntity<String> detenerSimulacion() {
         simulacionDetenida = true;
         simulacionPausada  = false; // por si estaba pausada
+        dataService.resetEstado(); // Limpiar estado para evitar que siga procesando datos
         return ResponseEntity.ok("Simulación detenida");
     }
 

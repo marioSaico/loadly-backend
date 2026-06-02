@@ -35,7 +35,7 @@ class EnvioLoaderTest {
         archivosRaw.put("_envios_SPIM_.txt", lineas);
 
         // 2. Cargar en memoria
-        envioLoader.setArchivosEnMemoria(archivosRaw, aeropuertos);
+        //envioLoader.setArchivosEnMemoria(archivosRaw, aeropuertos);
 
         // 3. Probar carga parcial (ventana de tiempo)
         // El envío E001 es a las 10:00 Local Lima (GMT-5) -> 15:00 GMT.

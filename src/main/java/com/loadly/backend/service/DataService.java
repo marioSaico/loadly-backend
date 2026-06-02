@@ -9,6 +9,8 @@ import com.loadly.backend.service.database.AeropuertoService;
 import com.loadly.backend.service.database.PlanVueloService;
 import lombok.Data;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
 import jakarta.annotation.PostConstruct;
 
 import java.time.LocalDate;
@@ -161,8 +163,15 @@ public class DataService {
     /**
      * Carga archivos en memoria desde el front-end
      */
-    public void cargarEnviosDesdeArchivos(Map<String, List<String>> archivos) {
-        this.envioLoader.setArchivosEnMemoria(archivos, this.aeropuertos);
+    public void cargarEnviosFiltrados(MultipartFile[] archivos, LocalDate fechaInicio, int horaInicio, int minutoInicio) {
+        // Armamos el reloj global de inicio usando los datos GMT del front
+        LocalDateTime rangoInicioGMT = LocalDateTime.of(fechaInicio, LocalTime.of(horaInicio, minutoInicio));
+        
+        // Le sumamos los 5 días exactos para saber cuándo termina la simulación
+        LocalDateTime rangoFinGMT = rangoInicioGMT.plusDays(5);
+
+        // Mandamos estos límites al EnvioLoader
+        this.envioLoader.setArchivosEnMemoriaFiltrados(archivos, this.aeropuertos, rangoInicioGMT, rangoFinGMT);
     }
 
     public List<Envio> obtenerEnviosPendientes(String inicioEscenario, String fechaHoraLimite) {
