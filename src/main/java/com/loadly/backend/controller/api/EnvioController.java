@@ -5,12 +5,14 @@ import com.loadly.backend.dto.ResponseDTO;
 import com.loadly.backend.service.DataService;
 import com.loadly.backend.service.database.EnvioService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,22 +37,15 @@ public class EnvioController {
      * POST /api/envios/cargar-carpeta - Carga múltiples archivos de envío en memoria
      */
     @PostMapping("/cargar-carpeta")
-    public ResponseEntity<ResponseDTO<String>> cargarCarpeta(@RequestParam("files") MultipartFile[] files) {
+    public ResponseEntity<ResponseDTO<String>> cargarCarpeta(
+            @RequestParam("files") MultipartFile[] files,
+            @RequestParam("fechaInicio") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
+            @RequestParam("horaInicio") int horaInicio,
+            @RequestParam("minutoInicio") int minutoInicio) {
         try {
-            Map<String, List<String>> archivosContenido = new HashMap<>();
-
-            for (MultipartFile file : files) {
-                if (file.isEmpty()) continue;
-                
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
-                    List<String> lineas = reader.lines().collect(Collectors.toList());
-                    archivosContenido.put(file.getOriginalFilename(), lineas);
-                }
-            }
-
             // Inicializar datos maestros si no están cargados
             dataService.inicializar();
-            dataService.cargarEnviosDesdeArchivos(archivosContenido);
+            dataService.cargarEnviosFiltrados(files, fechaInicio, horaInicio, minutoInicio);
 
             return ResponseEntity.ok(new ResponseDTO<>(true, "Carpeta cargada exitosamente: " + files.length + " archivos", null));
         } catch (Exception e) {

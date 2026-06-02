@@ -3,8 +3,11 @@ package com.loadly.backend.loader;
 import com.loadly.backend.model.Aeropuerto;
 import com.loadly.backend.model.Envio;
 import org.springframework.stereotype.Component;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStreamReader;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -34,60 +37,72 @@ public class EnvioLoader {
     /**
      * Carga y parsea archivos en memoria de forma optimizada y en paralelo.
      */
-    public void setArchivosEnMemoria(Map<String, List<String>> archivosRaw, List<Aeropuerto> aeropuertos) {
-        logMemoria("ANTES de parsear");
+    public void setArchivosEnMemoriaFiltrados(MultipartFile[] archivos, List<Aeropuerto> aeropuertos, 
+                                          LocalDateTime rangoInicioGMT, LocalDateTime rangoFinGMT) {
+        logMemoria("ANTES de parsear filtrado");
         this.enviosPorArchivo.clear();
         this.cursorEnviosPorArchivo.clear();
 
         Map<String, Integer> mapaGmt = aeropuertos.stream()
                 .collect(Collectors.toMap(Aeropuerto::getCodigo, Aeropuerto::getGmt));
 
-        // Procesamiento en paralelo de los archivos para parsearlos a objetos
-        archivosRaw.entrySet().parallelStream().forEach(entry -> {
-            String nombreArchivo = entry.getKey();
-            String codigoOrigen = nombreArchivo.replace("_envios_", "").replace("_.txt", "");
-            List<String> lineas = entry.getValue();
+        // Procesamos en paralelo para usar todos los núcleos del procesador
+        Arrays.stream(archivos).parallel().forEach(archivo -> {
+            String nombreArchivo = archivo.getOriginalFilename();
+            if (nombreArchivo == null) return;
             
+            String codigoOrigen = nombreArchivo.replace("_envios_", "").replace("_.txt", "");
+            int gmtOrigen = mapaGmt.getOrDefault(codigoOrigen, 0);
             List<Envio> listaEnvios = new ArrayList<>();
-            for (String linea : lineas) {
-                linea = linea.trim();
-                if (linea.isEmpty()) continue;
 
-                try {
-                    String[] campos = linea.split("-");
-                    Envio envio = new Envio();
-                    envio.setIdEnvio(campos[0]);
-                    envio.setFechaRegistro(campos[1]);
-                    envio.setHoraRegistro(Integer.parseInt(campos[2]));
-                    envio.setMinutoRegistro(Integer.parseInt(campos[3]));
-                    envio.setAeropuertoOrigen(codigoOrigen);
-                    envio.setAeropuertoDestino(campos[4]);
-                    envio.setCantidadMaletas(Integer.parseInt(campos[5]));
-                    envio.setIdCliente(campos[6]);
-                    envio.setPlanificado(false);
-                    
-                    // Pre-calculamos el tiempo GMT para filtrado instantáneo
-                    int gmtOrigen = mapaGmt.getOrDefault(codigoOrigen, 0);
-                    LocalDate fechaLocal = LocalDate.parse(envio.getFechaRegistro(), dateFmt);
-                    LocalDateTime tiempoLocal = LocalDateTime.of(fechaLocal, LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro()));
-                    envio.setTiempoRegistroGMT(tiempoLocal.minusHours(gmtOrigen));
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(archivo.getInputStream()))) {
+                String linea;
+                while ((linea = br.readLine()) != null) {
+                    linea = linea.trim();
+                    if (linea.isEmpty()) continue;
 
-                    listaEnvios.add(envio);
-                } catch (Exception ignored) {}
+                    try {
+                        String[] campos = linea.split("-");
+                        
+                        // --- OPTIMIZACIÓN CRÍTICA: Calcular fecha antes de crear todo el objeto ---
+                        LocalDate fechaLocal = LocalDate.parse(campos[1], dateFmt);
+                        LocalDateTime tiempoLocal = LocalDateTime.of(fechaLocal, LocalTime.of(Integer.parseInt(campos[2]), Integer.parseInt(campos[3])));
+                        LocalDateTime tiempoGMT = tiempoLocal.minusHours(gmtOrigen);
+
+                        // SI NO ESTÁ EN EL RANGO DE LOS 5 DÍAS, SE IGNORA DE INMEDIATO
+                        if (tiempoGMT.isBefore(rangoInicioGMT) || tiempoGMT.isAfter(rangoFinGMT)) {
+                            continue; // Salta a la siguiente línea del archivo de texto, liberando este String
+                        }
+
+                        // Si pasó el filtro, recién creamos el objeto Envio y lo guardamos
+                        Envio envio = new Envio();
+                        envio.setIdEnvio(campos[0]);
+                        envio.setFechaRegistro(campos[1]);
+                        envio.setHoraRegistro(Integer.parseInt(campos[2]));
+                        envio.setMinutoRegistro(Integer.parseInt(campos[3]));
+                        envio.setAeropuertoOrigen(codigoOrigen);
+                        envio.setAeropuertoDestino(campos[4]);
+                        envio.setCantidadMaletas(Integer.parseInt(campos[5]));
+                        envio.setIdCliente(campos[6]);
+                        envio.setPlanificado(false);
+                        envio.setTiempoRegistroGMT(tiempoGMT);
+
+                        listaEnvios.add(envio);
+                    } catch (Exception ignored) {}
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-            // Ordenar por tiempo para permitir uso de cursores y búsqueda eficiente
+            
+            // Ordenamos solo los envíos que sí entraron en la simulación
             listaEnvios.sort(Comparator.comparing(Envio::getTiempoRegistroGMT));
             this.enviosPorArchivo.put(nombreArchivo, listaEnvios);
         });
-        logMemoria("DESPUÉS de parsear");
+        
+        logMemoria("DESPUÉS de parsear filtrado");
     }
 
     public List<Envio> cargarPendientes(String rutaCarpeta, String fechaInicioStr, String fechaHoraLimiteStr, List<Aeropuerto> aeropuertos) {
-        // Fallback si no hay nada en memoria y se pide una ruta (opcional)
-        if (enviosPorArchivo.isEmpty() && rutaCarpeta != null) {
-            cargarDesdeDisco(rutaCarpeta, aeropuertos);
-        }
-
         // --- PARSEO DE FECHAS LÍMITE ---
         String[] limitePartes = fechaHoraLimiteStr.split("-");
         LocalDate limiteDate = LocalDate.parse(limitePartes[0], dateFmt);
@@ -156,26 +171,6 @@ public class EnvioLoader {
         // Garantizar orden total para el motor de planificación
         enviosPendientes.sort(Comparator.comparing(Envio::getTiempoRegistroGMT));
         return enviosPendientes;
-    }
-
-    private void cargarDesdeDisco(String rutaCarpeta, List<Aeropuerto> aeropuertos) {
-        File carpeta = new File(rutaCarpeta);
-        if (!carpeta.exists() || !carpeta.isDirectory()) return;
-
-        File[] archivos = carpeta.listFiles((dir, nombre) -> nombre.startsWith("_envios_") && nombre.endsWith("_.txt"));
-        if (archivos == null) return;
-
-        Map<String, List<String>> archivosRaw = new HashMap<>();
-        for (File archivo : archivos) {
-            try (java.util.Scanner scanner = new java.util.Scanner(archivo)) {
-                List<String> lineas = new ArrayList<>();
-                while (scanner.hasNextLine()) {
-                    lineas.add(scanner.nextLine());
-                }
-                archivosRaw.put(archivo.getName(), lineas);
-            } catch (Exception ignored) {}
-        }
-        setArchivosEnMemoria(archivosRaw, aeropuertos);
     }
 
     public void reset() {
