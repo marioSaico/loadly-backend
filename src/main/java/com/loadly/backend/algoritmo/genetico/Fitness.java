@@ -71,10 +71,17 @@ public class Fitness {
             Aeropuerto aeropOrigen  = mapaAeropuertos.get(envio.getAeropuertoOrigen());
             Aeropuerto aeropDestino = mapaAeropuertos.get(envio.getAeropuertoDestino());
  
-            long plazoMaximoMinutos = 48 * 60;
-            if (aeropOrigen != null && aeropDestino != null &&
-                aeropOrigen.getContinente().equals(aeropDestino.getContinente())) {
-                plazoMaximoMinutos = 24 * 60;
+            long plazoMaximoMinutos;
+            if (envio.getSlaRestanteMinutos() != null) {
+                // Modo Replanificación: El fitness debe castigar según el SLA ajustado
+                plazoMaximoMinutos = envio.getSlaRestanteMinutos();
+            } else {
+                // Modo Estándar: SLA según continente
+                plazoMaximoMinutos = 48 * 60;
+                if (aeropOrigen != null && aeropDestino != null &&
+                    aeropOrigen.getContinente().equals(aeropDestino.getContinente())) {
+                    plazoMaximoMinutos = 24 * 60;
+                }
             }
  
             if (ruta.getTiempoTotalMinutos() > plazoMaximoMinutos) {

@@ -18,5 +18,8 @@ public class Envio {
 
     // Campo optimizado para filtrado rápido en memoria
     private LocalDateTime tiempoRegistroGMT;
+    // Campos para replanificación (null en envíos normales)
+    private Integer slaRestanteMinutos;            // SLA que le queda al momento de replanificar
+    private String aeropuertoReplanificacionDesde; // null = desde origen, valor = desde escala intermedia
 
 }

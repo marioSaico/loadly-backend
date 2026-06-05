@@ -36,6 +36,10 @@ public class SimulacionPeriodoController {
 
     private volatile boolean simulacionDetenida = false;
     private volatile boolean simulacionPausada  = false;
+    
+    private volatile SseEmitter emitterActivo = null;
+    private final Map<String, List<long[]>> timelineAlmacenesGlobal = new HashMap<>();
+    private final Map<String, Integer> ocupacionVuelosGlobal = new HashMap<>();
 
     private final Planificador planificador;
     private final DataService dataService;
@@ -58,7 +62,7 @@ public class SimulacionPeriodoController {
             @RequestParam String inicioStr,
             @RequestParam String finStr,
             @RequestParam(defaultValue = "60") int taSegundos,
-            @RequestParam(defaultValue = "3") int sa,
+            @RequestParam(defaultValue = "2") int sa,
             @RequestParam(defaultValue = "120") int k,
             @RequestParam(defaultValue = "10") int tamano) {
 
@@ -66,6 +70,7 @@ public class SimulacionPeriodoController {
         simulacionPausada  = false;
 
         SseEmitter emitter = new SseEmitter(0L);
+        this.emitterActivo = emitter;
 
         executor.execute(() -> {
             try {
@@ -94,6 +99,7 @@ public class SimulacionPeriodoController {
         simulacionDetenida = true;
         simulacionPausada  = false; // por si estaba pausada
         dataService.resetEstado(); // Limpiar estado para evitar que siga procesando datos
+        this.emitterActivo = null; // Evitar que se sigan enviando eventos
         return ResponseEntity.ok("Simulación detenida");
     }
 
@@ -103,6 +109,106 @@ public class SimulacionPeriodoController {
             return ResponseEntity.noContent().build(); 
         }
         return ResponseEntity.ok(ultimoResumen);
+    }
+
+    @PostMapping("/vuelos/cancelar")
+    public ResponseEntity<String> cancelarVuelo(
+            @RequestParam String claveVuelo,
+            @RequestParam String relojSimuladoActual) {
+        try {
+            LocalDateTime reloj = LocalDateTime.parse(relojSimuladoActual, FMT_INPUT);
+
+            List<Ruta> rutasAntes = new ArrayList<>(dataService.getRutasPlanificadasHistorico());
+
+            List<Envio> afectados = dataService.cancelarVuelo(claveVuelo, reloj);
+
+            if (!afectados.isEmpty()) {
+                Set<String> clavesAfectadas = afectados.stream()
+                    .map(e -> e.getIdEnvio() + "|" + e.getIdCliente() + "|"
+                            + e.getAeropuertoOrigen() + "|" + e.getAeropuertoDestino())
+                    .collect(Collectors.toSet());
+
+                limpiarTimelineDeRutasCanceladas(rutasAntes, clavesAfectadas);
+
+                if (emitterActivo != null) {
+                    List<SimulacionEventDTO.EnvioAfectadoDTO> afectadosDTO = afectados.stream()
+                        .map(e -> SimulacionEventDTO.EnvioAfectadoDTO.builder()
+                            .idEnvio(e.getIdEnvio())
+                            .idCliente(e.getIdCliente())
+                            .origen(e.getAeropuertoOrigen())
+                            .destino(e.getAeropuertoDestino())
+                            .build())
+                        .collect(Collectors.toList());
+
+                    emitterActivo.send(SimulacionEventDTO.builder()
+                        .tipo("CANCELACION")
+                        .relojSimulado(relojSimuladoActual)
+                        .vueloCancelado(claveVuelo)
+                        .enviosAfectadosCancelacion(afectadosDTO)
+                        .build());
+                }
+            }
+
+            return ResponseEntity.ok(String.format(
+                "Vuelo %s cancelado. Envíos afectados: %d", claveVuelo, afectados.size()));
+
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body("Error al cancelar vuelo: " + e.getMessage());
+        }
+    }
+
+    private void limpiarTimelineDeRutasCanceladas(List<Ruta> rutasAntes, Set<String> clavesAfectadas) {
+        for (Ruta ruta : rutasAntes) {
+            Envio envio = ruta.getEnvio();
+            String claveEnvio = envio.getIdEnvio() + "|" + envio.getIdCliente() + "|"
+                            + envio.getAeropuertoOrigen() + "|" + envio.getAeropuertoDestino();
+            if (!clavesAfectadas.contains(claveEnvio)) continue;
+            if (ruta.getEstado() != EstadoRuta.PLANIFICADA || ruta.getVuelos() == null) continue;
+
+            int gmtO = dataService.getMapaAeropuertos().get(envio.getAeropuertoOrigen()).getGmt();
+            LocalDateTime regGMT = LocalDateTime.of(
+                LocalDate.parse(envio.getFechaRegistro(), FMT_FECHA),
+                LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro())
+            ).minusHours(gmtO);
+
+            // Revertir llegada al almacén origen
+            quitarEventoTimeline(timelineAlmacenesGlobal,
+                envio.getAeropuertoOrigen(), regGMT, +envio.getCantidadMaletas());
+
+            LocalDateTime cursor = regGMT;
+            for (PlanVuelo v : ruta.getVuelos()) {
+                String claveVuelo = v.getOrigen() + "-" + v.getDestino() + "-" + v.getHoraSalida();
+                int gmtVO = dataService.getMapaAeropuertos().get(v.getOrigen()).getGmt();
+                int gmtVD = dataService.getMapaAeropuertos().get(v.getDestino()).getGmt();
+
+                int minSGMT = (convertirAMinutos(v.getHoraSalida()) - gmtVO * 60 + 1440) % 1440;
+                LocalDateTime despegue = cursor.with(minutosALocalTime(minSGMT));
+                if (despegue.isBefore(cursor)) despegue = despegue.plusDays(1);
+
+                int duracion = (convertirAMinutos(v.getHoraLlegada()) - gmtVD * 60)
+                            - (convertirAMinutos(v.getHoraSalida()) - gmtVO * 60);
+                if (duracion < 0) duracion += 1440;
+                LocalDateTime llegada = despegue.plusMinutes(duracion);
+
+                quitarEventoTimeline(timelineAlmacenesGlobal, v.getOrigen(), despegue, -envio.getCantidadMaletas());
+                quitarEventoTimeline(timelineAlmacenesGlobal, v.getDestino(), llegada, +envio.getCantidadMaletas());
+                ocupacionVuelosGlobal.merge(claveVuelo, -envio.getCantidadMaletas(), Integer::sum);
+
+                cursor = llegada;
+            }
+            // Revertir recojo en destino final
+            quitarEventoTimeline(timelineAlmacenesGlobal,
+                envio.getAeropuertoDestino(), cursor.plusMinutes(10), -envio.getCantidadMaletas());
+        }
+    }
+
+    private void quitarEventoTimeline(Map<String, List<long[]>> timeline,
+                                        String aero, LocalDateTime t, int delta) {
+        List<long[]> eventos = timeline.get(aero);
+        if (eventos == null) return;
+        long minuto = t.toEpochSecond(ZoneOffset.UTC) / 60;
+        eventos.removeIf(ev -> ev[0] == minuto && (int) ev[1] == delta);
     }
 
     private void ejecutarEscenario(SseEmitter emitter, String inicioStr, String finStr, int taSegundos, int sa, int k, int tamano) throws Exception {
@@ -122,8 +228,8 @@ public class SimulacionPeriodoController {
 
         boolean colapsoDetectado = false;
         ResultadoColapso colapsoFinal = null;
-        Map<String, List<long[]>> timelineAlmacenesGlobal = new HashMap<>();
-        Map<String, Integer> ocupacionVuelosGlobal = new HashMap<>();
+        this.timelineAlmacenesGlobal.clear();
+        this.ocupacionVuelosGlobal.clear();
 
         long inicioEscenarioMs = System.currentTimeMillis();
 
@@ -268,6 +374,9 @@ public class SimulacionPeriodoController {
         generarYGuardarResumen(dataService, colapsoFinal, limiteLecturaDatos, tiempoEjecucionRealMs, timelineAlmacenesGlobal, LocalDateTime.parse(inicioStr, FMT_INPUT), ocupacionVuelosGlobal);
         
         dataService.resetEstado();
+        this.timelineAlmacenesGlobal.clear();
+        this.ocupacionVuelosGlobal.clear();
+        this.emitterActivo = null;
         emitter.complete(); 
     }
 
