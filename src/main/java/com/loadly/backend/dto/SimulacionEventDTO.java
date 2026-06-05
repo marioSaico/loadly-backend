@@ -48,6 +48,8 @@ public class SimulacionEventDTO {
         private int capacidadAlmacenRecojo;
         private String duracion;
         private String sla;
+        private boolean esReplanificacion;
+        private String replanificadoDesde; // null si es normal, "SCL" si viene de intermedio
         private List<VueloPlanificadoDTO> tramos;
     }
 
