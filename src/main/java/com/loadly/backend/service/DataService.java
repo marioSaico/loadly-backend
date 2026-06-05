@@ -182,13 +182,13 @@ public class DataService {
         this.envioLoader.setArchivosEnMemoriaFiltrados(archivos, this.aeropuertos, rangoInicioGMT, rangoFinGMT);
     }
 
-    public List<Envio> obtenerEnviosPendientes(String inicioEscenario, String fechaHoraLimite) {
+    public List<Envio> obtenerEnviosPendientes(String inicioEscenario, String fechaHoraActual, String fechaHoraLimite) {
         // =====================================================================
         // NUEVO BLOQUE: CALCULAR SLA DINÁMICO PARA REPLANIFICACIONES
         // =====================================================================
         // 1. Sabemos exactamente la hora a la que el Planificador está despertando:
         DateTimeFormatter formato = DateTimeFormatter.ofPattern("yyyyMMdd-HH-mm");
-        LocalDateTime relojEjecucionPlanner = LocalDateTime.parse(fechaHoraLimite, formato);
+        LocalDateTime relojEjecucionPlanner = LocalDateTime.parse(fechaHoraActual, formato);
 
         // 2. Actualizamos la "bomba de tiempo" de cada maleta afectada
         for (Envio envio : this.colaReplanificacion) {
@@ -198,11 +198,26 @@ public class DataService {
             // SLA Base: 24h (mismo continente) o 48h (distinto continente) en minutos
             long slaTotal = (aorig != null && adest != null && 
                              aorig.getContinente().equals(adest.getContinente())) ? 24 * 60 : 48 * 60;
-                             
-            // ¿Cuánto tiempo esperó desde que el cliente la registró hasta este milisegundo?
-            long minutosConsumidos = java.time.temporal.ChronoUnit.MINUTES.between(envio.getTiempoRegistroGMT(), relojEjecucionPlanner);
+
+            // =========================================================================
+            // LÓGICA DE DISPONIBILIDAD: ¿Está en el aire o en el almacén?
+            // =========================================================================
+            LocalDateTime tiempoDisponibilidad;
             
-            // Su nuevo límite de vida
+            if (envio.getHoraDisponibleReplanificacion() != null && 
+                envio.getHoraDisponibleReplanificacion().isAfter(relojEjecucionPlanner)) {
+                // Escenario B: Está en el aire. Disponible recién cuando aterrice.
+                tiempoDisponibilidad = envio.getHoraDisponibleReplanificacion();
+            } else {
+                // Escenario A: Está en el almacén (origen o intermedio). Disponible AHORA.
+                tiempoDisponibilidad = relojEjecucionPlanner;
+            }
+
+            // =========================================================================
+            // CÁLCULO PERFECTO DEL SLA
+            // =========================================================================
+            // Consumido: Desde el registro original hasta el momento en que podrá tomar un nuevo vuelo
+            long minutosConsumidos = java.time.temporal.ChronoUnit.MINUTES.between(envio.getTiempoRegistroGMT(), tiempoDisponibilidad);
             int slaRestante = (int) (slaTotal - minutosConsumidos);
             envio.setSlaRestanteMinutos(slaRestante);
 
@@ -448,25 +463,6 @@ public class DataService {
         return despegues;
     }
 
-    /**
-     * Determina si un evento de agenda pertenece a los tramos futuros de esta ruta.
-     * Se usa para limpiar la agenda al cancelar.
-     */
-    private boolean esEventoDeEstosTramos(EventoLogistico evento, List<PlanVuelo> vuelosRuta,
-                                        int desdeIndice, Envio envio, LocalDateTime[] despegues) {
-        for (int i = desdeIndice; i < vuelosRuta.size(); i++) {
-            PlanVuelo v = vuelosRuta.get(i);
-            if (evento.getCodigo().equals(claveVuelo(v)) || 
-                evento.getCodigo().equals(v.getDestino()) ||
-                (i == desdeIndice && evento.getCodigo().equals(v.getOrigen()))) {
-                if (evento.getCantidad() == envio.getCantidadMaletas()) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
- 
     // =========================================================================
     // 2. CONFIRMACIÓN Y RESERVA DE CAPACIDADES
     // =========================================================================

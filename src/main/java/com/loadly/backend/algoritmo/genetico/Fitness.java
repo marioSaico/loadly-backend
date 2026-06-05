@@ -52,8 +52,11 @@ public class Fitness {
             }
  
             // Acumular maletas en almacén origen
+            String almacenInicio = (envio.getAeropuertoReplanificacionDesde() != null)
+                ? envio.getAeropuertoReplanificacionDesde()
+                : envio.getAeropuertoOrigen();
             maletasPorAlmacen.merge(
-                envio.getAeropuertoOrigen(),
+                almacenInicio,
                 envio.getCantidadMaletas(),
                 Integer::sum
             );

@@ -289,9 +289,15 @@ public class SimulacionPeriodoController {
             long iteracionInicioMs = System.currentTimeMillis();
 
             String limiteLecturaStr = limiteLecturaDatos.format(FMT_INPUT);
+
+            // =====================================================================
+            // CALCULO EXACTO: El inicio de la ventana actual de planificación (S_c)
+            // =====================================================================
+            LocalDateTime fechaHoraActualReal = limiteLecturaDatos.minusMinutes(sc);
+            String fechaHoraActualStr = fechaHoraActualReal.format(FMT_INPUT);
             
             System.out.printf("    [DEBUG] Llamando a planificar con tamano=%d, tiempoLimiteMs=%d%n", tamano, tiempoLimiteMs);
-            Individuo resultado = planificador.planificar(inicioStr, limiteLecturaStr, tamano, tiempoLimiteMs);
+            Individuo resultado = planificador.planificar(inicioStr, fechaHoraActualStr, limiteLecturaStr, tamano, tiempoLimiteMs);
             System.out.printf("    [DEBUG] Procesando eventos del reloj: %s%n", limiteLecturaStr);
             dataService.procesarEventosDelReloj(limiteLecturaStr);
             System.out.printf("    [DEBUG] Planificador retornó: %s%n", (resultado != null ? "INDIVIDUO" : "NULL"));
