@@ -35,7 +35,7 @@ public class BackendApplication {
 
     @FunctionalInterface
     interface PlanificadorFunc {
-        Individuo planificar(String inicioStr, String fechaHoraLimite, int tamano, long tiempoMs);
+        Individuo planificar(String inicioStr, String fechaHoraActual, String fechaHoraLimite, int tamano, long tiempoMs);
     }
 
     public static void main(String[] args) {
@@ -69,12 +69,12 @@ public class BackendApplication {
         // ---------------------------------------------------------
         // 1. SELECCIÓN DE ALGORITMO (Comenta el que NO vayas a usar)
         // ---------------------------------------------------------
-        PlanificadorFunc planFunc = (inicio, lim, tam, ms) -> planificador.planificar(inicio, lim, tam, ms);
+        PlanificadorFunc planFunc = (inicio, actual, lim, tam, ms) -> planificador.planificar(inicio, actual, lim, tam, ms);
         String nombreAlg = "GA";
 
         // Alternativa: algoritmo anterior
-        // PlanificadorFunc planFunc = (inicio,lim, relojActual, tam, ms) ->
-        // planificadorACO.planificar(inicio,lim, relojActual,tam, ms);
+        // PlanificadorFunc planFunc = (inicio,actual, lim, tam, ms) ->
+        // planificadorACO.planificar(inicio,actual, lim,tam, ms);
         // String nombreAlg = "ACO";
 
         // ---------------------------------------------------------
@@ -173,10 +173,13 @@ public class BackendApplication {
 
             String limiteLecturaStr = limiteLecturaDatos.format(FMT_INPUT);
 
+            LocalDateTime fechaHoraActualReal = limiteLecturaDatos.minusMinutes(sc);
+            String fechaHoraActualStr = fechaHoraActualReal.format(FMT_INPUT);
+
             System.out.println("\n>>> [RELOJ: " + relojSimulado.format(FMT_LOG) + "] Planificando envios hasta " + limiteLecturaDatos.format(FMT_LOG));
 
+            Individuo resultado = planFunc.planificar(inicioStr, fechaHoraActualStr, limiteLecturaStr, tamano, tiempoLimiteMs);
             dataService.procesarEventosDelReloj(limiteLecturaStr);
-            Individuo resultado = planFunc.planificar(inicioStr, limiteLecturaStr, tamano, tiempoLimiteMs);
 
             if (resultado != null) {
                 // Pasamos la memoria global de vuelos al colapso

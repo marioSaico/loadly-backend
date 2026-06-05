@@ -86,7 +86,10 @@ public class BuscadorRutas {
 
         // Validar almacén origen si aplica
         if (validarCapacidad) {
-            int espacioOrigen = capAlmacenes.getOrDefault(envio.getAeropuertoOrigen(), 0);
+            String almacenInicio = (envio.getAeropuertoReplanificacionDesde() != null)
+                ? envio.getAeropuertoReplanificacionDesde()
+                : envio.getAeropuertoOrigen();
+            int espacioOrigen = capAlmacenes.getOrDefault(almacenInicio, 0);
             if (espacioOrigen < envio.getCantidadMaletas()) {
                 ruta.setVuelos(new ArrayList<>());
                 ruta.setTiempoTotalMinutos(0);
@@ -134,7 +137,17 @@ public class BuscadorRutas {
         String aeropuertoInicio = (envio.getAeropuertoReplanificacionDesde() != null)
             ? envio.getAeropuertoReplanificacionDesde()
             : envio.getAeropuertoOrigen();
-        openSet.add(new NodoAStar(aeropuertoInicio, null, null, 0, 0.0, null));
+
+        // Si hay hora disponible de replanificación, usarla como horaLlegada del nodo inicial
+        // para que el cálculo de espera al primer vuelo sea correcto
+        String horaLlegadaInicio = null;
+        if (envio.getHoraDisponibleReplanificacion() != null) {
+            int h = envio.getHoraDisponibleReplanificacion().getHour();
+            int m = envio.getHoraDisponibleReplanificacion().getMinute();
+            horaLlegadaInicio = String.format("%02d:%02d", h, m);
+        }
+
+        openSet.add(new NodoAStar(aeropuertoInicio, null, null, 0, 0.0, horaLlegadaInicio));
         bestG.put(aeropuertoInicio, 0L);
 
         while (!openSet.isEmpty()) {
@@ -148,9 +161,12 @@ public class BuscadorRutas {
                 List<PlanVuelo> vuelos = reconstruirRuta(actual);
 
                 if (validarCapacidad) {
+                    String almacenInicio = (envio.getAeropuertoReplanificacionDesde() != null)
+                        ? envio.getAeropuertoReplanificacionDesde()
+                        : envio.getAeropuertoOrigen();
                     capAlmacenes.put(
-                        envio.getAeropuertoOrigen(),
-                        capAlmacenes.get(envio.getAeropuertoOrigen()) - envio.getCantidadMaletas()
+                        almacenInicio,
+                        capAlmacenes.getOrDefault(almacenInicio, 0) - envio.getCantidadMaletas()
                     );
                     for (PlanVuelo v : vuelos) {
                         String claveV = claveVuelo(v);
