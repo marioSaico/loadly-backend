@@ -427,13 +427,26 @@ public class SimulacionPeriodoController {
 
         for (Ruta r : rutasOrdenadas) {
             Envio envio = r.getEnvio();
-            int gmtO = dataService.getMapaAeropuertos().get(envio.getAeropuertoOrigen()).getGmt();
-            LocalDateTime regGMT = LocalDateTime.of(LocalDate.parse(envio.getFechaRegistro(), FMT_FECHA),
-                    LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro())).minusHours(gmtO);
 
-            agregarEventoTimeline(timelineAlmacenesGlobal, envio.getAeropuertoOrigen(), regGMT, +envio.getCantidadMaletas());
+            LocalDateTime cursor;
 
-            LocalDateTime cursor = regGMT;
+            if (envio.getHoraDisponibleReplanificacion() != null) {
+                // Replanificación desde aeropuerto intermedio con tramo en el aire
+                // Las maletas llegan solas a ese aeropuerto → NO agregar evento en origen
+                // El cursor arranca desde cuando llegan al aeropuerto intermedio
+                cursor = envio.getHoraDisponibleReplanificacion();
+            } else {
+                // Envío normal o replanificación desde origen original
+                int gmtO = dataService.getMapaAeropuertos().get(envio.getAeropuertoOrigen()).getGmt();
+                LocalDateTime regGMT = LocalDateTime.of(
+                    LocalDate.parse(envio.getFechaRegistro(), FMT_FECHA),
+                    LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro())
+                ).minusHours(gmtO);
+                // Solo agregar evento en almacén origen si las maletas están físicamente ahí
+                agregarEventoTimeline(timelineAlmacenesGlobal, envio.getAeropuertoOrigen(), regGMT, +envio.getCantidadMaletas());
+                cursor = regGMT;
+            }
+
             for (PlanVuelo v : r.getVuelos()) {
                 String clave = v.getOrigen() + "-" + v.getDestino() + "-" + v.getHoraSalida();
                 ocupacionVuelosGlobal.merge(clave, envio.getCantidadMaletas(), Integer::sum);
@@ -463,12 +476,21 @@ public class SimulacionPeriodoController {
         
         for (Ruta r : rutasOrdenadas) {
             Envio envio = r.getEnvio();
-            int gmtO = dataService.getMapaAeropuertos().get(envio.getAeropuertoOrigen()).getGmt();
-            LocalDateTime regGMT = LocalDateTime.of(LocalDate.parse(envio.getFechaRegistro(), FMT_FECHA),
-                    LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro())).minusHours(gmtO);
+            LocalDateTime cursor;
+            LocalDateTime regGMT; // para el DTO de la ruta
 
+            int gmtO = dataService.getMapaAeropuertos().get(envio.getAeropuertoOrigen()).getGmt();
+            regGMT = LocalDateTime.of(
+                LocalDate.parse(envio.getFechaRegistro(), FMT_FECHA),
+                LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro())
+            ).minusHours(gmtO);
+
+            if (envio.getHoraDisponibleReplanificacion() != null) {
+                cursor = envio.getHoraDisponibleReplanificacion();
+            } else {
+                cursor = regGMT;
+            }
             List<VueloPlanificadoDTO> tramosDTO = new ArrayList<>();
-            LocalDateTime cursor = regGMT;
             int paso = 1;
 
             for (PlanVuelo v : r.getVuelos()) {
@@ -529,6 +551,8 @@ public class SimulacionPeriodoController {
                     .capacidadAlmacenRecojo(destino != null ? destino.getCapacidad() : 0)
                     .duracion(String.format("%02dh %02dm", horasTotales, minutosRestantes))
                     .sla(slaHoras + "h")
+                    .esReplanificacion(envio.getAeropuertoReplanificacionDesde() != null)
+                    .replanificadoDesde(envio.getAeropuertoReplanificacionDesde())
                     .tramos(tramosDTO)
                     .build());
         }
@@ -729,9 +753,16 @@ public class SimulacionPeriodoController {
         for (Ruta r : res.getRutas()) {
             if (r.getEstado() == EstadoRuta.PLANIFICADA && r.getVuelos() != null) {
                 Envio env = r.getEnvio();
-                Aeropuerto o = ds.getMapaAeropuertos().get(env.getAeropuertoOrigen());
-                LocalDateTime cursor = LocalDateTime.of(LocalDate.parse(env.getFechaRegistro(), FMT_FECHA), LocalTime.of(env.getHoraRegistro(), env.getMinutoRegistro())).minusHours(o.getGmt());
-                
+                LocalDateTime cursor;
+                if (env.getHoraDisponibleReplanificacion() != null) {
+                    cursor = env.getHoraDisponibleReplanificacion();
+                } else {
+                    Aeropuerto o = ds.getMapaAeropuertos().get(env.getAeropuertoOrigen());
+                    cursor = LocalDateTime.of(
+                        LocalDate.parse(env.getFechaRegistro(), FMT_FECHA),
+                        LocalTime.of(env.getHoraRegistro(), env.getMinutoRegistro())
+                    ).minusHours(o.getGmt());
+                }
                 for (PlanVuelo v : r.getVuelos()) {
                     int gmtO = ds.getMapaAeropuertos().get(v.getOrigen()).getGmt();
                     int gmtD = ds.getMapaAeropuertos().get(v.getDestino()).getGmt();
