@@ -39,6 +39,9 @@ public class DataService {
  
     // Solo guarda los envíos que AÚN NO TIENEN RUTA (Backlog)
     private List<Envio> enviosEnEspera = new ArrayList<>();
+
+    // Cola de envíos que perdieron su ruta por cancelación — tienen prioridad sobre el backlog normal
+    private List<Envio> colaReplanificacion = new ArrayList<>();
  
     // Guarda el histórico de los que ya se planificaron
     private List<Ruta> rutasPlanificadasHistorico = new ArrayList<>();
@@ -79,7 +82,12 @@ public class DataService {
         for (PlanVuelo v : vuelos) {
             capacidadDinamicaVuelos.put(claveVuelo(v), v.getCapacidad());
         }
- 
+
+        this.enviosEnEspera.clear();
+        this.rutasPlanificadasHistorico.clear();
+        this.agendaEventos.clear();
+        this.colaReplanificacion.clear();
+        
         System.out.println("Aeropuertos cargados de BD: " + aeropuertos.size());
         System.out.println("Vuelos cargados e indexados: "      + vuelos.size());
         logMemoria("Inicialización");
@@ -175,18 +183,250 @@ public class DataService {
     }
 
     public List<Envio> obtenerEnviosPendientes(String inicioEscenario, String fechaHoraLimite) {
+        // =====================================================================
+        // NUEVO BLOQUE: CALCULAR SLA DINÁMICO PARA REPLANIFICACIONES
+        // =====================================================================
+        // 1. Sabemos exactamente la hora a la que el Planificador está despertando:
+        DateTimeFormatter formato = DateTimeFormatter.ofPattern("yyyyMMdd-HH-mm");
+        LocalDateTime relojEjecucionPlanner = LocalDateTime.parse(fechaHoraLimite, formato);
+
+        // 2. Actualizamos la "bomba de tiempo" de cada maleta afectada
+        for (Envio envio : this.colaReplanificacion) {
+            Aeropuerto aorig = this.mapaAeropuertos.get(envio.getAeropuertoOrigen());
+            Aeropuerto adest = this.mapaAeropuertos.get(envio.getAeropuertoDestino());
+            
+            // SLA Base: 24h (mismo continente) o 48h (distinto continente) en minutos
+            long slaTotal = (aorig != null && adest != null && 
+                             aorig.getContinente().equals(adest.getContinente())) ? 24 * 60 : 48 * 60;
+                             
+            // ¿Cuánto tiempo esperó desde que el cliente la registró hasta este milisegundo?
+            long minutosConsumidos = java.time.temporal.ChronoUnit.MINUTES.between(envio.getTiempoRegistroGMT(), relojEjecucionPlanner);
+            
+            // Su nuevo límite de vida
+            int slaRestante = (int) (slaTotal - minutosConsumidos);
+            envio.setSlaRestanteMinutos(slaRestante);
+
+            if (slaRestante <= 0) {
+                System.out.println("[ALERTA CRÍTICA - COLAPSO LOGÍSTICO] El envío " + envio.getIdEnvio() + " ya expiró en la cola de espera. SLA Restante: " + slaRestante + " min.");
+            }
+        }
+
         List<Envio> enviosRecienLlegados = envioLoader.cargarPendientes(
-            null, // No usamos ruta física si ya está en memoria
+            null,
             inicioEscenario,
             fechaHoraLimite,
             this.aeropuertos
         );
-        
+
         if (!enviosRecienLlegados.isEmpty()) {
             this.enviosEnEspera.addAll(enviosRecienLlegados);
         }
- 
-        return new ArrayList<>(this.enviosEnEspera);
+
+        // Construir lista final: replanificaciones primero (ordenadas por SLA restante ASC),
+        // luego backlog normal
+        List<Envio> resultado = new ArrayList<>();
+
+        List<Envio> replanOrdenadas = new ArrayList<>(this.colaReplanificacion);
+        replanOrdenadas.sort(Comparator.comparingInt(e ->
+            e.getSlaRestanteMinutos() != null ? e.getSlaRestanteMinutos() : Integer.MAX_VALUE
+        ));
+        resultado.addAll(replanOrdenadas);
+        resultado.addAll(this.enviosEnEspera);
+
+        return resultado;
+    }
+
+    /**
+     * Cancela un vuelo y gestiona el impacto en rutas ya planificadas.
+     *
+     * Lógica:
+     * - Si la ocurrencia de HOY ya despegó: solo se cancelan días futuros.
+     * - Para cada envío cuya ruta usa ese vuelo en un tramo AÚN NO DESPEGADO:
+     *   1. Determina desde qué aeropuerto replanificar (destino del último tramo ya despegado)
+     *   2. Revierte capacidades de todos los tramos futuros (vuelos + almacenes)
+     *   3. Cancela eventos de agendaEventos correspondientes
+     * - Marca el vuelo como cancelado en mapaVuelosPorOrigen para futuros A*
+     *
+     * @param claveVuelo         Formato "ORIG-DEST-HH:mm"
+     * @param relojSimuladoActual Momento actual del reloj simulado (GMT)
+     */
+    public List<Envio> cancelarVuelo(String claveVuelo, LocalDateTime relojSimuladoActual) {
+        List<Envio> enviosAfectados = new ArrayList<>();
+
+        // 1. Encontrar el PlanVuelo correspondiente a la clave
+        PlanVuelo vueloCancelado = null;
+        for (PlanVuelo v : vuelos) {
+            if (claveVuelo(v).equals(claveVuelo)) {
+                vueloCancelado = v;
+                break;
+            }
+        }
+        if (vueloCancelado == null) return enviosAfectados; // vuelo no encontrado
+
+        // 2. Determinar si la ocurrencia de HOY ya despegó
+        // Convertir horaSalida del vuelo a minutos GMT
+        int gmtOrigen = mapaAeropuertos.get(vueloCancelado.getOrigen()) != null
+            ? mapaAeropuertos.get(vueloCancelado.getOrigen()).getGmt() : 0;
+        int minSalidaLocal = convertirAMinutos(vueloCancelado.getHoraSalida());
+        int minSalidaGMT = minSalidaLocal - (gmtOrigen * 60);
+        // Normalizar a minutos del día
+        int minRelojActualGMT = relojSimuladoActual.getHour() * 60 + relojSimuladoActual.getMinute();
+        // La ocurrencia de hoy ya despegó si el reloj actual (en minutos del día) supera la salida GMT
+        boolean hoyYaDespego = minRelojActualGMT > minSalidaGMT;
+
+        // 3. Marcar vuelo como cancelado en el modelo y en el mapa
+        vueloCancelado.setCancelado(true);
+        planVueloService.marcarComoCancelado(
+            vueloCancelado.getOrigen(),
+            vueloCancelado.getDestino(),
+            vueloCancelado.getHoraSalida()
+        );
+        // Eliminar de mapaVuelosPorOrigen para que el A* no lo use
+        List<PlanVuelo> vuelosDelOrigen = mapaVuelosPorOrigen.get(vueloCancelado.getOrigen());
+        if (vuelosDelOrigen != null) {
+            vuelosDelOrigen.removeIf(v -> claveVuelo(v).equals(claveVuelo));
+        }
+
+        // 4. Revisar todas las rutas planificadas en busca de envíos afectados
+        List<Ruta> rutasAEliminarDelHistorico = new ArrayList<>();
+
+        for (Ruta ruta : rutasPlanificadasHistorico) {
+            if (ruta.getEstado() != EstadoRuta.PLANIFICADA) continue;
+
+            List<PlanVuelo> vuelosRuta = ruta.getVuelos();
+            Envio envio = ruta.getEnvio();
+
+            // Calcular despegues reales de cada tramo para saber cuáles ya ocurrieron
+            LocalDateTime[] despegues = calcularDespeguesRuta(envio, vuelosRuta);
+
+            // Encontrar el índice del tramo que usa el vuelo cancelado y aún no despegó
+            int indiceAfectado = -1;
+            for (int i = 0; i < vuelosRuta.size(); i++) {
+                boolean esElVuelo = claveVuelo(vuelosRuta.get(i)).equals(claveVuelo);
+                boolean aunNoDespego = despegues[i].isAfter(relojSimuladoActual);
+
+                // Si el vuelo de hoy ya despegó, solo nos interesan los usos en días futuros
+                if (esElVuelo && aunNoDespego) {
+                    if (hoyYaDespego) {
+                        // Solo afecta si el despegue de ese tramo es en un día distinto al de hoy
+                        if (!despegues[i].toLocalDate().equals(relojSimuladoActual.toLocalDate())) {
+                            indiceAfectado = i;
+                            break;
+                        }
+                    } else {
+                        indiceAfectado = i;
+                        break;
+                    }
+                }
+            }
+
+            if (indiceAfectado == -1) continue; // esta ruta no se ve afectada
+
+            // 5. Determinar desde qué aeropuerto replanificar
+            // Es el destino del último tramo que YA despegó antes del tramo afectado
+            String aeropuertoDesde;
+            if (indiceAfectado == 0) {
+                // Ningún tramo anterior despegó → desde el origen original
+                aeropuertoDesde = envio.getAeropuertoOrigen();
+            } else {
+                // El tramo anterior ya despegó o está en el aire → desde su destino
+                aeropuertoDesde = vuelosRuta.get(indiceAfectado - 1).getDestino();
+            }
+
+            // 6. Revertir capacidades de los tramos futuros (desde indiceAfectado en adelante)
+            // También hay que eliminar los eventos de agenda correspondientes
+            for (int i = indiceAfectado; i < vuelosRuta.size(); i++) {
+                PlanVuelo v = vuelosRuta.get(i);
+                String claveV = claveVuelo(v);
+
+                // Restaurar capacidad del vuelo
+                int capActual = capacidadDinamicaVuelos.getOrDefault(claveV, 0);
+                int capMax = v.getCapacidad();
+                capacidadDinamicaVuelos.put(claveV, Math.min(capActual + envio.getCantidadMaletas(), capMax));
+            }
+
+            // Si el tramo afectado es el primero, también restaurar el almacén origen
+            if (indiceAfectado == 0) {
+                String codigoOrigen = envio.getAeropuertoOrigen();
+                int capAlmActual = capacidadDinamicaAlmacenes.getOrDefault(codigoOrigen, 0);
+                int capAlmMax = capacidadOriginalAlmacen(codigoOrigen);
+                capacidadDinamicaAlmacenes.put(codigoOrigen, Math.min(capAlmActual + envio.getCantidadMaletas(), capAlmMax));
+            }
+
+            // 7. Eliminar eventos de agenda relacionados a los tramos futuros de este envío
+            // (RESET_VUELO, RECIBE_CARGA, LIBERA_ALMACEN que ocurran después del reloj actual)
+            // Creamos una variable final que haga una copia del valor actual
+            final int indiceFinal = indiceAfectado;
+            agendaEventos.removeIf(evento ->
+                evento.getHoraEvento().isAfter(relojSimuladoActual) &&
+                esEventoDeEstosTramos(evento, vuelosRuta, indiceFinal, envio, despegues)
+            );
+
+            // 8. Preparar envío para replanificación
+            envio.setSlaRestanteMinutos(null);
+            envio.setAeropuertoReplanificacionDesde(aeropuertoDesde);
+            envio.setPlanificado(false);
+
+            colaReplanificacion.add(envio);
+            rutasAEliminarDelHistorico.add(ruta);
+            enviosAfectados.add(envio);
+        }
+
+        // Limpiar del histórico las rutas que se van a replanificar
+        rutasPlanificadasHistorico.removeAll(rutasAEliminarDelHistorico);
+
+        System.out.printf("[CANCELACION] Vuelo %s cancelado. Envíos afectados: %d%n",
+                claveVuelo, enviosAfectados.size());
+
+        return enviosAfectados;
+    }
+
+    /**
+     * Calcula los despegues reales GMT de cada tramo de una ruta.
+     */
+    private LocalDateTime[] calcularDespeguesRuta(Envio envio, List<PlanVuelo> vuelosRuta) {
+        int n = vuelosRuta.size();
+        LocalDateTime[] despegues = new LocalDateTime[n];
+        LocalDateTime[] llegadas  = new LocalDateTime[n];
+
+        LocalDateTime fechaLlegadaPaquete = LocalDateTime.of(
+            LocalDate.parse(envio.getFechaRegistro(), DateTimeFormatter.ofPattern("yyyyMMdd")),
+            LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro())
+        );
+
+        long esperaPrimero = calcularMinutosHastaVuelo(
+            envio.getHoraRegistro(), envio.getMinutoRegistro(),
+            vuelosRuta.get(0).getHoraSalida()
+        );
+        despegues[0] = fechaLlegadaPaquete.plusMinutes(esperaPrimero);
+        llegadas[0]  = despegues[0].plusMinutes(calcularDuracionVueloGMT(vuelosRuta.get(0)));
+
+        for (int i = 1; i < n; i++) {
+            long espera = calcularEsperaEnEscala(llegadas[i-1], vuelosRuta.get(i).getHoraSalida());
+            despegues[i] = llegadas[i-1].plusMinutes(espera);
+            llegadas[i]  = despegues[i].plusMinutes(calcularDuracionVueloGMT(vuelosRuta.get(i)));
+        }
+
+        return despegues;
+    }
+
+    /**
+     * Determina si un evento de agenda pertenece a los tramos futuros de esta ruta.
+     * Se usa para limpiar la agenda al cancelar.
+     */
+    private boolean esEventoDeEstosTramos(EventoLogistico evento, List<PlanVuelo> vuelosRuta,
+                                        int desdeIndice, Envio envio, LocalDateTime[] despegues) {
+        for (int i = desdeIndice; i < vuelosRuta.size(); i++) {
+            PlanVuelo v = vuelosRuta.get(i);
+            if (evento.getCodigo().equals(claveVuelo(v)) || 
+                evento.getCodigo().equals(v.getDestino()) ||
+                (i == desdeIndice && evento.getCodigo().equals(v.getOrigen()))) {
+                if (evento.getCantidad() == envio.getCantidadMaletas()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
  
     // =========================================================================
@@ -374,16 +614,13 @@ public class DataService {
  
     public void resetEstado() {
         this.capacidadDinamicaAlmacenes.clear();
-        for (Aeropuerto a : aeropuertos) {
-            capacidadDinamicaAlmacenes.put(a.getCodigo(), a.getCapacidad());
-        }
         this.capacidadDinamicaVuelos.clear();
-        for (PlanVuelo v : vuelos) {
-            capacidadDinamicaVuelos.put(claveVuelo(v), v.getCapacidad());
-        }
         this.enviosEnEspera.clear();
         this.rutasPlanificadasHistorico.clear();
         this.agendaEventos.clear();
+        this.colaReplanificacion.clear();
+        // Restaurar vuelos cancelados durante la simulación
+        planVueloService.desmarcarTodosCancelados();
         this.envioLoader.limpiarTodo();
         System.out.println(">>> MEMORIA LIBERADA: Simulación/Planificación finalizada. Objetos eliminados del Heap.");
         logMemoria("Post-Limpieza");
@@ -491,6 +728,7 @@ public class DataService {
     public Map<String, Integer>          getCapacidadDinamicaVuelos()    { return capacidadDinamicaVuelos; }
     public List<Envio>                   getEnviosEnEspera()             { return enviosEnEspera; }
     public List<Ruta>                    getRutasPlanificadasHistorico()  { return rutasPlanificadasHistorico; }
+    public List<Envio>                   getColaReplanificacion()        { return colaReplanificacion; }
 
     // =========================================================================
     // 8. LOGS DE MEMORIA

@@ -202,4 +202,35 @@ public class PlanVueloService {
 
         return insertados;
     }
+
+    /**
+     * Marca un vuelo como cancelado en la BD durante la simulación.
+     * Se identifica por origen, destino y hora de salida.
+     */
+    public void marcarComoCancelado(String codigoOrigen, String codigoDestino, String horaSalida) {
+        try {
+            String sql = "UPDATE plan_vuelo SET cancelado = 1 " +
+                        "WHERE idAeropuertoOrigen = (SELECT IdAeropuerto FROM aeropuerto WHERE codigo = ?) " +
+                        "AND idAeropuertoDestino  = (SELECT IdAeropuerto FROM aeropuerto WHERE codigo = ?) " +
+                        "AND horaSalida = ?";
+            int filas = databaseManager.getPrimaryDb().update(sql, codigoOrigen, codigoDestino, horaSalida);
+            System.out.printf("[BD] Vuelo %s-%s-%s marcado como cancelado. Filas afectadas: %d%n",
+                    codigoOrigen, codigoDestino, horaSalida, filas);
+        } catch (Exception e) {
+            System.err.println("[BD] Error al marcar vuelo como cancelado: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Restaura todos los vuelos cancelados al terminar la simulación.
+     */
+    public void desmarcarTodosCancelados() {
+        try {
+            String sql = "UPDATE plan_vuelo SET cancelado = 0 WHERE cancelado = 1";
+            int filas = databaseManager.getPrimaryDb().update(sql);
+            System.out.printf("[BD] Vuelos restaurados al finalizar simulación. Filas afectadas: %d%n", filas);
+        } catch (Exception e) {
+            System.err.println("[BD] Error al restaurar vuelos cancelados: " + e.getMessage());
+        }
+    }
 }

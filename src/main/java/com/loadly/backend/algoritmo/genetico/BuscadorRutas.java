@@ -98,10 +98,17 @@ public class BuscadorRutas {
         Aeropuerto aeropOrigen  = mapaAeropuertos.get(envio.getAeropuertoOrigen());
         Aeropuerto aeropDestino = mapaAeropuertos.get(envio.getAeropuertoDestino());
 
-        long plazoMaximoMinutos = 48 * 60;
-        if (aeropOrigen != null && aeropDestino != null) {
-            if (aeropOrigen.getContinente().equals(aeropDestino.getContinente())) {
-                plazoMaximoMinutos = 24 * 60;
+        long plazoMaximoMinutos;
+        if (envio.getSlaRestanteMinutos() != null) {
+            // Envío en replanificación: usar el SLA restante como límite estricto
+            plazoMaximoMinutos = envio.getSlaRestanteMinutos();
+        } else {
+            // Envío nuevo: usar SLA completo según continentes
+            plazoMaximoMinutos = 48 * 60;
+            if (aeropOrigen != null && aeropDestino != null) {
+                if (aeropOrigen.getContinente().equals(aeropDestino.getContinente())) {
+                    plazoMaximoMinutos = 24 * 60;
+                }
             }
         }
         long plazoDisponible = plazoMaximoMinutos - TIEMPO_RECOJO_DESTINO;
@@ -124,8 +131,11 @@ public class BuscadorRutas {
         Map<String, Long> bestG = new HashMap<>();
 
         // Nodo inicial: sin padre, sin vuelo usado
-        openSet.add(new NodoAStar(envio.getAeropuertoOrigen(), null, null, 0, 0.0, null));
-        bestG.put(envio.getAeropuertoOrigen(), 0L);
+        String aeropuertoInicio = (envio.getAeropuertoReplanificacionDesde() != null)
+            ? envio.getAeropuertoReplanificacionDesde()
+            : envio.getAeropuertoOrigen();
+        openSet.add(new NodoAStar(aeropuertoInicio, null, null, 0, 0.0, null));
+        bestG.put(aeropuertoInicio, 0L);
 
         while (!openSet.isEmpty()) {
             NodoAStar actual = openSet.poll();

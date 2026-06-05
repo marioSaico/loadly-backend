@@ -19,7 +19,21 @@ public class SimulacionEventDTO {
     private ColapsoDTO colapso;
     private ResumenFinalDTO resumenFinal;
 
-    @Data @Builder
+    // Para tipo "CANCELACION"
+    private List<EnvioAfectadoDTO> enviosAfectadosCancelacion;
+    private String vueloCancelado;
+
+    // ── Inner classes ────────────────────────────────────────────────────────
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class EnvioAfectadoDTO {
+        private String idEnvio;
+        private String idCliente;
+        private String origen;
+        private String destino;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class RutaPlanificadaDTO {
         private String idEnvio;
         private String idCliente;
@@ -37,7 +51,7 @@ public class SimulacionEventDTO {
         private List<VueloPlanificadoDTO> tramos;
     }
 
-    @Data @Builder
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class VueloPlanificadoDTO {
         private int orden;
         private String origen;
@@ -52,7 +66,7 @@ public class SimulacionEventDTO {
         private int capacidadAlmacenDestino;
     }
 
-    @Data @Builder
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class ColapsoDTO {
         private String tipoError;
         private String idEnvioCausante;
@@ -63,7 +77,7 @@ public class SimulacionEventDTO {
         private String relojColapso;
     }
 
-    @Data @Builder
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class ResumenFinalDTO {
         private int totalEnviosPlanificados;
         private int totalMaletasPlanificadas;
