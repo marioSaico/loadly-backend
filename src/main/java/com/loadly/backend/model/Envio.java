@@ -21,5 +21,6 @@ public class Envio {
     // Campos para replanificación (null en envíos normales)
     private Integer slaRestanteMinutos;            // SLA que le queda al momento de replanificar
     private String aeropuertoReplanificacionDesde; // null = desde origen, valor = desde escala intermedia
+    private LocalDateTime horaDisponibleReplanificacion;// momento GMT en que el envío estará disponible en aeropuertoReplanificacionDesde | null para envíos normales
 
 }

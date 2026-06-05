@@ -250,8 +250,9 @@ public class DataService {
      * @param claveVuelo         Formato "ORIG-DEST-HH:mm"
      * @param relojSimuladoActual Momento actual del reloj simulado (GMT)
      */
-    public List<Envio> cancelarVuelo(String claveVuelo, LocalDateTime relojSimuladoActual) {
+    public ResultadoCancelacion  cancelarVuelo(String claveVuelo, LocalDateTime relojSimuladoActual) {
         List<Envio> enviosAfectados = new ArrayList<>();
+        Map<String, Integer> indicesAfectados = new HashMap<>();
 
         // 1. Encontrar el PlanVuelo correspondiente a la clave
         PlanVuelo vueloCancelado = null;
@@ -261,7 +262,7 @@ public class DataService {
                 break;
             }
         }
-        if (vueloCancelado == null) return enviosAfectados; // vuelo no encontrado
+        if (vueloCancelado == null) return new ResultadoCancelacion(enviosAfectados, indicesAfectados); // vuelo no encontrado
 
         // 2. Determinar si la ocurrencia de HOY ya despegó
         // Convertir horaSalida del vuelo a minutos GMT
@@ -319,6 +320,15 @@ public class DataService {
                     }
                 }
             }
+            if (indiceAfectado > 0) {
+                // Recalcular la llegada al aeropuerto desde donde se replanifica
+                // Es simplemente el despegue del tramo anterior + su duración
+                LocalDateTime llegadaAlIntermedio = despegues[indiceAfectado - 1]
+                    .plusMinutes(calcularDuracionVueloGMT(vuelosRuta.get(indiceAfectado - 1)));
+                envio.setHoraDisponibleReplanificacion(llegadaAlIntermedio);
+            } else {
+                envio.setHoraDisponibleReplanificacion(null);
+            }
 
             if (indiceAfectado == -1) continue; // esta ruta no se ve afectada
 
@@ -345,28 +355,56 @@ public class DataService {
                 capacidadDinamicaVuelos.put(claveV, Math.min(capActual + envio.getCantidadMaletas(), capMax));
             }
 
-            // Si el tramo afectado es el primero, también restaurar el almacén origen
-            if (indiceAfectado == 0) {
-                String codigoOrigen = envio.getAeropuertoOrigen();
-                int capAlmActual = capacidadDinamicaAlmacenes.getOrDefault(codigoOrigen, 0);
-                int capAlmMax = capacidadOriginalAlmacen(codigoOrigen);
-                capacidadDinamicaAlmacenes.put(codigoOrigen, Math.min(capAlmActual + envio.getCantidadMaletas(), capAlmMax));
-            }
-
-            // 7. Eliminar eventos de agenda relacionados a los tramos futuros de este envío
-            // (RESET_VUELO, RECIBE_CARGA, LIBERA_ALMACEN que ocurran después del reloj actual)
-            // Creamos una variable final que haga una copia del valor actual
+            // 7. Eliminar eventos de agenda de tramos futuros
             final int indiceFinal = indiceAfectado;
-            agendaEventos.removeIf(evento ->
-                evento.getHoraEvento().isAfter(relojSimuladoActual) &&
-                esEventoDeEstosTramos(evento, vuelosRuta, indiceFinal, envio, despegues)
-            );
+            final Envio envioFinal = envio;
+            final List<PlanVuelo> vuelosRutaFinal = vuelosRuta;
+
+            agendaEventos.removeIf(evento -> {
+                if (!evento.getHoraEvento().isAfter(relojSimuladoActual)) return false;
+                if (evento.getCantidad() != envioFinal.getCantidadMaletas()) return false;
+
+                for (int i = indiceFinal; i < vuelosRutaFinal.size(); i++) {
+                    PlanVuelo v = vuelosRutaFinal.get(i);
+                    boolean esTramoEnAire = (i == indiceFinal && indiceFinal > 0);
+
+                    if (esTramoEnAire) {
+                        // Las maletas VAN A LLEGAR a v.getOrigen() (tramo anterior en el aire)
+                        // → proteger RECIBE_CARGA en v.getOrigen() (esa llegada va a ocurrir)
+                        // → SÍ eliminar LIBERA_ALMACEN en v.getOrigen() (no va a despegar)
+                        // → SÍ eliminar RECIBE_CARGA en v.getDestino() (nunca va a llegar)
+                        // → SÍ eliminar LIBERA_ALMACEN en v.getDestino()
+                        // → SÍ eliminar RESET_VUELO de este tramo
+
+                        boolean esLlegadaProtegida = "RECIBE_CARGA".equals(evento.getTipo())
+                            && evento.getCodigo().equals(v.getOrigen());
+                        if (esLlegadaProtegida) continue; // NO eliminar
+
+                        if (evento.getCodigo().equals(v.getOrigen()) ||
+                            evento.getCodigo().equals(v.getDestino()) ||
+                            evento.getCodigo().equals(claveVuelo(v))) {
+                            return true;
+                        }
+                    } else {
+                        // Tramo completamente futuro → eliminar todo
+                        if (evento.getCodigo().equals(v.getOrigen()) ||
+                            evento.getCodigo().equals(v.getDestino()) ||
+                            evento.getCodigo().equals(claveVuelo(v))) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            });
 
             // 8. Preparar envío para replanificación
             envio.setSlaRestanteMinutos(null);
             envio.setAeropuertoReplanificacionDesde(aeropuertoDesde);
             envio.setPlanificado(false);
 
+            String claveEnvio = envio.getIdEnvio() + "|" + envio.getIdCliente() + "|"
+                  + envio.getAeropuertoOrigen() + "|" + envio.getAeropuertoDestino();
+            indicesAfectados.put(claveEnvio, indiceAfectado);
             colaReplanificacion.add(envio);
             rutasAEliminarDelHistorico.add(ruta);
             enviosAfectados.add(envio);
@@ -378,7 +416,7 @@ public class DataService {
         System.out.printf("[CANCELACION] Vuelo %s cancelado. Envíos afectados: %d%n",
                 claveVuelo, enviosAfectados.size());
 
-        return enviosAfectados;
+        return new ResultadoCancelacion(enviosAfectados, indicesAfectados);
     }
 
     /**
@@ -468,20 +506,26 @@ public class DataService {
             LocalDateTime[] despegues = new LocalDateTime[n];
             LocalDateTime[] llegadas  = new LocalDateTime[n];
  
-            // 1. Obtenemos la fecha y hora exacta en la que el paquete llegó físicamente al aeropuerto
-            LocalDateTime fechaLlegadaPaquete = LocalDateTime.of(
+            LocalDateTime fechaDisponible;
+            long esperaPrimero;
+
+            if (envio.getHoraDisponibleReplanificacion() != null) {
+                // Replanificación desde aeropuerto intermedio
+                // El envío llega a ese aeropuerto en horaDisponibleReplanificacion
+                fechaDisponible = envio.getHoraDisponibleReplanificacion();
+                long espera = calcularEsperaEnEscala(fechaDisponible, vuelosRuta.get(0).getHoraSalida());
+                despegues[0] = fechaDisponible.plusMinutes(espera);
+            } else {
+                // Envío normal o replanificación desde origen original
+                fechaDisponible = LocalDateTime.of(
                     LocalDate.parse(envio.getFechaRegistro(), DateTimeFormatter.ofPattern("yyyyMMdd")),
                     LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro())
-            );
-
-            // 2. Calculamos los minutos que el paquete tiene que esperar sentado en el almacén hasta su vuelo
-            long esperaPrimero = calcularMinutosHastaVuelo(
+                );
+                esperaPrimero = calcularMinutosHastaVuelo(
                     envio.getHoraRegistro(), envio.getMinutoRegistro(),
                     vuelosRuta.get(0).getHoraSalida());
-
-            // 3. El despegue real es simplemente: Hora en que llegó el paquete + su tiempo de espera. 
-            // ¡Ya no dependemos del reloj del planificador!
-            despegues[0] = fechaLlegadaPaquete.plusMinutes(esperaPrimero);
+                despegues[0] = fechaDisponible.plusMinutes(esperaPrimero);
+            }
             llegadas[0]  = despegues[0].plusMinutes(
                     calcularDuracionVueloGMT(vuelosRuta.get(0)));
  
@@ -496,13 +540,27 @@ public class DataService {
  
             // ── 1. Almacén ORIGEN ─────────────────────────────────────────
             // Decrementa ahora (las maletas ocupan espacio hasta que despega)
-            decrementarAlmacen(envio.getAeropuertoOrigen(), envio.getCantidadMaletas());
-            // Libera cuando despega el primer vuelo
-            int capMaxOrigen = capacidadOriginalAlmacen(envio.getAeropuertoOrigen());
-            agendaEventos.add(new EventoLogistico(
+            if (envio.getHoraDisponibleReplanificacion() == null) {
+                // Envío normal O replanificación desde origen original (indiceAfectado == 0)
+                // Las maletas están físicamente en el almacén origen → decrementar
+                String almacenInicio = (envio.getAeropuertoReplanificacionDesde() != null)
+                    ? envio.getAeropuertoReplanificacionDesde()
+                    : envio.getAeropuertoOrigen();
+                decrementarAlmacen(almacenInicio, envio.getCantidadMaletas());
+                int capMaxOrigen = capacidadOriginalAlmacen(almacenInicio);
+                agendaEventos.add(new EventoLogistico(
                     despegues[0], "LIBERA_ALMACEN",
-                    envio.getAeropuertoOrigen(),
-                    envio.getCantidadMaletas(), capMaxOrigen));
+                    almacenInicio, envio.getCantidadMaletas(), capMaxOrigen));
+            } else {
+                // Replanificación desde aeropuerto intermedio con tramo en el aire
+                // El RECIBE_CARGA ya fue agendado cuando se confirmó la ruta original
+                // Solo agendamos el LIBERA_ALMACEN cuando despegue el nuevo primer vuelo
+                String almacenIntermedio = envio.getAeropuertoReplanificacionDesde();
+                int capMaxIntermedio = capacidadOriginalAlmacen(almacenIntermedio);
+                agendaEventos.add(new EventoLogistico(
+                    despegues[0], "LIBERA_ALMACEN",
+                    almacenIntermedio, envio.getCantidadMaletas(), capMaxIntermedio));
+            }
  
             // ── 2. Vuelos y almacenes intermedios / destino ───────────────
             for (int i = 0; i < n; i++) {
@@ -557,6 +615,7 @@ public class DataService {
  
         // Eliminar del backlog los envíos que consiguieron ruta
         this.enviosEnEspera.removeIf(enviosPlanificadosEnEstaRonda::contains);
+        this.colaReplanificacion.removeIf(enviosPlanificadosEnEstaRonda::contains);
         
         logMemoria("Planificación Finalizada");
     }
@@ -742,7 +801,17 @@ public class DataService {
         long usedMemory = totalMemory - freeMemory;
 
         System.out.printf("[%s] RAM Usada: %dMB | RAM Total: %dMB | RAM Max: %dMB | Envíos Pendientes: %d | Rutas Histórico: %d%n",
-                tag, usedMemory, totalMemory, maxMemory, enviosEnEspera.size(), rutasPlanificadasHistorico.size());
+                tag, usedMemory, totalMemory, maxMemory, enviosEnEspera.size() + colaReplanificacion.size(), rutasPlanificadasHistorico.size());
     }
+
+    public static class ResultadoCancelacion {
+    public final List<Envio> enviosAfectados;
+    public final Map<String, Integer> indicesAfectados; // clave compuesta → indiceAfectado
+
+    public ResultadoCancelacion(List<Envio> enviosAfectados, Map<String, Integer> indicesAfectados) {
+        this.enviosAfectados = enviosAfectados;
+        this.indicesAfectados = indicesAfectados;
+    }
+}
 }
  
