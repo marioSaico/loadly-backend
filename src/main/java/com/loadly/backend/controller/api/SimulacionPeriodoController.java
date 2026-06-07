@@ -17,7 +17,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
+import java.time.Duration;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -33,6 +35,7 @@ public class SimulacionPeriodoController {
     private static final DateTimeFormatter FMT_LOG = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final DateTimeFormatter FMT_DISPLAY = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     private static final DateTimeFormatter FMT_FECHA = DateTimeFormatter.ofPattern("yyyyMMdd");
+    private static final int DURACION_BLOQUE_DIA_A_DIA_MINUTOS = 5;
 
     private volatile boolean simulacionDetenida = false;
     private volatile boolean simulacionPausada  = false;
@@ -238,6 +241,10 @@ public class SimulacionPeriodoController {
     }
 
     private void ejecutarEscenario(SseEmitter emitter, String inicioStr, String finStr, int taSegundos, int sa, int k, int tamano) throws Exception {
+        if (k == 0) {
+            ejecutarEscenarioDiaADia(emitter, inicioStr, finStr, taSegundos, tamano);
+            return;
+        }
         
         // Cargar aeropuertos y planes de vuelo desde BD
         //dataService.inicializar();
@@ -408,6 +415,126 @@ public class SimulacionPeriodoController {
         this.ocupacionVuelosGlobal.clear();
         this.emitterActivo = null;
         emitter.complete(); 
+    }
+
+    private void ejecutarEscenarioDiaADia(SseEmitter emitter,
+                                           String inicioStr,
+                                           String finStr,
+                                           int taSegundos,
+                                           int tamano) throws Exception {
+        dataService.inicializar();
+        dataService.setUsarEnviosDesdeBD(true);
+        this.timelineAlmacenesGlobal.clear();
+        this.ocupacionVuelosGlobal.clear();
+
+        LocalDateTime inicioSolicitado = LocalDateTime.parse(inicioStr, FMT_INPUT);
+        LocalDateTime ahoraSinSegundos = LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES);
+        LocalDateTime inicioBloque = inicioSolicitado.isAfter(ahoraSinSegundos)
+                ? inicioSolicitado
+                : ahoraSinSegundos;
+        LocalDateTime finOperacion = LocalDateTime.parse(finStr, FMT_INPUT);
+        long taMaxMs = taSegundos * 1000L;
+        long tiempoLimiteMs = 25_000L;
+
+        while (inicioBloque.isBefore(finOperacion)) {
+            LocalDateTime finBloque = inicioBloque.plusMinutes(DURACION_BLOQUE_DIA_A_DIA_MINUTOS);
+            if (finBloque.isAfter(finOperacion)) {
+                finBloque = finOperacion;
+            }
+
+            if (!esperarHasta(emitter, finBloque)) {
+                return;
+            }
+
+            long inicioPlanificacionMs = System.currentTimeMillis();
+            String inicioBloqueStr = inicioBloque.format(FMT_INPUT);
+            String finBloqueStr = finBloque.format(FMT_INPUT);
+
+            dataService.procesarEventosDelReloj(finBloqueStr);
+            Individuo resultado = planificador.planificar(
+                    inicioStr,
+                    inicioBloqueStr,
+                    finBloqueStr,
+                    tamano,
+                    tiempoLimiteMs
+            );
+
+            if (resultado != null) {
+                ResultadoColapso colapso = detectarColapso(
+                        resultado,
+                        dataService,
+                        finBloque,
+                        timelineAlmacenesGlobal,
+                        ocupacionVuelosGlobal
+                );
+
+                if (colapso.hayColapso()) {
+                    enviarColapso(emitter, colapso, finBloque, finBloque);
+                    dataService.resetEstado();
+                    emitter.complete();
+                    return;
+                }
+
+                long tiempoUsadoMs = System.currentTimeMillis() - inicioPlanificacionMs;
+                if (tiempoUsadoMs < taMaxMs && !esperarMilisegundos(emitter, taMaxMs - tiempoUsadoMs)) {
+                    return;
+                }
+
+                enviarIteracion(
+                        emitter,
+                        resultado,
+                        dataService,
+                        timelineAlmacenesGlobal,
+                        ocupacionVuelosGlobal,
+                        finBloque,
+                        finBloque
+                );
+            }
+
+            inicioBloque = finBloque;
+        }
+
+        dataService.resetEstado();
+        this.timelineAlmacenesGlobal.clear();
+        this.ocupacionVuelosGlobal.clear();
+        this.emitterActivo = null;
+        emitter.complete();
+    }
+
+    private boolean esperarHasta(SseEmitter emitter, LocalDateTime objetivo) throws Exception {
+        while (LocalDateTime.now().isBefore(objetivo)) {
+            long restanteMs = Duration.between(LocalDateTime.now(), objetivo).toMillis();
+            if (!esperarMilisegundos(emitter, Math.min(restanteMs, 500L))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean esperarMilisegundos(SseEmitter emitter, long milisegundos) throws Exception {
+        long finEspera = System.currentTimeMillis() + Math.max(0L, milisegundos);
+
+        while (System.currentTimeMillis() < finEspera) {
+            if (simulacionDetenida) {
+                dataService.setUsarEnviosDesdeBD(false);
+                emitter.send(SimulacionEventDTO.builder()
+                        .tipo("DETENIDA")
+                        .relojSimulado(LocalDateTime.now().format(FMT_LOG))
+                        .build());
+                emitter.complete();
+                return false;
+            }
+
+            while (simulacionPausada && !simulacionDetenida) {
+                Thread.sleep(500);
+            }
+
+            long restante = finEspera - System.currentTimeMillis();
+            if (restante > 0) {
+                Thread.sleep(Math.min(restante, 500L));
+            }
+        }
+        return true;
     }
 
     private void enviarIteracion(SseEmitter emitter, Individuo resultado, DataService dataService, 
