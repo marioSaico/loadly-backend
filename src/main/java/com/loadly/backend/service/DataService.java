@@ -2,12 +2,10 @@ package com.loadly.backend.service;
  
 import com.loadly.backend.algoritmo.genetico.Individuo;
 import com.loadly.backend.dto.AeropuertoDTO;
-import com.loadly.backend.dto.EnvioDTO;
 import com.loadly.backend.dto.PlanVueloDTO;
 import com.loadly.backend.loader.*;
 import com.loadly.backend.model.*;
 import com.loadly.backend.service.database.AeropuertoService;
-import com.loadly.backend.service.database.EnvioService;
 import com.loadly.backend.service.database.PlanVueloService;
 import lombok.Data;
 import org.springframework.stereotype.Service;
@@ -28,7 +26,6 @@ public class DataService {
     private final EnvioLoader envioLoader;
     private final AeropuertoService aeropuertoService;
     private final PlanVueloService planVueloService;
-    private final EnvioService envioService;
  
     private List<Aeropuerto> aeropuertos;
     private List<PlanVuelo> vuelos;
@@ -51,20 +48,16 @@ public class DataService {
  
     // La Agenda de Eventos
     private PriorityQueue<EventoLogistico> agendaEventos = new PriorityQueue<>();
-
-    private boolean usarEnviosDesdeBD = false;
  
     private static final DateTimeFormatter FORMATO_RELOJ =
             DateTimeFormatter.ofPattern("yyyyMMdd-HH-mm");
  
     public DataService(EnvioLoader envioLoader,
                        AeropuertoService aeropuertoService,
-                       PlanVueloService planVueloService,
-                       EnvioService envioService) {
+                       PlanVueloService planVueloService) {
         this.envioLoader      = envioLoader;
         this.aeropuertoService = aeropuertoService;
         this.planVueloService = planVueloService;
-        this.envioService = envioService;
     }
  
     public void inicializar() {
@@ -190,10 +183,6 @@ public class DataService {
     }
 
     public List<Envio> obtenerEnviosPendientes(String inicioEscenario, String fechaHoraActual, String fechaHoraLimite) {
-        if (usarEnviosDesdeBD) {
-            return obtenerEnviosPendientesDesdeBD(fechaHoraActual, fechaHoraLimite);
-        }
-
         // =====================================================================
         // NUEVO BLOQUE: CALCULAR SLA DINÁMICO PARA REPLANIFICACIONES
         // =====================================================================
@@ -260,54 +249,6 @@ public class DataService {
         resultado.addAll(this.enviosEnEspera);
 
         return resultado;
-    }
-
-    private List<Envio> obtenerEnviosPendientesDesdeBD(String fechaHoraActual, String fechaHoraLimite) {
-        LocalDateTime desde = LocalDateTime.parse(fechaHoraActual, FORMATO_RELOJ);
-        LocalDateTime hasta = LocalDateTime.parse(fechaHoraLimite, FORMATO_RELOJ);
-        List<EnvioDTO> nuevos = envioService.obtenerNoPlanificadosEnVentana(desde, hasta);
-
-        Map<Integer, Aeropuerto> aeropuertosPorId = aeropuertos.stream()
-                .collect(Collectors.toMap(Aeropuerto::getId, aeropuerto -> aeropuerto));
-        Set<String> idsEnEspera = enviosEnEspera.stream()
-                .map(Envio::getIdEnvio)
-                .collect(Collectors.toSet());
-
-        for (EnvioDTO dto : nuevos) {
-            if (idsEnEspera.contains(dto.getIdEnvio())) continue;
-
-            Envio envio = convertirEnvioDesdeBD(dto, aeropuertosPorId);
-            if (envio != null) {
-                enviosEnEspera.add(envio);
-                idsEnEspera.add(envio.getIdEnvio());
-            }
-        }
-
-        enviosEnEspera.sort(Comparator.comparing(Envio::getTiempoRegistroGMT));
-        return new ArrayList<>(enviosEnEspera);
-    }
-
-    private Envio convertirEnvioDesdeBD(EnvioDTO dto, Map<Integer, Aeropuerto> aeropuertosPorId) {
-        Aeropuerto origen = aeropuertosPorId.get(dto.getIdAeropuertoOrigen());
-        Aeropuerto destino = aeropuertosPorId.get(dto.getIdAeropuertoDestino());
-        if (dto.getFechaRegistro() == null || origen == null || destino == null) return null;
-
-        Envio envio = new Envio();
-        envio.setIdEnvio(dto.getIdEnvio());
-        envio.setFechaRegistro(dto.getFechaRegistro().toLocalDate().format(DateTimeFormatter.ofPattern("yyyyMMdd")));
-        envio.setHoraRegistro(dto.getFechaRegistro().getHour());
-        envio.setMinutoRegistro(dto.getFechaRegistro().getMinute());
-        envio.setAeropuertoOrigen(origen.getCodigo());
-        envio.setAeropuertoDestino(destino.getCodigo());
-        envio.setCantidadMaletas(dto.getCantidadMaletas());
-        envio.setIdCliente(String.valueOf(dto.getClienteIdCliente()));
-        envio.setPlanificado(Boolean.TRUE.equals(dto.getPlanificado()));
-        envio.setTiempoRegistroGMT(dto.getFechaRegistro().minusHours(origen.getGmt()));
-        return envio;
-    }
-
-    public void setUsarEnviosDesdeBD(boolean usarEnviosDesdeBD) {
-        this.usarEnviosDesdeBD = usarEnviosDesdeBD;
     }
 
     /**
@@ -671,11 +612,6 @@ public class DataService {
         // Eliminar del backlog los envíos que consiguieron ruta
         this.enviosEnEspera.removeIf(enviosPlanificadosEnEstaRonda::contains);
         this.colaReplanificacion.removeIf(enviosPlanificadosEnEstaRonda::contains);
-        if (usarEnviosDesdeBD) {
-            for (Envio envio : enviosPlanificadosEnEstaRonda) {
-                envioService.marcarPlanificado(envio.getIdEnvio());
-            }
-        }
         
         logMemoria("Planificación Finalizada");
     }
@@ -738,7 +674,6 @@ public class DataService {
         this.rutasPlanificadasHistorico.clear();
         this.agendaEventos.clear();
         this.colaReplanificacion.clear();
-        this.usarEnviosDesdeBD = false;
         // Restaurar vuelos cancelados durante la simulación
         planVueloService.desmarcarTodosCancelados();
         this.envioLoader.limpiarTodo();
@@ -875,3 +810,4 @@ public class DataService {
     }
 }
 }
+ 
