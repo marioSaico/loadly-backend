@@ -34,7 +34,7 @@ public class Planificador {
 
     public Individuo planificar(String inicioEscenario, String fechaHoraActual, String fechaHoraLimite,
                                 int tamanoPoblacion, long tiempoLimiteMs, int k) {
-        boolean operacionDiaADia = k == 0;
+        boolean operacionDiaADia = k == 1;
 
         if (operacionDiaADia) {
             inicializarDatosSiEsNecesario();
