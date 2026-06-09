@@ -5,6 +5,8 @@ import com.loadly.backend.dto.EnvioDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
@@ -72,6 +74,83 @@ public class EnvioService {
             rs.getInt("cliente_idCliente"),
             rs.getBoolean("planificado")
         ));
+    }
+
+    public List<EnvioDTO> obtenerNoPlanificadosEnVentana(LocalDateTime desde, LocalDateTime hasta) {
+        String sql = "SELECT idEnvio, fechaRegistro, fechaLimiteEntrega, idAeropuertoOrigen, idAeropuertoDestino, cantidadMaletas, cliente_idCliente, planificado " +
+                "FROM envio WHERE planificado = ? AND fechaRegistro >= ? AND fechaRegistro < ? ORDER BY fechaRegistro ASC";
+
+        return databaseManager.getPrimaryDb().query(sql, new Object[]{false, desde, hasta}, (rs, rowNum) -> new EnvioDTO(
+            rs.getString("idEnvio"),
+            rs.getTimestamp("fechaRegistro") != null ? rs.getTimestamp("fechaRegistro").toLocalDateTime() : null,
+            rs.getTimestamp("fechaLimiteEntrega") != null ? rs.getTimestamp("fechaLimiteEntrega").toLocalDateTime() : null,
+            rs.getInt("idAeropuertoOrigen"),
+            rs.getInt("idAeropuertoDestino"),
+            rs.getInt("cantidadMaletas"),
+            rs.getInt("cliente_idCliente"),
+            rs.getBoolean("planificado")
+        ));
+    }
+
+    public EnvioDTO registrarEnvio(EnvioDTO envio) {
+        validarDatosMinimos(envio);
+
+        LocalDateTime fechaRegistro = truncarAMinutos(
+                envio.getFechaRegistro() != null ? envio.getFechaRegistro() : LocalDateTime.now()
+        );
+        LocalDateTime fechaLimiteEntrega = truncarAMinutos(
+                envio.getFechaLimiteEntrega() != null ? envio.getFechaLimiteEntrega() : fechaRegistro.plusHours(48)
+        );
+        String idEnvio = envio.getIdEnvio() != null && !envio.getIdEnvio().isBlank()
+                ? envio.getIdEnvio()
+                : "OD-" + System.currentTimeMillis();
+
+        String sql = "INSERT INTO envio (idEnvio, fechaRegistro, fechaLimiteEntrega, idAeropuertoOrigen, idAeropuertoDestino, cantidadMaletas, cliente_idCliente, planificado) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+        databaseManager.getPrimaryDb().update(sql,
+                idEnvio,
+                fechaRegistro,
+                fechaLimiteEntrega,
+                envio.getIdAeropuertoOrigen(),
+                envio.getIdAeropuertoDestino(),
+                envio.getCantidadMaletas(),
+                envio.getClienteIdCliente(),
+                false
+        );
+
+        envio.setIdEnvio(idEnvio);
+        envio.setFechaRegistro(fechaRegistro);
+        envio.setFechaLimiteEntrega(fechaLimiteEntrega);
+        envio.setPlanificado(false);
+        return envio;
+    }
+
+    public int marcarPlanificado(String idEnvio) {
+        return databaseManager.getPrimaryDb().update(
+                "UPDATE envio SET planificado = ? WHERE idEnvio = ?",
+                true,
+                idEnvio
+        );
+    }
+
+    private LocalDateTime truncarAMinutos(LocalDateTime fechaHora) {
+        return fechaHora.truncatedTo(ChronoUnit.MINUTES);
+    }
+
+    private void validarDatosMinimos(EnvioDTO envio) {
+        if (envio.getIdAeropuertoOrigen() == null) {
+            throw new IllegalArgumentException("idAeropuertoOrigen es obligatorio");
+        }
+        if (envio.getIdAeropuertoDestino() == null) {
+            throw new IllegalArgumentException("idAeropuertoDestino es obligatorio");
+        }
+        if (envio.getCantidadMaletas() == null || envio.getCantidadMaletas() <= 0) {
+            throw new IllegalArgumentException("cantidadMaletas debe ser mayor a cero");
+        }
+        if (envio.getClienteIdCliente() == null) {
+            throw new IllegalArgumentException("clienteIdCliente es obligatorio");
+        }
     }
 
     /**

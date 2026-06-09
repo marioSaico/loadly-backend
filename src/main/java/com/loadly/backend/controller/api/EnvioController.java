@@ -13,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -117,6 +118,37 @@ public class EnvioController {
     /**
      * GET /api/envios/stats/total - Obtiene el total de envíos
      */
+    @PostMapping("/registrar")
+    public ResponseEntity<ResponseDTO<EnvioDTO>> registrarEnvio(
+            @RequestParam(required = false) String idEnvio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaRegistro,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaLimiteEntrega,
+            @RequestParam(required = false) Integer idAeropuertoOrigen,
+            @RequestParam(required = false) Integer idAeropuertoDestino,
+            @RequestParam(required = false) Integer cantidadMaletas,
+            @RequestParam(required = false) Integer clienteIdCliente) {
+        try {
+            EnvioDTO envio = new EnvioDTO(
+                    idEnvio,
+                    fechaRegistro,
+                    fechaLimiteEntrega,
+                    idAeropuertoOrigen,
+                    idAeropuertoDestino,
+                    cantidadMaletas,
+                    clienteIdCliente,
+                    false
+            );
+            return ResponseEntity.ok(new ResponseDTO<>(
+                    true,
+                    "Envio registrado correctamente",
+                    envioService.registrarEnvio(envio)
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(new ResponseDTO<>(false, "Error al registrar envio: " + e.getMessage()));
+        }
+    }
+
     @GetMapping("/stats/total")
     public ResponseEntity<ResponseDTO<Long>> obtenerTotal() {
         try {
