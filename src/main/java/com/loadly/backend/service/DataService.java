@@ -269,6 +269,16 @@ public class DataService {
         List<Envio> enviosAfectados = new ArrayList<>();
         Map<String, Integer> indicesAfectados = new HashMap<>();
 
+        System.out.println("[CANCELACION DEBUG] Buscando vuelo con clave: " + claveVuelo);
+        System.out.println("[CANCELACION DEBUG] Total vuelos en lista: " + vuelos.size());
+
+        // Buscar vuelos que contengan OPKC o EDDI
+        List<String> vuelosCoincidentes = vuelos.stream()
+            .filter(v -> claveVuelo(v).contains("OPKC") || claveVuelo(v).contains("EDDI"))
+            .map(this::claveVuelo)
+            .collect(java.util.stream.Collectors.toList());
+        System.out.println("[CANCELACION DEBUG] Vuelos con OPKC o EDDI: " + vuelosCoincidentes);
+
         // 1. Encontrar el PlanVuelo correspondiente a la clave
         PlanVuelo vueloCancelado = null;
         for (PlanVuelo v : vuelos) {
@@ -277,7 +287,11 @@ public class DataService {
                 break;
             }
         }
-        if (vueloCancelado == null) return new ResultadoCancelacion(enviosAfectados, indicesAfectados); // vuelo no encontrado
+        if (vueloCancelado == null) {
+            System.out.println("[CANCELACION DEBUG] Vuelo no encontrado con clave exacta: " + claveVuelo);
+            return new ResultadoCancelacion(enviosAfectados, indicesAfectados); // vuelo no encontrado
+        }
+        System.out.println("[CANCELACION DEBUG] Vuelo encontrado: " + claveVuelo(vueloCancelado));
 
         // 2. Determinar si la ocurrencia de HOY ya despegó
         // Convertir horaSalida del vuelo a minutos GMT
