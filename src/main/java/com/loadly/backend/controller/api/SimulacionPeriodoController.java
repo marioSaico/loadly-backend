@@ -358,6 +358,7 @@ public class SimulacionPeriodoController {
                 relojSimulado      = relojSimulado.plusMinutes(sa);
                 // ── Pausa restante para completar Sa (siempre fija = Sa - TA_MAX) ─
                 long tiempoEsperaMs = saMs - TA_MAX_MS;
+                if (resultado == null) tiempoEsperaMs = saMs; // Si no se planificó nada, esperar todo el Sa para simular que avanzó el reloj sin eventos 
                 if (tiempoEsperaMs > 500) {
                     System.out.printf("    [Pausa: %.1fs para completar Sa=%dmin en tiempo real]%n",
                             tiempoEsperaMs / 1000.0, sa);
