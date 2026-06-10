@@ -35,7 +35,7 @@ public class BackendApplication {
 
     @FunctionalInterface
     interface PlanificadorFunc {
-        Individuo planificar(String inicioStr, String fechaHoraActual, String fechaHoraLimite, int tamano, long tiempoMs);
+        Individuo planificar(String inicioStr, String fechaHoraActual, String fechaHoraLimite, int tamano, long tiempoMs, int k);
     }
 
     public static void main(String[] args) {
@@ -69,12 +69,12 @@ public class BackendApplication {
         // ---------------------------------------------------------
         // 1. SELECCIÓN DE ALGORITMO (Comenta el que NO vayas a usar)
         // ---------------------------------------------------------
-        PlanificadorFunc planFunc = (inicio, actual, lim, tam, ms) -> planificador.planificar(inicio, actual, lim, tam, ms);
+        PlanificadorFunc planFunc = (inicio, actual, lim, tam, ms, k) -> planificador.planificar(inicio, actual, lim, tam, ms, k);
         String nombreAlg = "GA";
 
         // Alternativa: algoritmo anterior
-        // PlanificadorFunc planFunc = (inicio,actual, lim, tam, ms) ->
-        // planificadorACO.planificar(inicio,actual, lim,tam, ms);
+        // PlanificadorFunc planFunc = (inicio,actual, lim, tam, ms, k) ->
+        // planificadorACO.planificar(inicio,actual, lim,tam, ms, k);
         // String nombreAlg = "ACO";
 
         // ---------------------------------------------------------
@@ -178,7 +178,7 @@ public class BackendApplication {
 
             System.out.println("\n>>> [RELOJ: " + relojSimulado.format(FMT_LOG) + "] Planificando envios hasta " + limiteLecturaDatos.format(FMT_LOG));
 
-            Individuo resultado = planFunc.planificar(inicioStr, fechaHoraActualStr, limiteLecturaStr, tamano, tiempoLimiteMs);
+            Individuo resultado = planFunc.planificar(inicioStr, fechaHoraActualStr, limiteLecturaStr, tamano, tiempoLimiteMs, k);
             dataService.procesarEventosDelReloj(limiteLecturaStr);
 
             if (resultado != null) {

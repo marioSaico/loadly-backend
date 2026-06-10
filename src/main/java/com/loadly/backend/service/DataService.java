@@ -11,8 +11,6 @@ import lombok.Data;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import jakarta.annotation.PostConstruct;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -182,7 +180,7 @@ public class DataService {
         this.envioLoader.setArchivosEnMemoriaFiltrados(archivos, this.aeropuertos, rangoInicioGMT, rangoFinGMT);
     }
 
-    public List<Envio> obtenerEnviosPendientes(String inicioEscenario, String fechaHoraActual, String fechaHoraLimite) {
+    public List<Envio> obtenerEnviosPendientes(String inicioEscenario, String fechaHoraActual, String fechaHoraLimite, int k) {
         // =====================================================================
         // NUEVO BLOQUE: CALCULAR SLA DINÁMICO PARA REPLANIFICACIONES
         // =====================================================================
@@ -211,6 +209,7 @@ public class DataService {
             } else {
                 // Escenario A: Está en el almacén (origen o intermedio). Disponible AHORA.
                 tiempoDisponibilidad = relojEjecucionPlanner;
+                envio.setHoraDisponibleReplanificacion(tiempoDisponibilidad);
             }
 
             // =========================================================================
