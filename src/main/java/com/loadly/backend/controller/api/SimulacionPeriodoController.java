@@ -245,7 +245,14 @@ public class SimulacionPeriodoController {
         }
 
         LocalDateTime relojSimulado      = LocalDateTime.parse(inicioStr, FMT_INPUT);
-        LocalDateTime finSimulacion      = LocalDateTime.parse(finStr,    FMT_INPUT);
+        // 2. Manejar la fecha final condicionalmente
+        LocalDateTime finSimulacion;
+        if (finStr == null) {
+            // Si no hay fecha de fin, le damos el valor máximo posible (año +999999999)
+            finSimulacion = LocalDateTime.MAX; 
+        } else {
+            finSimulacion = LocalDateTime.parse(finStr, FMT_INPUT);
+        }
 
         int  sc             = sa * k;
         LocalDateTime limiteLecturaDatos = relojSimulado.plusMinutes(sc); // -> NUEVO CAMBIO
@@ -523,8 +530,8 @@ public class SimulacionPeriodoController {
                         .orden(paso++)
                         .origen(v.getOrigen())
                         .destino(v.getDestino())
-                        .sale(despegue.toLocalTime().toString())
-                        .llega(llegada.toLocalTime().toString())
+                        .sale(despegue.format(FMT_DISPLAY))
+                        .llega(llegada.format(FMT_DISPLAY))
                         .maletasVuelo(ocupacionVuelosGlobal.getOrDefault(clave, 0))
                         .capacidadVuelo(v.getCapacidad())
                         .ocupacionAlmacenOrigen(ocupadoAlmOrig)
@@ -538,10 +545,12 @@ public class SimulacionPeriodoController {
             
             Aeropuerto origen = dataService.getMapaAeropuertos().get(envio.getAeropuertoOrigen());
             Aeropuerto destino = dataService.getMapaAeropuertos().get(envio.getAeropuertoDestino());
-            long horasTotales = r.getTiempoTotalMinutos() / 60;
-            long minutosRestantes = r.getTiempoTotalMinutos() % 60;
             long slaHoras = (origen != null && destino != null && origen.getContinente().equals(destino.getContinente())) ? 24 : 48;
-            LocalDateTime recojoGMT = regGMT.plusMinutes(r.getTiempoTotalMinutos());
+           // cursor ya está en la llegada al destino final tras el loop de tramos
+            LocalDateTime recojoGMT = cursor.plusMinutes(10);
+            long minutosDuracion = java.time.temporal.ChronoUnit.MINUTES.between(regGMT, recojoGMT);
+            long horasTotales = minutosDuracion / 60;
+            long minutosRestantes = minutosDuracion % 60;
             int ocupadoRegistro = getOcupacionAlmacen(timelineAlmacenesGlobal, envio.getAeropuertoOrigen(), regGMT);
             int ocupadoRecojo   = getOcupacionAlmacen(timelineAlmacenesGlobal, envio.getAeropuertoDestino(), recojoGMT);
 

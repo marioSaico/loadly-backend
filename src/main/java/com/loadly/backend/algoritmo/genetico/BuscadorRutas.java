@@ -2,6 +2,7 @@ package com.loadly.backend.algoritmo.genetico;
 
 import com.loadly.backend.model.*;
 
+import java.time.LocalDateTime;
 import java.util.*;
 
 /**
@@ -142,9 +143,12 @@ public class BuscadorRutas {
         // para que el cálculo de espera al primer vuelo sea correcto
         String horaLlegadaInicio = null;
         if (envio.getHoraDisponibleReplanificacion() != null) {
-            int h = envio.getHoraDisponibleReplanificacion().getHour();
-            int m = envio.getHoraDisponibleReplanificacion().getMinute();
-            horaLlegadaInicio = String.format("%02d:%02d", h, m);
+            // Convertir de GMT a hora local del aeropuerto de inicio
+            Aeropuerto aeroInicio = mapaAeropuertos.get(aeropuertoInicio);
+            int gmtInicio = aeroInicio != null ? aeroInicio.getGmt() : 0;
+            LocalDateTime horaLocal = envio.getHoraDisponibleReplanificacion().plusHours(gmtInicio);
+            horaLlegadaInicio = String.format("%02d:%02d", 
+                horaLocal.getHour(), horaLocal.getMinute());
         }
 
         openSet.add(new NodoAStar(aeropuertoInicio, null, null, 0, 0.0, horaLlegadaInicio));

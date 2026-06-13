@@ -27,17 +27,19 @@ public class Planificador {
         this.algoritmoGenetico = algoritmoGenetico;
     }
 
-    
 
-    public Individuo planificar(String inicioEscenario, String fechaHoraActual, String fechaHoraLimite,
-                                int tamanoPoblacion, long tiempoLimiteMs, int k) {
-        boolean operacionDiaADia = k == 1;
+    /**
+     * Ejecuta una planificación con los envíos pendientes hasta la fechaHoraLimite dada.
+     */
+    public Individuo planificar(String inicioEscenario, String fechaHoraActual, String fechaHoraLimite, int tamanoPoblacion, long tiempoLimiteMs, int k) {
 
         List<PlanVuelo> vuelos = dataService.getVuelos();
         Map<String, Aeropuerto> mapaAeropuertos = dataService.getMapaAeropuertos();
         Map<String, List<PlanVuelo>> mapaVuelosPorOrigen = dataService.getMapaVuelosPorOrigen();
 
-        List<Envio> enviosPendientes = dataService.obtenerEnviosPendientes(inicioEscenario, fechaHoraActual, fechaHoraLimite,k);
+
+        // 2. Obtener envíos pendientes (Nuevos + Rezagados del backlog)
+        List<Envio> enviosPendientes = dataService.obtenerEnviosPendientes(inicioEscenario, fechaHoraActual, fechaHoraLimite, k);
 
         if (enviosPendientes.isEmpty()) {
             return null;
@@ -58,10 +60,13 @@ public class Planificador {
         );
 
         if (mejorPlan != null) {
-            dataService.confirmarPlanYActualizarCapacidades(mejorPlan, fechaHoraLimite);
-            if (operacionDiaADia) {
+            if (k==1) {
                 dataService.confirmarPlanYActualizarCapacidades(mejorPlan, fechaHoraActual);
                 dataService.marcarEnviosPlanificadosEnBD(mejorPlan);
+            }
+            else{
+                dataService.confirmarPlanYActualizarCapacidades(mejorPlan, fechaHoraLimite);
+
             }
         }
 
