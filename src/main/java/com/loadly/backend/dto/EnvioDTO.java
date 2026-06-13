@@ -21,4 +21,5 @@ public class EnvioDTO {
     private Integer cantidadMaletas;
     private Integer clienteIdCliente;
     private Boolean planificado;
+    private Integer idArchivo;
 }

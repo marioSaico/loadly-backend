@@ -1,7 +1,10 @@
 package com.loadly.backend.loader;
 
+import com.loadly.backend.dto.EnvioDTO;
 import com.loadly.backend.model.Aeropuerto;
 import com.loadly.backend.model.Envio;
+import com.loadly.backend.service.database.EnvioService;
+
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -19,10 +22,20 @@ import java.util.stream.Collectors;
 @Component
 public class EnvioLoader {
 
+    public final EnvioService envioService;
+
+    public EnvioLoader(EnvioService envioService) {
+        this.envioService = envioService;
+    }
+    
+    private List<Envio> enviosEnEspera = new ArrayList<>();
     private static final DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("yyyyMMdd");
+    private static final DateTimeFormatter FORMATO_RELOJ =
+            DateTimeFormatter.ofPattern("yyyyMMdd-HH-mm");
 
     // Memoria caché para saber en qué posición nos quedamos en cada lista de envíos
     private final Map<String, Integer> cursorEnviosPorArchivo = new ConcurrentHashMap<>();
+    private List<Aeropuerto> aeropuertos;
     
     private final Map<String, List<Envio>> enviosPorArchivo = new ConcurrentHashMap<>();
 
@@ -177,6 +190,25 @@ public class EnvioLoader {
         cursorEnviosPorArchivo.clear();
     }
 
+    public List<Envio> obtenerEnviosPendientesDesdeBD(String fechaHoraActual, List<Aeropuerto> aeropuertos) {
+        LocalDateTime hasta = LocalDateTime.parse(fechaHoraActual, FORMATO_RELOJ);
+        List<EnvioDTO> enviosNuevos = envioService.obtenerNoPlanificadosHasta(hasta);
+
+        Map<Integer, Aeropuerto> aeropuertosPorId = aeropuertos.stream()
+                .collect(Collectors.toMap(Aeropuerto::getId, aeropuerto -> aeropuerto));
+
+        for (EnvioDTO dto : enviosNuevos) {
+
+            Envio envio = convertirEnvioDesdeBD(dto, aeropuertosPorId);
+            if (envio != null) {
+                enviosEnEspera.add(envio);
+            }
+        }
+
+        enviosEnEspera.sort(Comparator.comparing(Envio::getTiempoRegistroGMT));
+        return new ArrayList<>(enviosEnEspera);
+    }
+
     /**
      * Limpia absolutamente toda la memoria de envíos cargados.
      */
@@ -185,5 +217,23 @@ public class EnvioLoader {
         this.cursorEnviosPorArchivo.clear();
         System.gc(); // Sugerir limpieza inmediata
         logMemoria("Limpieza total");
+    }
+    private Envio convertirEnvioDesdeBD(EnvioDTO dto, Map<Integer, Aeropuerto> aeropuertosPorId) {
+        Aeropuerto origen = aeropuertosPorId.get(dto.getIdAeropuertoOrigen());
+        Aeropuerto destino = aeropuertosPorId.get(dto.getIdAeropuertoDestino());
+        if (dto.getFechaRegistro() == null || origen == null || destino == null) return null;
+
+        Envio envio = new Envio();
+        envio.setIdEnvio(String.valueOf(dto.getIdArchivo()));
+        envio.setFechaRegistro(dto.getFechaRegistro().toLocalDate().format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+        envio.setHoraRegistro(dto.getFechaRegistro().getHour());
+        envio.setMinutoRegistro(dto.getFechaRegistro().getMinute());
+        envio.setAeropuertoOrigen(origen.getCodigo());
+        envio.setAeropuertoDestino(destino.getCodigo());
+        envio.setCantidadMaletas(dto.getCantidadMaletas());
+        envio.setIdCliente(String.valueOf(dto.getClienteIdCliente()));
+        envio.setPlanificado(Boolean.TRUE.equals(dto.getPlanificado()));
+        envio.setTiempoRegistroGMT(dto.getFechaRegistro().minusHours(origen.getGmt()));
+        return envio;
     }
 }

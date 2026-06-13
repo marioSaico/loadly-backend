@@ -187,7 +187,7 @@ public class DataService {
         this.envioLoader.setArchivosEnMemoriaFiltrados(archivos, this.aeropuertos, rangoInicioGMT, rangoFinGMT);
     }
 
-    public List<Envio> obtenerEnviosPendientes(String inicioEscenario, String fechaHoraActual, String fechaHoraLimite) {
+    public List<Envio> obtenerEnviosPendientes(String inicioEscenario, String fechaHoraActual, String fechaHoraLimite,int k) {
         // =====================================================================
         // NUEVO BLOQUE: CALCULAR SLA DINÁMICO PARA REPLANIFICACIONES
         // =====================================================================
@@ -230,13 +230,18 @@ public class DataService {
                 System.out.println("[ALERTA CRÍTICA - COLAPSO LOGÍSTICO] El envío " + envio.getIdEnvio() + " ya expiró en la cola de espera. SLA Restante: " + slaRestante + " min.");
             }
         }
-
-        List<Envio> enviosRecienLlegados = envioLoader.cargarPendientes(
-            null,
-            inicioEscenario,
-            fechaHoraLimite,
-            this.aeropuertos
-        );
+        
+        List<Envio> enviosRecienLlegados;
+        if (k == 1) {
+            enviosRecienLlegados = envioLoader.obtenerEnviosPendientesDesdeBD(fechaHoraActual, this.aeropuertos);
+        } else {
+            enviosRecienLlegados = envioLoader.cargarPendientes(
+                null,
+                inicioEscenario,
+                fechaHoraLimite,
+                this.aeropuertos
+            );
+        }
 
         if (!enviosRecienLlegados.isEmpty()) {
             this.enviosEnEspera.addAll(enviosRecienLlegados);
@@ -256,30 +261,7 @@ public class DataService {
         return resultado;
     }
 
-    public List<Envio> obtenerEnviosPendientesDesdeBD(String fechaHoraActual, String fechaHoraLimite) {
-        LocalDateTime desde = LocalDateTime.parse(fechaHoraActual, FORMATO_RELOJ);
-        LocalDateTime hasta = LocalDateTime.parse(fechaHoraLimite, FORMATO_RELOJ);
-        List<EnvioDTO> enviosNuevos = envioService.obtenerNoPlanificadosEnVentana(desde, hasta);
-
-        Map<Integer, Aeropuerto> aeropuertosPorId = aeropuertos.stream()
-                .collect(Collectors.toMap(Aeropuerto::getId, aeropuerto -> aeropuerto));
-        Set<String> idsEnEspera = enviosEnEspera.stream()
-                .map(Envio::getIdEnvio)
-                .collect(Collectors.toSet());
-
-        for (EnvioDTO dto : enviosNuevos) {
-            if (idsEnEspera.contains(dto.getIdEnvio())) continue;
-
-            Envio envio = convertirEnvioDesdeBD(dto, aeropuertosPorId);
-            if (envio != null) {
-                enviosEnEspera.add(envio);
-                idsEnEspera.add(envio.getIdEnvio());
-            }
-        }
-
-        enviosEnEspera.sort(Comparator.comparing(Envio::getTiempoRegistroGMT));
-        return new ArrayList<>(enviosEnEspera);
-    }
+    
 
     public void marcarEnviosPlanificadosEnBD(Individuo plan) {
         if (plan == null || plan.getRutas() == null) return;
@@ -291,24 +273,6 @@ public class DataService {
         }
     }
 
-    private Envio convertirEnvioDesdeBD(EnvioDTO dto, Map<Integer, Aeropuerto> aeropuertosPorId) {
-        Aeropuerto origen = aeropuertosPorId.get(dto.getIdAeropuertoOrigen());
-        Aeropuerto destino = aeropuertosPorId.get(dto.getIdAeropuertoDestino());
-        if (dto.getFechaRegistro() == null || origen == null || destino == null) return null;
-
-        Envio envio = new Envio();
-        envio.setIdEnvio(dto.getIdEnvio());
-        envio.setFechaRegistro(dto.getFechaRegistro().toLocalDate().format(DateTimeFormatter.ofPattern("yyyyMMdd")));
-        envio.setHoraRegistro(dto.getFechaRegistro().getHour());
-        envio.setMinutoRegistro(dto.getFechaRegistro().getMinute());
-        envio.setAeropuertoOrigen(origen.getCodigo());
-        envio.setAeropuertoDestino(destino.getCodigo());
-        envio.setCantidadMaletas(dto.getCantidadMaletas());
-        envio.setIdCliente(String.valueOf(dto.getClienteIdCliente()));
-        envio.setPlanificado(Boolean.TRUE.equals(dto.getPlanificado()));
-        envio.setTiempoRegistroGMT(dto.getFechaRegistro().minusHours(origen.getGmt()));
-        return envio;
-    }
 
     /**
      * Cancela un vuelo y gestiona el impacto en rutas ya planificadas.

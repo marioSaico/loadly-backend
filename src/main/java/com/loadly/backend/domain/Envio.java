@@ -31,6 +31,9 @@ public class Envio {
     @Column(nullable = false)
     private Boolean planificado;
 
+    @Column(nullable = false)
+    private int idArchivo;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "idCliente", nullable = false)
     private Cliente cliente;

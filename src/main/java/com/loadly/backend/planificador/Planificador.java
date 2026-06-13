@@ -27,27 +27,17 @@ public class Planificador {
         this.algoritmoGenetico = algoritmoGenetico;
     }
 
-    public Individuo planificar(String inicioEscenario, String fechaHoraActual, String fechaHoraLimite,
-                                int tamanoPoblacion, long tiempoLimiteMs) {
-        return planificar(inicioEscenario, fechaHoraActual, fechaHoraLimite, tamanoPoblacion, tiempoLimiteMs, 1);
-    }
+    
 
     public Individuo planificar(String inicioEscenario, String fechaHoraActual, String fechaHoraLimite,
                                 int tamanoPoblacion, long tiempoLimiteMs, int k) {
         boolean operacionDiaADia = k == 1;
 
-        if (operacionDiaADia) {
-            inicializarDatosSiEsNecesario();
-            esperarCierreDeBloque(fechaHoraLimite);
-        }
-
         List<PlanVuelo> vuelos = dataService.getVuelos();
         Map<String, Aeropuerto> mapaAeropuertos = dataService.getMapaAeropuertos();
         Map<String, List<PlanVuelo>> mapaVuelosPorOrigen = dataService.getMapaVuelosPorOrigen();
 
-        List<Envio> enviosPendientes = operacionDiaADia
-                ? dataService.obtenerEnviosPendientesDesdeBD(fechaHoraActual, fechaHoraLimite)
-                : dataService.obtenerEnviosPendientes(inicioEscenario, fechaHoraActual, fechaHoraLimite);
+        List<Envio> enviosPendientes = dataService.obtenerEnviosPendientes(inicioEscenario, fechaHoraActual, fechaHoraLimite,k);
 
         if (enviosPendientes.isEmpty()) {
             return null;
@@ -70,6 +60,7 @@ public class Planificador {
         if (mejorPlan != null) {
             dataService.confirmarPlanYActualizarCapacidades(mejorPlan, fechaHoraLimite);
             if (operacionDiaADia) {
+                dataService.confirmarPlanYActualizarCapacidades(mejorPlan, fechaHoraActual);
                 dataService.marcarEnviosPlanificadosEnBD(mejorPlan);
             }
         }
@@ -77,23 +68,6 @@ public class Planificador {
         return mejorPlan;
     }
 
-    private void inicializarDatosSiEsNecesario() {
-        if (dataService.getVuelos() == null || dataService.getMapaAeropuertos() == null) {
-            dataService.inicializar();
-        }
-    }
+   
 
-    private void esperarCierreDeBloque(String fechaHoraLimite) {
-        LocalDateTime cierreBloque = LocalDateTime.parse(fechaHoraLimite, FORMATO_RELOJ);
-
-        while (LocalDateTime.now().isBefore(cierreBloque)) {
-            long esperaMs = Duration.between(LocalDateTime.now(), cierreBloque).toMillis();
-            try {
-                Thread.sleep(Math.min(Math.max(esperaMs, 1L), 500L));
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
-    }
 }

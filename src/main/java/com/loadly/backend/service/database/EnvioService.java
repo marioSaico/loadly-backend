@@ -32,7 +32,8 @@ public class EnvioService {
             rs.getInt("idAeropuertoDestino"),
             rs.getInt("cantidadMaletas"),
             rs.getInt("cliente_idCliente"),
-            rs.getBoolean("planificado")
+            rs.getBoolean("planificado"),
+             rs.getInt("idArchivo")
         ));
     }
 
@@ -40,18 +41,19 @@ public class EnvioService {
      * Obtiene un envío por ID
      */
     public EnvioDTO obtenerPorId(String idEnvio) {
-        String sql = "SELECT idEnvio, fechaRegistro, fechaLimiteEntrega, idAeropuertoOrigen, idAeropuertoDestino, cantidadMaletas, cliente_idCliente, planificado FROM envio WHERE idEnvio = ?";
+        String sql = "SELECT idArchivo, fechaRegistro, fechaLimiteEntrega, idAeropuertoOrigen, idAeropuertoDestino, cantidadMaletas, cliente_idCliente, planificado FROM envio WHERE idArchivo = ?";
         
         try {
-            return databaseManager.getPrimaryDb().queryForObject(sql, new Object[]{idEnvio}, (rs, rowNum) -> new EnvioDTO(
-                rs.getString("idEnvio"),
+            return databaseManager.getPrimaryDb().queryForObject(sql, new Object[]{Integer.parseInt(idEnvio)}, (rs, rowNum) -> new EnvioDTO(
+                String.valueOf(rs.getInt("idArchivo")),
                 rs.getTimestamp("fechaRegistro") != null ? rs.getTimestamp("fechaRegistro").toLocalDateTime() : null,
                 rs.getTimestamp("fechaLimiteEntrega") != null ? rs.getTimestamp("fechaLimiteEntrega").toLocalDateTime() : null,
                 rs.getInt("idAeropuertoOrigen"),
                 rs.getInt("idAeropuertoDestino"),
                 rs.getInt("cantidadMaletas"),
                 rs.getInt("cliente_idCliente"),
-                rs.getBoolean("planificado")
+                rs.getBoolean("planificado"),
+                rs.getInt("idArchivo")
             ));
         } catch (Exception e) {
             return null;
@@ -62,33 +64,36 @@ public class EnvioService {
      * Obtiene envíos por estado de planificación
      */
     public List<EnvioDTO> obtenerPlanificados(Boolean planificado) {
-        String sql = "SELECT idEnvio, fechaRegistro, fechaLimiteEntrega, idAeropuertoOrigen, idAeropuertoDestino, cantidadMaletas, cliente_idCliente, planificado FROM envio WHERE planificado = ?";
+        String sql = "SELECT idArchivo, fechaRegistro, fechaLimiteEntrega, idAeropuertoOrigen, idAeropuertoDestino, cantidadMaletas, cliente_idCliente, planificado FROM envio WHERE planificado = ?";
         
         return databaseManager.getPrimaryDb().query(sql, new Object[]{planificado}, (rs, rowNum) -> new EnvioDTO(
-            rs.getString("idEnvio"),
+            String.valueOf(rs.getInt("idArchivo")),
             rs.getTimestamp("fechaRegistro") != null ? rs.getTimestamp("fechaRegistro").toLocalDateTime() : null,
             rs.getTimestamp("fechaLimiteEntrega") != null ? rs.getTimestamp("fechaLimiteEntrega").toLocalDateTime() : null,
             rs.getInt("idAeropuertoOrigen"),
             rs.getInt("idAeropuertoDestino"),
             rs.getInt("cantidadMaletas"),
             rs.getInt("cliente_idCliente"),
-            rs.getBoolean("planificado")
+            rs.getBoolean("planificado"),
+            rs.getInt("idArchivo")
+            
         ));
     }
 
-    public List<EnvioDTO> obtenerNoPlanificadosEnVentana(LocalDateTime desde, LocalDateTime hasta) {
-        String sql = "SELECT idEnvio, fechaRegistro, fechaLimiteEntrega, idAeropuertoOrigen, idAeropuertoDestino, cantidadMaletas, cliente_idCliente, planificado " +
-                "FROM envio WHERE planificado = ? AND fechaRegistro >= ? AND fechaRegistro < ? ORDER BY fechaRegistro ASC";
+    public List<EnvioDTO> obtenerNoPlanificadosHasta(LocalDateTime hasta) {
+        String sql = "SELECT idArchivo, fechaRegistro, fechaLimiteEntrega, idAeropuertoOrigen, idAeropuertoDestino, cantidadMaletas, cliente_idCliente, planificado " +
+                "FROM envio WHERE planificado = ? AND fechaRegistro < ? ORDER BY fechaRegistro ASC";
 
-        return databaseManager.getPrimaryDb().query(sql, new Object[]{false, desde, hasta}, (rs, rowNum) -> new EnvioDTO(
-            rs.getString("idEnvio"),
+        return databaseManager.getPrimaryDb().query(sql, new Object[]{false, hasta}, (rs, rowNum) -> new EnvioDTO(
+            String.valueOf(rs.getInt("idArchivo")),
             rs.getTimestamp("fechaRegistro") != null ? rs.getTimestamp("fechaRegistro").toLocalDateTime() : null,
             rs.getTimestamp("fechaLimiteEntrega") != null ? rs.getTimestamp("fechaLimiteEntrega").toLocalDateTime() : null,
             rs.getInt("idAeropuertoOrigen"),
             rs.getInt("idAeropuertoDestino"),
             rs.getInt("cantidadMaletas"),
             rs.getInt("cliente_idCliente"),
-            rs.getBoolean("planificado")
+            rs.getBoolean("planificado"),
+            rs.getInt("idArchivo")
         ));
     }
 
