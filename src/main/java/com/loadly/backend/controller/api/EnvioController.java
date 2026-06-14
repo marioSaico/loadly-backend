@@ -121,7 +121,6 @@ public class EnvioController {
     @PostMapping("/registrar")
     public ResponseEntity<ResponseDTO<EnvioDTO>> registrarEnvio(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaRegistro,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaLimiteEntrega,
             @RequestParam(required = false) Integer idAeropuertoOrigen,
             @RequestParam(required = false) Integer idAeropuertoDestino,
             @RequestParam(required = false) Integer cantidadMaletas,
@@ -130,8 +129,7 @@ public class EnvioController {
         try {
             EnvioDTO envio = new EnvioDTO(
                     null,
-                    fechaRegistro,
-                    fechaLimiteEntrega,
+                    fechaRegistro,null, 
                     idAeropuertoOrigen,
                     idAeropuertoDestino,
                     cantidadMaletas,

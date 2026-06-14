@@ -81,8 +81,11 @@ public class EnvioService {
     }
 
     public List<EnvioDTO> obtenerNoPlanificadosHasta(LocalDateTime hasta) {
-        String sql = "SELECT idArchivo, fechaRegistro, fechaLimiteEntrega, idAeropuertoOrigen, idAeropuertoDestino, cantidadMaletas, cliente_idCliente, planificado " +
-                "FROM envio WHERE planificado = ? AND fechaRegistro < ? ORDER BY fechaRegistro ASC";
+        String sql = "SELECT e.idArchivo, e.fechaRegistro, e.fechaLimiteEntrega, e.idAeropuertoOrigen, e.idAeropuertoDestino, e.cantidadMaletas, e.cliente_idCliente, e.planificado " +
+                "FROM envio e " +
+                "JOIN aeropuerto a ON e.idAeropuertoOrigen = a.IdAeropuerto " +
+                "WHERE e.planificado = ? AND DATE_SUB(e.fechaRegistro, INTERVAL a.gmt HOUR) < ? " +
+                "ORDER BY e.fechaRegistro ASC";
 
         return databaseManager.getPrimaryDb().query(sql, new Object[]{false, hasta}, (rs, rowNum) -> new EnvioDTO(
             String.valueOf(rs.getInt("idArchivo")),
