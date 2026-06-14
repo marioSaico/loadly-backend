@@ -34,26 +34,8 @@ public class EnvioController {
     private DataService dataService;
 
     /**
-     * POST /api/envios/cargar-carpeta - Carga múltiples archivos de envío en memoria
+     * POST /api/envios/cargar-carpeta - Carga múltiples archivos de envío en disco
      */
-    /*@PostMapping("/cargar-carpeta")
-    public ResponseEntity<ResponseDTO<String>> cargarCarpeta(
-            @RequestParam("files") MultipartFile[] files,
-            @RequestParam("fechaInicio") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
-            @RequestParam("horaInicio") int horaInicio,
-            @RequestParam("minutoInicio") int minutoInicio) {
-        try {
-            // Inicializar datos maestros si no están cargados
-            dataService.inicializar();
-            dataService.cargarEnviosFiltrados(files, fechaInicio, horaInicio, minutoInicio);
-
-            return ResponseEntity.ok(new ResponseDTO<>(true, "Carpeta cargada exitosamente: " + files.length + " archivos", null));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest()
-                .body(new ResponseDTO<>(false, "Error al cargar carpeta: " + e.getMessage()));
-        }
-    }*/
-
     @PostMapping("/cargar-carpeta")
     public ResponseEntity<ResponseDTO<String>> cargarCarpeta(
             @RequestParam("files") MultipartFile[] files) {

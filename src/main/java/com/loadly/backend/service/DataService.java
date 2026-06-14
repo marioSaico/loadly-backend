@@ -168,24 +168,6 @@ public class DataService {
         return model;
     }
  
-    // =========================================================================
-    // 1. GESTIÓN DE ENVÍOS (Backlog)
-    // =========================================================================
- 
-    /**
-     * Carga archivos en memoria desde el front-end
-     */
-    /*public void cargarEnviosFiltrados(MultipartFile[] archivos, LocalDate fechaInicio, int horaInicio, int minutoInicio) {
-        // Armamos el reloj global de inicio usando los datos GMT del front
-        LocalDateTime rangoInicioGMT = LocalDateTime.of(fechaInicio, LocalTime.of(horaInicio, minutoInicio));
-        
-        // Le sumamos los 5 días exactos para saber cuándo termina la simulación
-        LocalDateTime rangoFinGMT = rangoInicioGMT.plusDays(5);
-
-        // Mandamos estos límites al EnvioLoader
-        this.envioLoader.setArchivosEnMemoriaFiltrados(archivos, this.aeropuertos, rangoInicioGMT, rangoFinGMT);
-    }*/
-
     public void guardarArchivosEnDisco(MultipartFile[] archivos) throws IOException {
         // Obtenemos la ruta raíz del usuario (Funciona igual en Windows, Mac o Linux)
         String directorioUsuario = System.getProperty("user.home");
@@ -287,13 +269,6 @@ public class DataService {
             fechaHoraLimite,
             this.aeropuertos
         );
-
-        /*List<Envio> enviosRecienLlegados = envioLoader.cargarPendientes(
-            null,
-            inicioEscenario,
-            fechaHoraLimite,
-            this.aeropuertos
-        );*/
 
         if (!enviosRecienLlegados.isEmpty()) {
             this.enviosEnEspera.addAll(enviosRecienLlegados);
