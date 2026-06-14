@@ -59,8 +59,8 @@ public class SimulacionPeriodoController {
 
     @GetMapping(value = "/periodo/iniciar", produces = MediaType.TEXT_EVENT_STREAM_VALUE)    
     public SseEmitter iniciarSimulacion(
-            @RequestParam String inicioStr,
-            @RequestParam String finStr,
+            @RequestParam(required = false) String inicioStr,
+            @RequestParam(required = false) String finStr,
             @RequestParam(defaultValue = "60") int taSegundos,
             @RequestParam(defaultValue = "2") int sa,
             @RequestParam(defaultValue = "120") int k,
@@ -239,20 +239,30 @@ public class SimulacionPeriodoController {
 
     private void ejecutarEscenario(SseEmitter emitter, String inicioStr, String finStr, int taSegundos, int sa, int k, int tamano) throws Exception {
         
-        // Cargar aeropuertos y planes de vuelo desde BD
-        if(k==1) {
-            dataService.inicializar();
+        // 1. CREAMOS LA BANDERA DE COLAPSO
+        boolean esModoColapso = (inicioStr == null || inicioStr.trim().isEmpty());
+
+        if (esModoColapso) {
+            inicioStr = "20260101-00-00";
+            System.out.println("[INFO] Modo Colapso Activado. Avance rápido hasta el último día.");
         }
+
+        // Cargar aeropuertos y planes de vuelo desde BD
+
+        dataService.inicializar();
 
         LocalDateTime relojSimulado      = LocalDateTime.parse(inicioStr, FMT_INPUT);
         // 2. Manejar la fecha final condicionalmente
         LocalDateTime finSimulacion;
-        if (finStr == null) {
+        if (finStr == null || finStr.trim().isEmpty()) {
             // Si no hay fecha de fin, le damos el valor máximo posible (año +999999999)
             finSimulacion = LocalDateTime.MAX; 
         } else {
             finSimulacion = LocalDateTime.parse(finStr, FMT_INPUT);
         }
+
+        // Umbral donde se detiene el avance rápido (1 día antes del fin)
+        LocalDateTime umbralVelocidadNormal = finSimulacion.minusDays(1);
 
         int  sc             = sa * k;
         LocalDateTime limiteLecturaDatos = relojSimulado.plusMinutes(sc); // -> NUEVO CAMBIO
@@ -267,6 +277,11 @@ public class SimulacionPeriodoController {
         this.ocupacionVuelosGlobal.clear();
 
         long inicioEscenarioMs = System.currentTimeMillis();
+
+        // =====================================================================
+        // NUEVO: Puntero explícito para controlar el inicio de la ventana actual
+        // =====================================================================
+        LocalDateTime ventanaInicio = relojSimulado;
 
         while ((limiteLecturaDatos.isBefore(finSimulacion) || limiteLecturaDatos.isEqual(finSimulacion)) && !colapsoDetectado) {
 
@@ -302,8 +317,14 @@ public class SimulacionPeriodoController {
             // =====================================================================
             // CALCULO EXACTO: El inicio de la ventana actual de planificación (S_c)
             // =====================================================================
-            LocalDateTime fechaHoraActualReal = limiteLecturaDatos.minusMinutes(sc);
-            String fechaHoraActualStr = fechaHoraActualReal.format(FMT_INPUT);
+            String fechaHoraActualStr = ventanaInicio.format(FMT_INPUT);
+
+            // El avance rápido sigue activo en esta iteración si el fin del bloque actual 
+            // todavía está dentro de la zona previa al umbral.
+            boolean avanceRapidoActivo = esModoColapso && !limiteLecturaDatos.isAfter(umbralVelocidadNormal);
+
+            System.out.printf("    [DEBUG] Ventana Planificación: [%s] hasta [%s] | Avance Rápido: %b%n", 
+                    fechaHoraActualStr, limiteLecturaStr, avanceRapidoActivo);
             
             System.out.printf("    [DEBUG] Llamando a planificar con tamano=%d, tiempoLimiteMs=%d%n", tamano, tiempoLimiteMs);
             Individuo resultado = planificador.planificar(inicioStr, fechaHoraActualStr, limiteLecturaStr, tamano, tiempoLimiteMs, k);
@@ -328,7 +349,7 @@ public class SimulacionPeriodoController {
                     long tiempoUsadoMs = System.currentTimeMillis() - iteracionInicioMs;
                     System.out.printf("    [Tiempo real iteracion: %.1fs | TA_MAX: %.1fs]%n",
                             tiempoUsadoMs / 1000.0, TA_MAX_MS / 1000.0);
-                    if (tiempoUsadoMs < TA_MAX_MS) {
+                    if (tiempoUsadoMs < TA_MAX_MS && !avanceRapidoActivo) {
                         long tiempoRestanteMs = TA_MAX_MS - tiempoUsadoMs;
                         long finEspera = System.currentTimeMillis() + tiempoRestanteMs;
                         
@@ -368,12 +389,29 @@ public class SimulacionPeriodoController {
             }
 
             if (!colapsoDetectado) {
-                limiteLecturaDatos = limiteLecturaDatos.plusMinutes(sc);
+                // =====================================================================
+                // MODIFICADO: El inicio de la siguiente iteración es el fin de la actual
+                // =====================================================================
+                ventanaInicio = limiteLecturaDatos;
+
+                // Calculamos el siguiente fin tentativo sumando las 4 horas habituales (sc)
+                LocalDateTime siguienteFin = limiteLecturaDatos.plusMinutes(sc);
+
+                // AJUSTE MAESTRO: Si estamos en Fast-Forward y el siguiente salto natural 
+                // se va a pasar del umbral, lo obligamos a aterrizar EXACTAMENTE en el umbral.
+                if (esModoColapso && limiteLecturaDatos.isBefore(umbralVelocidadNormal) && siguienteFin.isAfter(umbralVelocidadNormal)) {
+                    limiteLecturaDatos = umbralVelocidadNormal;
+                    System.out.printf("    [INFO] ¡Umbral detectado! Recortando ventana de planificación para alinear a: %s%n", limiteLecturaDatos.format(FMT_LOG));
+                } else {
+                    // Avance normal de 4 horas
+                    limiteLecturaDatos = siguienteFin;
+                }
+
                 relojSimulado      = relojSimulado.plusMinutes(sa);
                 // ── Pausa restante para completar Sa (siempre fija = Sa - TA_MAX) ─
                 long tiempoEsperaMs = saMs - TA_MAX_MS;
                 if (resultado == null) tiempoEsperaMs = saMs; // Si no se planificó nada, esperar todo el Sa para simular que avanzó el reloj sin eventos 
-                if (tiempoEsperaMs > 500) {
+                if (tiempoEsperaMs > 500 && !avanceRapidoActivo) {
                     System.out.printf("    [Pausa: %.1fs para completar Sa=%dmin en tiempo real]%n",
                             tiempoEsperaMs / 1000.0, sa);
                     try {
