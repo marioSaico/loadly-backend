@@ -11,6 +11,12 @@ import lombok.Data;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -169,7 +175,7 @@ public class DataService {
     /**
      * Carga archivos en memoria desde el front-end
      */
-    public void cargarEnviosFiltrados(MultipartFile[] archivos, LocalDate fechaInicio, int horaInicio, int minutoInicio) {
+    /*public void cargarEnviosFiltrados(MultipartFile[] archivos, LocalDate fechaInicio, int horaInicio, int minutoInicio) {
         // Armamos el reloj global de inicio usando los datos GMT del front
         LocalDateTime rangoInicioGMT = LocalDateTime.of(fechaInicio, LocalTime.of(horaInicio, minutoInicio));
         
@@ -178,6 +184,49 @@ public class DataService {
 
         // Mandamos estos límites al EnvioLoader
         this.envioLoader.setArchivosEnMemoriaFiltrados(archivos, this.aeropuertos, rangoInicioGMT, rangoFinGMT);
+    }*/
+
+    public void guardarArchivosEnDisco(MultipartFile[] archivos) throws IOException {
+        // Obtenemos la ruta raíz del usuario (Funciona igual en Windows, Mac o Linux)
+        String directorioUsuario = System.getProperty("user.home");
+        
+        // Creamos la ruta hacia la carpeta 'simulador_envios'
+        Path rutaDirectorioAlmacenamiento = Paths.get(directorioUsuario, "simulador_envios");
+
+        // 1. VERIFICAR Y LIMPIAR LA CARPETA
+        if (Files.exists(rutaDirectorioAlmacenamiento)) {
+            // Si la carpeta ya existe, agarramos todos los archivos viejos y los borramos uno por uno
+            File carpeta = rutaDirectorioAlmacenamiento.toFile();
+            File[] archivosViejos = carpeta.listFiles();
+            if (archivosViejos != null) {
+                for (File archivoViejo : archivosViejos) {
+                    archivoViejo.delete(); 
+                }
+            }
+            System.out.println("[DISCO] Carpeta limpiada exitosamente de cargas anteriores.");
+            System.out.println("[DISCO] Directorio de almacenamiento ubicado en: " + rutaDirectorioAlmacenamiento.toAbsolutePath() + " quedo limpio");
+        } else {
+            // Si no existe (es la primera vez que se usa el sistema), la creamos
+            Files.createDirectories(rutaDirectorioAlmacenamiento);
+            System.out.println("[DISCO] Directorio de almacenamiento creado en: " + rutaDirectorioAlmacenamiento.toAbsolutePath());
+        }
+
+        // Iteramos sobre los archivos que llegaron desde el frontend
+        for (MultipartFile archivo : archivos) {
+            if (archivo.isEmpty()) continue;
+
+            String nombreArchivo = archivo.getOriginalFilename();
+            if (nombreArchivo == null) continue;
+
+            // Armamos la ruta final donde descansará este archivo de texto específico
+            Path rutaDestino = rutaDirectorioAlmacenamiento.resolve(nombreArchivo);
+
+            // Copiamos el contenido al disco. REPLACE_EXISTING sirve por si el usuario 
+            // vuelve a subir la carpeta, para que se actualicen los archivos sin dar error.
+            Files.copy(archivo.getInputStream(), rutaDestino, StandardCopyOption.REPLACE_EXISTING);
+        }
+        
+        System.out.println("[DISCO] ¡Éxito! " + archivos.length + " archivos asentados permanentemente en el almacenamiento secundario.");
     }
 
     public List<Envio> obtenerEnviosPendientes(String inicioEscenario, String fechaHoraActual, String fechaHoraLimite, int k) {
@@ -224,13 +273,27 @@ public class DataService {
                 System.out.println("[ALERTA CRÍTICA - COLAPSO LOGÍSTICO] El envío " + envio.getIdEnvio() + " ya expiró en la cola de espera. SLA Restante: " + slaRestante + " min.");
             }
         }
+        // =====================================================================
+        // CARGA DE NUEVOS ENVÍOS DESDE EL DISCO (STREAMING)
+        // =====================================================================
+        // Obtenemos la ruta dinámica donde guardamos los archivos en la carga inicial
+        String directorioUsuario = System.getProperty("user.home");
+        String rutaCarpetaArchivos = java.nio.file.Paths.get(directorioUsuario, "simulador_envios").toString();
 
+        // Llamamos al loader pasándole la ruta real del disco
         List<Envio> enviosRecienLlegados = envioLoader.cargarPendientes(
-            null,
+            rutaCarpetaArchivos, // <--- AQUÍ ESTÁ LA MAGIA CORREGIDA
             inicioEscenario,
             fechaHoraLimite,
             this.aeropuertos
         );
+
+        /*List<Envio> enviosRecienLlegados = envioLoader.cargarPendientes(
+            null,
+            inicioEscenario,
+            fechaHoraLimite,
+            this.aeropuertos
+        );*/
 
         if (!enviosRecienLlegados.isEmpty()) {
             this.enviosEnEspera.addAll(enviosRecienLlegados);
