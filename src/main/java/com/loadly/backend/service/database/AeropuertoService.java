@@ -234,28 +234,31 @@ public class AeropuertoService {
 
     /**
      * Convierte coordenadas en formato "04° 42' 05" N" a decimal
+     * (Versión resistente a errores de tipeo y caracteres invisibles)
      */
     private Double parsearCoordenada(String coord) {
-        if (coord == null || coord.isEmpty()) {
+        if (coord == null || coord.trim().isEmpty()) {
             return 0.0;
         }
 
-        // Extraer grados, minutos, segundos
-        Pattern pattern = Pattern.compile("(\\d+)°\\s*(\\d+)'\\s*([\\d.]+)\"\\s*([NSEW])");
-        Matcher matcher = pattern.matcher(coord);
+        // \D+ atrapa cualquier símbolo que NO sea un número. 
+        // Así no importa si ponen ', '', ", ° o un espacio extra.
+        Pattern pattern = Pattern.compile("(\\d+)\\D+(\\d+)\\D+([\\d.]+)\\D+([NSEWnsew])");
+        Matcher matcher = pattern.matcher(coord.trim());
 
         if (!matcher.find()) {
+            System.err.println("[AVISO] Formato de coordenada no reconocido: " + coord);
             return 0.0;
         }
 
         double grados = Double.parseDouble(matcher.group(1));
         double minutos = Double.parseDouble(matcher.group(2));
         double segundos = Double.parseDouble(matcher.group(3));
-        String direccion = matcher.group(4);
+        String direccion = matcher.group(4).toUpperCase();
 
         double decimal = grados + (minutos / 60.0) + (segundos / 3600.0);
 
-        // Ajustar signo según dirección
+        // Ajustar signo según dirección (Sur y Oeste son negativos)
         if (direccion.equals("S") || direccion.equals("W")) {
             decimal = -decimal;
         }
