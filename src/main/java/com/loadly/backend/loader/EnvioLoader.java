@@ -27,7 +27,6 @@ public class EnvioLoader {
         this.envioService = envioService;
     }
     
-    private List<Envio> enviosEnEspera = new ArrayList<>();
     private static final DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter FORMATO_RELOJ =
             DateTimeFormatter.ofPattern("yyyyMMdd-HH-mm");
@@ -142,6 +141,7 @@ public class EnvioLoader {
     }
 
     public List<Envio> obtenerEnviosPendientesDesdeBD(String fechaHoraActual, List<Aeropuerto> aeropuertos) {
+        List<Envio> enviosEnEspera = new ArrayList<>();
         LocalDateTime hasta = LocalDateTime.parse(fechaHoraActual, FORMATO_RELOJ);
         List<EnvioDTO> enviosNuevos = envioService.obtenerNoPlanificadosHasta(hasta);
 
