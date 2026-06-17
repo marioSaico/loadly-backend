@@ -248,6 +248,7 @@ public class SimulacionPeriodoController {
         }
 
         // Cargar aeropuertos y planes de vuelo desde BD
+
         dataService.inicializar();
 
         LocalDateTime relojSimulado      = LocalDateTime.parse(inicioStr, FMT_INPUT);
@@ -328,7 +329,12 @@ public class SimulacionPeriodoController {
             System.out.printf("    [DEBUG] Llamando a planificar con tamano=%d, tiempoLimiteMs=%d%n", tamano, tiempoLimiteMs);
             Individuo resultado = planificador.planificar(inicioStr, fechaHoraActualStr, limiteLecturaStr, tamano, tiempoLimiteMs, k);
             System.out.printf("    [DEBUG] Procesando eventos del reloj: %s%n", limiteLecturaStr);
-            dataService.procesarEventosDelReloj(limiteLecturaStr);
+            if(k==1){
+                dataService.procesarEventosDelReloj(fechaHoraActualStr);
+            }
+            else{
+                dataService.procesarEventosDelReloj(limiteLecturaStr);
+            }
             System.out.printf("    [DEBUG] Planificador retornó: %s%n", (resultado != null ? "INDIVIDUO" : "NULL"));
             
             if (resultado != null) {

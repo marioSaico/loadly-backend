@@ -2,10 +2,12 @@ package com.loadly.backend.service;
  
 import com.loadly.backend.algoritmo.genetico.Individuo;
 import com.loadly.backend.dto.AeropuertoDTO;
+import com.loadly.backend.dto.EnvioDTO;
 import com.loadly.backend.dto.PlanVueloDTO;
 import com.loadly.backend.loader.*;
 import com.loadly.backend.model.*;
 import com.loadly.backend.service.database.AeropuertoService;
+import com.loadly.backend.service.database.EnvioService;
 import com.loadly.backend.service.database.PlanVueloService;
 import lombok.Data;
 import org.springframework.stereotype.Service;
@@ -30,6 +32,7 @@ public class DataService {
     private final EnvioLoader envioLoader;
     private final AeropuertoService aeropuertoService;
     private final PlanVueloService planVueloService;
+    private final EnvioService envioService;
  
     private List<Aeropuerto> aeropuertos;
     private List<PlanVuelo> vuelos;
@@ -58,10 +61,12 @@ public class DataService {
  
     public DataService(EnvioLoader envioLoader,
                        AeropuertoService aeropuertoService,
-                       PlanVueloService planVueloService) {
+                       PlanVueloService planVueloService,
+                       EnvioService envioService) {
         this.envioLoader      = envioLoader;
         this.aeropuertoService = aeropuertoService;
         this.planVueloService = planVueloService;
+        this.envioService = envioService;
     }
  
     public void inicializar() {
@@ -211,6 +216,7 @@ public class DataService {
         System.out.println("[DISCO] ¡Éxito! " + archivos.length + " archivos asentados permanentemente en el almacenamiento secundario.");
     }
 
+
     public List<Envio> obtenerEnviosPendientes(String inicioEscenario, String fechaHoraActual, String fechaHoraLimite, int k) {
         // =====================================================================
         // NUEVO BLOQUE: CALCULAR SLA DINÁMICO PARA REPLANIFICACIONES
@@ -255,20 +261,26 @@ public class DataService {
                 System.out.println("[ALERTA CRÍTICA - COLAPSO LOGÍSTICO] El envío " + envio.getIdEnvio() + " ya expiró en la cola de espera. SLA Restante: " + slaRestante + " min.");
             }
         }
-        // =====================================================================
-        // CARGA DE NUEVOS ENVÍOS DESDE EL DISCO (STREAMING)
-        // =====================================================================
-        // Obtenemos la ruta dinámica donde guardamos los archivos en la carga inicial
-        String directorioUsuario = System.getProperty("user.home");
-        String rutaCarpetaArchivos = java.nio.file.Paths.get(directorioUsuario, "simulador_envios").toString();
-
-        // Llamamos al loader pasándole la ruta real del disco
-        List<Envio> enviosRecienLlegados = envioLoader.cargarPendientes(
+        
+        List<Envio> enviosRecienLlegados;
+        if (k == 1) {
+            enviosRecienLlegados = envioLoader.obtenerEnviosPendientesDesdeBD(fechaHoraActual, this.aeropuertos);
+        } else {
+            String directorioUsuario = System.getProperty("user.home");
+            String rutaCarpetaArchivos = java.nio.file.Paths.get(directorioUsuario, "simulador_envios").toString();
+            // Llamamos al loader pasándole la ruta real del disco
+            enviosRecienLlegados = envioLoader.cargarPendientes(
             rutaCarpetaArchivos, // <--- AQUÍ ESTÁ LA MAGIA CORREGIDA
             inicioEscenario,
             fechaHoraLimite,
             this.aeropuertos
-        );
+            );
+        }
+        // =====================================================================
+        // CARGA DE NUEVOS ENVÍOS DESDE EL DISCO (STREAMING)
+        // =====================================================================
+        // Obtenemos la ruta dinámica donde guardamos los archivos en la carga inicial
+        
 
         if (!enviosRecienLlegados.isEmpty()) {
             this.enviosEnEspera.addAll(enviosRecienLlegados);
@@ -287,6 +299,19 @@ public class DataService {
 
         return resultado;
     }
+
+    
+
+    public void marcarEnviosPlanificadosEnBD(Individuo plan) {
+        if (plan == null || plan.getRutas() == null) return;
+
+        for (Ruta ruta : plan.getRutas()) {
+            if (ruta.getEstado() == EstadoRuta.PLANIFICADA) {
+                envioService.marcarPlanificado(ruta.getEnvio().getIdEnvio());
+            }
+        }
+    }
+
 
     /**
      * Cancela un vuelo y gestiona el impacto en rutas ya planificadas.
@@ -861,4 +886,3 @@ public class DataService {
     }
 }
 }
- 
