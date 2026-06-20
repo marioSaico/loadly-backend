@@ -15,4 +15,5 @@ public class UsuarioDTO {
     private String nombre;
     private String rol;
     private String contacto;
+    private String password; // Añadido para autenticación
 }
