@@ -26,7 +26,9 @@ public class UsuarioService {
             rs.getInt("idCliente"),
             rs.getString("nombre"),
             rs.getString("rol"),
-            rs.getString("contacto")
+            rs.getString("contacto"),
+            rs.getString("password") // Aunque no se exponga, se puede mapear para autenticación
+
         ));
     }
 
@@ -41,7 +43,8 @@ public class UsuarioService {
                 rs.getInt("idCliente"),
                 rs.getString("nombre"),
                 rs.getString("rol"),
-                rs.getString("contacto")
+                rs.getString("contacto"),
+                rs.getString("password") // Aunque no se exponga, se puede mapear para autenticación
             ));
         } catch (Exception e) {
             return null;
@@ -58,7 +61,8 @@ public class UsuarioService {
             rs.getInt("idCliente"),
             rs.getString("nombre"),
             rs.getString("rol"),
-            rs.getString("contacto")
+            rs.getString("contacto"),
+            rs.getString("password") // Aunque no se exponga, se puede mapear para autenticación
         ));
     }
 
@@ -68,5 +72,24 @@ public class UsuarioService {
     public Long obtenerTotal() {
         String sql = "SELECT COUNT(*) FROM usuario";
         return databaseManager.getPrimaryDb().queryForObject(sql, Long.class);
+    }
+
+    /**
+     * Obtiene un usuario por contacto (username)
+     */
+    public UsuarioDTO obtenerPorContacto(String contacto) {
+        String sql = "SELECT idCliente, nombre, rol, contacto, password FROM usuario WHERE contacto = ?";
+        
+        try {
+            return databaseManager.getPrimaryDb().queryForObject(sql, new Object[]{contacto}, (rs, rowNum) -> new UsuarioDTO(
+                rs.getInt("idCliente"),
+                rs.getString("nombre"),
+                rs.getString("rol"),
+                rs.getString("contacto"),
+                rs.getString("password")
+            ));
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

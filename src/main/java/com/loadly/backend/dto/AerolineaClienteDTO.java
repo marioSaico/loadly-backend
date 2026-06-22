@@ -5,15 +5,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * DTO para Usuario/Cliente
+ * DTO para AerolineaCliente
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class UsuarioDTO {
-    private Integer idCliente;
+public class AerolineaClienteDTO {
+    private Integer id;
     private String nombre;
-    private String rol;
-    private String contacto;
-    private String password; // Añadido para autenticación
 }
