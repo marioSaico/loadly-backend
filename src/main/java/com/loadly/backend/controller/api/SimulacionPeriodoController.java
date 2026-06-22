@@ -521,7 +521,7 @@ public class SimulacionPeriodoController {
                 cursor = llegada;
             }
             
-            cursor = cursor.plusMinutes(10);
+            cursor = cursor.plusMinutes(15);
             agregarEventoTimeline(timelineAlmacenesGlobal, envio.getAeropuertoDestino(), cursor, -envio.getCantidadMaletas());
         }
 
@@ -585,7 +585,7 @@ public class SimulacionPeriodoController {
             Aeropuerto destino = dataService.getMapaAeropuertos().get(envio.getAeropuertoDestino());
             long slaHoras = (origen != null && destino != null && origen.getContinente().equals(destino.getContinente())) ? 24 : 48;
            // cursor ya está en la llegada al destino final tras el loop de tramos
-            LocalDateTime recojoGMT = cursor.plusMinutes(10);
+            LocalDateTime recojoGMT = cursor.plusMinutes(15);
             long minutosDuracion = java.time.temporal.ChronoUnit.MINUTES.between(regGMT, recojoGMT);
             long horasTotales = minutosDuracion / 60;
             long minutosRestantes = minutosDuracion % 60;
@@ -768,7 +768,7 @@ public class SimulacionPeriodoController {
                 rc.detalle = "No se encontró una solución que respete los límites de tiempo y capacidad.";
                 return rc;
             }
-            else if (r.getEstado() == EstadoRuta.PLANIFICADA) {
+            /*else if (r.getEstado() == EstadoRuta.PLANIFICADA) {
                 Aeropuerto o = ds.getMapaAeropuertos().get(env.getAeropuertoOrigen());
                 Aeropuerto d = ds.getMapaAeropuertos().get(env.getAeropuertoDestino());
                 long sla = (o != null && d != null && o.getContinente().equals(d.getContinente())) ? 24 : 48;
@@ -795,10 +795,10 @@ public class SimulacionPeriodoController {
                         }
                     }
                 }
-            }
+            }*/
         }
 
-        Map<String, List<EventoForense>> tlForense = new HashMap<>();
+        /*Map<String, List<EventoForense>> tlForense = new HashMap<>();
         for (Map.Entry<String, List<long[]>> entry : timelineGlobal.entrySet()) {
             List<EventoForense> lista = new ArrayList<>();
             for (long[] ev : entry.getValue()) lista.add(new EventoForense(ev[0], (int)ev[1], "HISTORICO"));
@@ -855,7 +855,7 @@ public class SimulacionPeriodoController {
                     return rc;
                 }
             }
-        }
+        }*/
         return rc;
     }
 
