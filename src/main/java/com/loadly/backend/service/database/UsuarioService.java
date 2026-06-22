@@ -20,15 +20,16 @@ public class UsuarioService {
      * Obtiene todos los usuarios
      */
     public List<UsuarioDTO> obtenerTodos() {
-        String sql = "SELECT idCliente, nombre, rol, contacto FROM usuario";
+        String sql = "SELECT idCliente, nombre, rol, contacto, correo, password, aeropuerto_IdAeropuerto FROM usuario";
         
         return databaseManager.getPrimaryDb().query(sql, (rs, rowNum) -> new UsuarioDTO(
             rs.getInt("idCliente"),
             rs.getString("nombre"),
             rs.getString("rol"),
             rs.getString("contacto"),
-            rs.getString("password") // Aunque no se exponga, se puede mapear para autenticación
-
+            rs.getString("correo"),
+            rs.getString("password"),
+            rs.getObject("aeropuerto_IdAeropuerto", Integer.class)
         ));
     }
 
@@ -36,7 +37,7 @@ public class UsuarioService {
      * Obtiene un usuario por ID
      */
     public UsuarioDTO obtenerPorId(Integer id) {
-        String sql = "SELECT idCliente, nombre, rol, contacto FROM usuario WHERE idCliente = ?";
+        String sql = "SELECT idCliente, nombre, rol, contacto, correo, password, aeropuerto_IdAeropuerto FROM usuario WHERE idCliente = ?";
         
         try {
             return databaseManager.getPrimaryDb().queryForObject(sql, new Object[]{id}, (rs, rowNum) -> new UsuarioDTO(
@@ -44,7 +45,9 @@ public class UsuarioService {
                 rs.getString("nombre"),
                 rs.getString("rol"),
                 rs.getString("contacto"),
-                rs.getString("password") // Aunque no se exponga, se puede mapear para autenticación
+                rs.getString("correo"),
+                rs.getString("password"),
+                rs.getObject("aeropuerto_IdAeropuerto", Integer.class)
             ));
         } catch (Exception e) {
             return null;
@@ -55,14 +58,16 @@ public class UsuarioService {
      * Obtiene usuarios por rol
      */
     public List<UsuarioDTO> obtenerPorRol(String rol) {
-        String sql = "SELECT idCliente, nombre, rol, contacto FROM usuario WHERE rol = ?";
+        String sql = "SELECT idCliente, nombre, rol, contacto, correo, password, aeropuerto_IdAeropuerto FROM usuario WHERE rol = ?";
         
         return databaseManager.getPrimaryDb().query(sql, new Object[]{rol}, (rs, rowNum) -> new UsuarioDTO(
             rs.getInt("idCliente"),
             rs.getString("nombre"),
             rs.getString("rol"),
             rs.getString("contacto"),
-            rs.getString("password") // Aunque no se exponga, se puede mapear para autenticación
+            rs.getString("correo"),
+            rs.getString("password"),
+            rs.getObject("aeropuerto_IdAeropuerto", Integer.class)
         ));
     }
 
@@ -75,10 +80,31 @@ public class UsuarioService {
     }
 
     /**
+     * Obtiene un usuario por correo
+     */
+    public UsuarioDTO obtenerPorCorreo(String correo) {
+        String sql = "SELECT idCliente, nombre, rol, contacto, correo, password, aeropuerto_IdAeropuerto FROM usuario WHERE correo = ?";
+
+        try {
+            return databaseManager.getPrimaryDb().queryForObject(sql, new Object[]{correo}, (rs, rowNum) -> new UsuarioDTO(
+                rs.getInt("idCliente"),
+                rs.getString("nombre"),
+                rs.getString("rol"),
+                rs.getString("contacto"),
+                rs.getString("correo"),
+                rs.getString("password"),
+                rs.getObject("aeropuerto_IdAeropuerto", Integer.class)
+            ));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
      * Obtiene un usuario por contacto (username)
      */
     public UsuarioDTO obtenerPorContacto(String contacto) {
-        String sql = "SELECT idCliente, nombre, rol, contacto, password FROM usuario WHERE contacto = ?";
+        String sql = "SELECT idCliente, nombre, rol, contacto, correo, password, aeropuerto_IdAeropuerto FROM usuario WHERE contacto = ?";
         
         try {
             return databaseManager.getPrimaryDb().queryForObject(sql, new Object[]{contacto}, (rs, rowNum) -> new UsuarioDTO(
@@ -86,7 +112,9 @@ public class UsuarioService {
                 rs.getString("nombre"),
                 rs.getString("rol"),
                 rs.getString("contacto"),
-                rs.getString("password")
+                rs.getString("correo"),
+                rs.getString("password"),
+                rs.getObject("aeropuerto_IdAeropuerto", Integer.class)
             ));
         } catch (Exception e) {
             return null;
