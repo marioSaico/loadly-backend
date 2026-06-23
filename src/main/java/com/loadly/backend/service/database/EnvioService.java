@@ -84,7 +84,7 @@ public class EnvioService {
         String sql = "SELECT e.idArchivo, e.fechaRegistro, e.fechaLimiteEntrega, e.idAeropuertoOrigen, e.idAeropuertoDestino, e.cantidadMaletas, e.cliente_idCliente, e.planificado " +
                 "FROM envio e " +
                 "JOIN aeropuerto a ON e.idAeropuertoOrigen = a.IdAeropuerto " +
-                "WHERE e.planificado = 0 AND DATE_SUB(e.fechaRegistro, INTERVAL a.gmt HOUR) < ? " +
+                "WHERE e.planificado = 0 AND e.fechaRegistro < ? " +
                 "ORDER BY e.fechaRegistro ASC";
 
         return databaseManager.getPrimaryDb().query(sql, new Object[]{ hasta}, (rs, rowNum) -> new EnvioDTO(

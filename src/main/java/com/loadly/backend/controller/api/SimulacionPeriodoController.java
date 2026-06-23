@@ -19,6 +19,7 @@ import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -37,7 +38,7 @@ public class SimulacionPeriodoController {
     private volatile boolean simulacionDetenida = false;
     private volatile boolean simulacionPausada  = false;
     
-    private volatile SseEmitter emitterActivo = null;
+    private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
     private final Map<String, List<long[]>> timelineAlmacenesGlobal = new HashMap<>();
     private final Map<String, Integer> ocupacionVuelosGlobal = new HashMap<>();
 
@@ -46,6 +47,7 @@ public class SimulacionPeriodoController {
     private final AeropuertoService aeropuertoService;
     private final PlanVueloService planVueloService;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private volatile boolean simulationStarted = false;
     
     private ResumenFinalDTO ultimoResumen = null;
 
@@ -66,31 +68,68 @@ public class SimulacionPeriodoController {
             @RequestParam(defaultValue = "120") int k,
             @RequestParam(defaultValue = "10") int tamano) {
 
-        // Detener cualquier simulación previa antes de empezar una nueva
-        simulacionDetenida = true;
-        simulacionPausada  = false;
-        SseEmitter old = this.emitterActivo;
-        if (old != null) {
-            try { old.complete(); } catch (Exception ignored) {}
-        }
-        this.emitterActivo = null;
-        // Esperar a que la tarea anterior detecte simulacionDetenida y termine
-        // (el flag se chequea cada ~500ms en las pausas del bucle de simulación)
-        try { Thread.sleep(2000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-
-        simulacionDetenida = false;
         SseEmitter emitter = new SseEmitter(0L);
-        this.emitterActivo = emitter;
+        emitter.onCompletion(() -> emitters.remove(emitter));
+        emitter.onTimeout(() -> emitters.remove(emitter));
+        emitter.onError(e -> emitters.remove(emitter));
 
-        executor.execute(() -> {
-            try {
-                ejecutarEscenario(emitter, inicioStr, finStr, taSegundos, sa, k, tamano);
-            } catch (Exception e) {
-                try { emitter.completeWithError(e); } catch (Exception ignored) {}
-            }
-        });
+        boolean periodoRestart = finStr != null && !finStr.isEmpty();
+
+        if (periodoRestart) {
+            // Periodo quiere reiniciar — detener simulación actual
+            simulacionDetenida = true;
+            simulacionPausada = false;
+            completeAllEmitters();
+            try { Thread.sleep(2000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            simulacionDetenida = false;
+            dataService.resetEstado();
+            simulationStarted = false;
+        }
+
+        emitters.add(emitter);
+
+        if (!simulationStarted) {
+            simulationStarted = true;
+            executor.execute(() -> {
+                try {
+                    ejecutarEscenario(inicioStr, finStr, taSegundos, sa, k, tamano);
+                } catch (Exception e) {
+                    completeAllEmittersWithError(e);
+                } finally {
+                    simulationStarted = false;
+                }
+            });
+        }
 
         return emitter;
+    }
+
+    private void broadcast(SimulacionEventDTO event) {
+        List<SseEmitter> deadEmitters = new ArrayList<>();
+        for (SseEmitter emitter : emitters) {
+            try {
+                emitter.send(event);
+            } catch (Exception e) {
+                deadEmitters.add(emitter);
+            }
+        }
+        if (!deadEmitters.isEmpty()) {
+            emitters.removeAll(deadEmitters);
+        }
+    }
+
+    private void completeAllEmitters() {
+        for (SseEmitter e : emitters) {
+            try { e.complete(); } catch (Exception ignored) {}
+        }
+        emitters.clear();
+    }
+
+    private void completeAllEmittersWithError(Exception error) {
+        for (SseEmitter e : emitters) {
+            try { e.completeWithError(error); } catch (Exception ignored) {}
+        }
+        emitters.clear();
     }
     @PostMapping("/periodo/pausar")
     public ResponseEntity<String> pausarSimulacion() {
@@ -107,9 +146,10 @@ public class SimulacionPeriodoController {
     @PostMapping("/periodo/detener")
     public ResponseEntity<String> detenerSimulacion() {
         simulacionDetenida = true;
-        simulacionPausada  = false; // por si estaba pausada
-        dataService.resetEstado(); // Limpiar estado para evitar que siga procesando datos
-        this.emitterActivo = null; // Evitar que se sigan enviando eventos
+        simulacionPausada  = false;
+        dataService.resetEstado();
+        completeAllEmitters();
+        simulationStarted = false;
         return ResponseEntity.ok("Simulación detenida");
     }
 
@@ -140,7 +180,7 @@ public class SimulacionPeriodoController {
 
                 limpiarTimelineDeRutasCanceladas(rutasAntes, clavesAfectadas, resultado.indicesAfectados);
 
-                if (emitterActivo != null) {
+                if (!emitters.isEmpty()) {
                     List<SimulacionEventDTO.EnvioAfectadoDTO> afectadosDTO = resultado.enviosAfectados.stream()
                         .map(e -> SimulacionEventDTO.EnvioAfectadoDTO.builder()
                             .idEnvio(e.getIdEnvio())
@@ -150,7 +190,7 @@ public class SimulacionPeriodoController {
                             .build())
                         .collect(Collectors.toList());
 
-                    emitterActivo.send(SimulacionEventDTO.builder()
+                    broadcast(SimulacionEventDTO.builder()
                         .tipo("CANCELACION")
                         .relojSimulado(relojSimuladoActual)
                         .vueloCancelado(claveVuelo)
@@ -247,7 +287,7 @@ public class SimulacionPeriodoController {
         eventos.removeIf(ev -> ev[0] == minuto && (int) ev[1] == delta);
     }
 
-    private void ejecutarEscenario(SseEmitter emitter, String inicioStr, String finStr, int taSegundos, int sa, int k, int tamano) throws Exception {
+    private void ejecutarEscenario(String inicioStr, String finStr, int taSegundos, int sa, int k, int tamano) throws Exception {
         
         // 1. CREAMOS LA BANDERA DE COLAPSO
         boolean esModoColapso = (inicioStr == null || inicioStr.trim().isEmpty());
@@ -297,11 +337,11 @@ public class SimulacionPeriodoController {
 
             // ── Chequeo detención ──────────────────────────────────────────
             if (simulacionDetenida) {
-                emitter.send(SimulacionEventDTO.builder()
+                broadcast(SimulacionEventDTO.builder()
                         .tipo("DETENIDA")
                         .relojSimulado(relojSimulado.format(FMT_LOG))
                         .build());
-                emitter.complete();
+                completeAllEmitters();
                 return;
             }
 
@@ -312,11 +352,11 @@ public class SimulacionPeriodoController {
             
             // Si mientras pausaba se pidió detener
             if (simulacionDetenida) {
-                emitter.send(SimulacionEventDTO.builder()
+                broadcast(SimulacionEventDTO.builder()
                         .tipo("DETENIDA")
                         .relojSimulado(relojSimulado.format(FMT_LOG))
                         .build());
-                emitter.complete();
+                completeAllEmitters();
                 return;
             }
 
@@ -353,7 +393,7 @@ public class SimulacionPeriodoController {
                 if (colapso.hayColapso()) {
                     colapsoDetectado = true;
                     colapsoFinal = colapso;
-                    enviarColapso(emitter, colapso, relojSimulado, limiteLecturaDatos);
+                    enviarColapso(colapso, relojSimulado, limiteLecturaDatos);
                 } else {
                     // ── Esperar hasta TA_MAX antes de enviar al frontend ───────────
                     long tiempoUsadoMs = System.currentTimeMillis() - iteracionInicioMs;
@@ -365,25 +405,24 @@ public class SimulacionPeriodoController {
                         
                         while (System.currentTimeMillis() < finEspera) {
                             if (simulacionDetenida) {
-                                emitter.send(SimulacionEventDTO.builder()
+                                broadcast(SimulacionEventDTO.builder()
                                         .tipo("DETENIDA")
                                         .relojSimulado(relojSimulado.format(FMT_LOG))
                                         .build());
-                                emitter.complete();
+                                completeAllEmitters();
                                 return;
                             }
                             if (simulacionPausada) {
-                                // Guarda cuánto falta y espera reanudación
                                 long tiempoFaltante = finEspera - System.currentTimeMillis();
                                 while (simulacionPausada && !simulacionDetenida) {
                                     Thread.sleep(500);
                                 }
                                 if (simulacionDetenida) {
-                                    emitter.send(SimulacionEventDTO.builder()
+                                    broadcast(SimulacionEventDTO.builder()
                                             .tipo("DETENIDA")
                                             .relojSimulado(relojSimulado.format(FMT_LOG))
                                             .build());
-                                    emitter.complete();
+                                    completeAllEmitters();
                                     return;
                                 }
                                 // Al reanudar, recalcula el fin con el tiempo que faltaba
@@ -394,7 +433,7 @@ public class SimulacionPeriodoController {
                     }
                     // ── Recién aquí se envía el bloque al frontend ─────────────────
                     System.out.printf("    Bloque planificado enviado a FRONTEND%n");
-                    enviarIteracion(emitter, resultado, dataService, timelineAlmacenesGlobal, ocupacionVuelosGlobal, relojSimulado, limiteLecturaDatos);
+                    enviarIteracion(resultado, dataService, timelineAlmacenesGlobal, ocupacionVuelosGlobal, relojSimulado, limiteLecturaDatos);
                 }
             }
 
@@ -428,11 +467,11 @@ public class SimulacionPeriodoController {
                         long finSa = System.currentTimeMillis() + tiempoEsperaMs;
                         while (System.currentTimeMillis() < finSa) {
                             if (simulacionDetenida) {
-                                emitter.send(SimulacionEventDTO.builder()
+                                broadcast(SimulacionEventDTO.builder()
                                         .tipo("DETENIDA")
                                         .relojSimulado(relojSimulado.format(FMT_LOG))
                                         .build());
-                                emitter.complete();
+                                completeAllEmitters();
                                 return;
                             }
                             if (simulacionPausada) {
@@ -441,11 +480,11 @@ public class SimulacionPeriodoController {
                                     Thread.sleep(500);
                                 }
                                 if (simulacionDetenida) {
-                                    emitter.send(SimulacionEventDTO.builder()
+                                    broadcast(SimulacionEventDTO.builder()
                                             .tipo("DETENIDA")
                                             .relojSimulado(relojSimulado.format(FMT_LOG))
                                             .build());
-                                    emitter.complete();
+                                    completeAllEmitters();
                                     return;
                                 }
                                 // Recalcula con el tiempo que faltaba
@@ -455,7 +494,7 @@ public class SimulacionPeriodoController {
                         }
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
-                        emitter.completeWithError(e);
+                        completeAllEmittersWithError(e);
                         return;
                     }
                 }
@@ -468,14 +507,13 @@ public class SimulacionPeriodoController {
         dataService.resetEstado();
         this.timelineAlmacenesGlobal.clear();
         this.ocupacionVuelosGlobal.clear();
-        this.emitterActivo = null;
-        emitter.complete(); 
+        completeAllEmitters(); 
     }
 
-    private void enviarIteracion(SseEmitter emitter, Individuo resultado, DataService dataService, 
+    private void enviarIteracion(Individuo resultado, DataService dataService, 
                                  Map<String, List<long[]>> timelineAlmacenesGlobal, 
                                  Map<String, Integer> ocupacionVuelosGlobal, 
-                                 LocalDateTime relojSimulado, LocalDateTime limiteLecturaDatos) throws Exception {
+                                 LocalDateTime relojSimulado, LocalDateTime limiteLecturaDatos) {
 
         List<Ruta> rutasOrdenadas = resultado.getRutas().stream()
                 .filter(r -> r.getEstado() == EstadoRuta.PLANIFICADA && r.getVuelos() != null && !r.getVuelos().isEmpty())
@@ -629,10 +667,10 @@ public class SimulacionPeriodoController {
                 .rutasPlanificadas(rutasDTO)
                 .build();
 
-        emitter.send(evento);
+        broadcast(evento);
     }
 
-    private void enviarColapso(SseEmitter emitter, ResultadoColapso colapso, LocalDateTime relojSimulado, LocalDateTime limiteLecturaDatos) throws Exception {
+    private void enviarColapso(ResultadoColapso colapso, LocalDateTime relojSimulado, LocalDateTime limiteLecturaDatos) {
         ColapsoDTO colapsoDTO = ColapsoDTO.builder()
                 .tipoError(colapso.getTipoError())
                 .idEnvioCausante(colapso.idEnvioCausante)
@@ -643,7 +681,7 @@ public class SimulacionPeriodoController {
                 .relojColapso(relojSimulado.format(FMT_LOG))
                 .build();
 
-        emitter.send(SimulacionEventDTO.builder()
+        broadcast(SimulacionEventDTO.builder()
                 .tipo("COLAPSO")
                 .relojSimulado(relojSimulado.format(FMT_LOG))
                 .limiteLectura(limiteLecturaDatos.format(FMT_LOG))
