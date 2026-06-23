@@ -69,6 +69,7 @@ public class AuthController {
                     aeropuertoInfo.put("ciudad", aeropuerto.getCiudad());
                     aeropuertoInfo.put("pais", aeropuerto.getPais());
                     aeropuertoInfo.put("abreviatura", aeropuerto.getAbreviatura());
+                    aeropuertoInfo.put("gmt", aeropuerto.getGmt());
                     datos.put("aeropuerto", aeropuertoInfo);
                 }
             }

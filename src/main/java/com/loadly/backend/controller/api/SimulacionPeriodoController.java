@@ -66,9 +66,19 @@ public class SimulacionPeriodoController {
             @RequestParam(defaultValue = "120") int k,
             @RequestParam(defaultValue = "10") int tamano) {
 
-        simulacionDetenida = false;
+        // Detener cualquier simulación previa antes de empezar una nueva
+        simulacionDetenida = true;
         simulacionPausada  = false;
+        SseEmitter old = this.emitterActivo;
+        if (old != null) {
+            try { old.complete(); } catch (Exception ignored) {}
+        }
+        this.emitterActivo = null;
+        // Esperar a que la tarea anterior detecte simulacionDetenida y termine
+        // (el flag se chequea cada ~500ms en las pausas del bucle de simulación)
+        try { Thread.sleep(2000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
 
+        simulacionDetenida = false;
         SseEmitter emitter = new SseEmitter(0L);
         this.emitterActivo = emitter;
 
@@ -76,7 +86,7 @@ public class SimulacionPeriodoController {
             try {
                 ejecutarEscenario(emitter, inicioStr, finStr, taSegundos, sa, k, tamano);
             } catch (Exception e) {
-                emitter.completeWithError(e);
+                try { emitter.completeWithError(e); } catch (Exception ignored) {}
             }
         });
 
