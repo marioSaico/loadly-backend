@@ -21,7 +21,7 @@ import java.util.*;
 public class BuscadorRutas {
 
     private static final int  TIEMPO_MINIMO_ESCALA  = 10;  // minutos
-    private static final int  TIEMPO_RECOJO_DESTINO = 10;  // minutos
+    private static final int  TIEMPO_RECOJO_DESTINO = 15;  // minutos
     private static final long MARGEN_BEST_G_MINUTOS = 120; // margen de exploración
 
     // =========================================================================
