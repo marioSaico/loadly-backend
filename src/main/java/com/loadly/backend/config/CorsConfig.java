@@ -19,8 +19,8 @@ public class CorsConfig {
         // En producción, especifica tu dominio: "http://1inf54-981-5e.inf.pucp.edu.pe"
         configuration.setAllowedOrigins(Arrays.asList(
             "http://localhost:3000",
-            "http://200.16.7.145:3000",
-            "http://1inf54-981-5e.inf.pucp.edu.pe:3000"
+            "http://200.16.7.145",
+            "http://1inf54-981-5e.inf.pucp.edu.pe"
         ));
         
         // Permitir métodos HTTP necesarios
