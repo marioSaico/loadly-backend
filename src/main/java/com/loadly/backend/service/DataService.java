@@ -744,6 +744,8 @@ public class DataService {
     // =========================================================================
  
     public void resetEstado() {
+        this.capacidadDinamicaAlmacenes = this.capacidadDinamicaAlmacenes != null ? this.capacidadDinamicaAlmacenes : new HashMap<>();
+        this.capacidadDinamicaVuelos = this.capacidadDinamicaVuelos != null ? this.capacidadDinamicaVuelos : new HashMap<>();
         this.capacidadDinamicaAlmacenes.clear();
         this.capacidadDinamicaVuelos.clear();
         this.enviosEnEspera.clear();
