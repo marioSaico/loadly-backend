@@ -37,7 +37,9 @@ public class SimulacionPeriodoController {
 
     private volatile boolean simulacionDetenida = false;
     private volatile boolean simulacionPausada  = false;
-    
+    private volatile boolean NecesitaReiniciar  = false;
+    private volatile boolean InicioConDia_Dia  = false;
+
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
     private final Map<String, List<long[]>> timelineAlmacenesGlobal = new HashMap<>();
     private final Map<String, Integer> ocupacionVuelosGlobal = new HashMap<>();
@@ -75,7 +77,22 @@ public class SimulacionPeriodoController {
 
         boolean periodoRestart = finStr != null && !finStr.isEmpty();
 
-        if (periodoRestart) {
+        if (periodoRestart && NecesitaReiniciar || periodoRestart && InicioConDia_Dia) {
+            simulationStarted = true;
+            NecesitaReiniciar = false;
+            InicioConDia_Dia = false;
+        }
+
+        if (k == 1 && simulacionDetenida) {
+            simulacionDetenida = false;
+            simulacionPausada  = false;
+            NecesitaReiniciar = true;
+        }
+        else{
+            InicioConDia_Dia = true;
+        }
+
+        if (periodoRestart && simulationStarted) {
             // Periodo quiere reiniciar — detener simulación actual
             simulacionDetenida = true;
             simulacionPausada = false;
