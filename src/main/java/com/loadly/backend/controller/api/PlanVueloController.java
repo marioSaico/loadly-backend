@@ -70,6 +70,37 @@ public class PlanVueloController {
     }
 
     /**
+     * DELETE /api/planes-vuelo/{id} - Elimina un plan de vuelo por ID
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ResponseDTO<String>> eliminarPorId(@PathVariable Integer id) {
+        try {
+            boolean eliminado = planVueloService.eliminarPorId(id);
+            if (eliminado) {
+                return ResponseEntity.ok(new ResponseDTO<>(true, "Plan de vuelo eliminado correctamente", null));
+            }
+            return ResponseEntity.ok(new ResponseDTO<>(false, "Plan de vuelo no encontrado", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(new ResponseDTO<>(false, "Error al eliminar plan de vuelo: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * DELETE /api/planes-vuelo - Elimina todos los planes de vuelo
+     */
+    @DeleteMapping
+    public ResponseEntity<ResponseDTO<String>> eliminarTodos() {
+        try {
+            int eliminados = planVueloService.eliminarTodos();
+            return ResponseEntity.ok(new ResponseDTO<>(true, "Se eliminaron correctamente " + eliminados + " planes de vuelo", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(new ResponseDTO<>(false, "Error al eliminar planes de vuelo: " + e.getMessage()));
+        }
+    }
+
+    /**
      * POST /api/planes-vuelo/cargar-masiva - Carga planes de vuelo desde archivo TXT
      */
     @PostMapping("/cargar-masiva")

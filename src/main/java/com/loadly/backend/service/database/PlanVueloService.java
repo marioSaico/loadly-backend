@@ -67,6 +67,23 @@ public class PlanVueloService {
     }
 
     /**
+     * Elimina un plan de vuelo por ID
+     */
+    public boolean eliminarPorId(Integer id) {
+        String sql = "DELETE FROM plan_vuelo WHERE id_plan_vuelo = ?";
+        int filas = databaseManager.getPrimaryDb().update(sql, id);
+        return filas > 0;
+    }
+
+    /**
+     * Elimina todos los planes de vuelo
+     */
+    public int eliminarTodos() {
+        String sql = "DELETE FROM plan_vuelo";
+        return databaseManager.getPrimaryDb().update(sql);
+    }
+
+    /**
      * Carga planes de vuelo desde archivo TXT
      * Formato: ORIGEN-DESTINO-SALIDA-LLEGADA-CAPACIDAD
      * Ejemplo: SKBO-SEQM-03:34-04:21-0300
