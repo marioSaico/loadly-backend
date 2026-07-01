@@ -183,7 +183,7 @@ public class EnvioLoader {
         envio.setCantidadMaletas(dto.getCantidadMaletas());
         envio.setIdCliente(String.valueOf(dto.getClienteIdCliente()));
         envio.setPlanificado(Boolean.TRUE.equals(dto.getPlanificado()));
-        envio.setTiempoRegistroGMT(dto.getFechaRegistro());
+        envio.setTiempoRegistroGMT(dto.getFechaRegistro().minusHours(origen.getGmt()));
         return envio;
     }
 
