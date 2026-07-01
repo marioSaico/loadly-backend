@@ -26,8 +26,8 @@ public class EnvioService {
         
         return databaseManager.getPrimaryDb().query(sql, (rs, rowNum) -> new EnvioDTO(
             rs.getString("idEnvio"),
-            rs.getTimestamp("fechaRegistro") != null ? rs.getTimestamp("fechaRegistro").toLocalDateTime() : null,
-            rs.getTimestamp("fechaLimiteEntrega") != null ? rs.getTimestamp("fechaLimiteEntrega").toLocalDateTime() : null,
+            rs.getObject("fechaRegistro", LocalDateTime.class),
+            rs.getObject("fechaLimiteEntrega", LocalDateTime.class),
             rs.getInt("idAeropuertoOrigen"),
             rs.getInt("idAeropuertoDestino"),
             rs.getInt("cantidadMaletas"),
@@ -46,8 +46,8 @@ public class EnvioService {
         try {
             return databaseManager.getPrimaryDb().queryForObject(sql, new Object[]{Integer.parseInt(idEnvio)}, (rs, rowNum) -> new EnvioDTO(
                 String.valueOf(rs.getInt("idArchivo")),
-                rs.getTimestamp("fechaRegistro") != null ? rs.getTimestamp("fechaRegistro").toLocalDateTime() : null,
-                rs.getTimestamp("fechaLimiteEntrega") != null ? rs.getTimestamp("fechaLimiteEntrega").toLocalDateTime() : null,
+                rs.getObject("fechaRegistro", LocalDateTime.class),
+                rs.getObject("fechaLimiteEntrega", LocalDateTime.class),
                 rs.getInt("idAeropuertoOrigen"),
                 rs.getInt("idAeropuertoDestino"),
                 rs.getInt("cantidadMaletas"),
@@ -68,8 +68,8 @@ public class EnvioService {
         
         return databaseManager.getPrimaryDb().query(sql, new Object[]{planificado}, (rs, rowNum) -> new EnvioDTO(
             String.valueOf(rs.getInt("idArchivo")),
-            rs.getTimestamp("fechaRegistro") != null ? rs.getTimestamp("fechaRegistro").toLocalDateTime() : null,
-            rs.getTimestamp("fechaLimiteEntrega") != null ? rs.getTimestamp("fechaLimiteEntrega").toLocalDateTime() : null,
+            rs.getObject("fechaRegistro", LocalDateTime.class),
+            rs.getObject("fechaLimiteEntrega", LocalDateTime.class),
             rs.getInt("idAeropuertoOrigen"),
             rs.getInt("idAeropuertoDestino"),
             rs.getInt("cantidadMaletas"),
@@ -89,8 +89,8 @@ public class EnvioService {
 
         return databaseManager.getPrimaryDb().query(sql, new Object[]{ hasta}, (rs, rowNum) -> new EnvioDTO(
             String.valueOf(rs.getInt("idArchivo")),
-            rs.getTimestamp("fechaRegistro") != null ? rs.getTimestamp("fechaRegistro").toLocalDateTime() : null,
-            rs.getTimestamp("fechaLimiteEntrega") != null ? rs.getTimestamp("fechaLimiteEntrega").toLocalDateTime() : null,
+            rs.getObject("fechaRegistro", LocalDateTime.class),
+            rs.getObject("fechaLimiteEntrega", LocalDateTime.class),
             rs.getInt("idAeropuertoOrigen"),
             rs.getInt("idAeropuertoDestino"),
             rs.getInt("cantidadMaletas"),
