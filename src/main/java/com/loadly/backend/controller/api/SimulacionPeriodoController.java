@@ -191,8 +191,7 @@ public class SimulacionPeriodoController {
 
             if (!resultado.enviosAfectados.isEmpty()) {
                 Set<String> clavesAfectadas = resultado.enviosAfectados.stream()
-                    .map(e -> e.getIdEnvio() + "|" + e.getIdCliente() + "|"
-                            + e.getAeropuertoOrigen() + "|" + e.getAeropuertoDestino())
+                    .map(Envio::getClaveUnica)   // ya incluye "|L0", "|L1", etc.
                     .collect(Collectors.toSet());
 
                 limpiarTimelineDeRutasCanceladas(rutasAntes, clavesAfectadas, resultado.indicesAfectados);
@@ -201,6 +200,7 @@ public class SimulacionPeriodoController {
                     List<SimulacionEventDTO.EnvioAfectadoDTO> afectadosDTO = resultado.enviosAfectados.stream()
                         .map(e -> SimulacionEventDTO.EnvioAfectadoDTO.builder()
                             .idEnvio(e.getIdEnvio())
+                            .numeroLote(e.getNumeroLote())
                             .idCliente(e.getIdCliente())
                             .origen(e.getAeropuertoOrigen())
                             .destino(e.getAeropuertoDestino())
@@ -232,8 +232,7 @@ public class SimulacionPeriodoController {
         
         for (Ruta ruta : rutasAntes) {
             Envio envio = ruta.getEnvio();
-            String claveEnvio = envio.getIdEnvio() + "|" + envio.getIdCliente() + "|"
-                            + envio.getAeropuertoOrigen() + "|" + envio.getAeropuertoDestino();
+            String claveEnvio = envio.getClaveUnica();
             if (!clavesAfectadas.contains(claveEnvio)) continue;
             if (ruta.getEstado() != EstadoRuta.PLANIFICADA || ruta.getVuelos() == null) continue;
 
@@ -292,7 +291,7 @@ public class SimulacionPeriodoController {
 
             // Recojo en destino final siempre se quita
             quitarEventoTimeline(timelineAlmacenesGlobal,
-                envio.getAeropuertoDestino(), cursor.plusMinutes(10), -envio.getCantidadMaletas());
+                envio.getAeropuertoDestino(), cursor.plusMinutes(15), -envio.getCantidadMaletas());
         }
     }
 
@@ -659,6 +658,7 @@ public class SimulacionPeriodoController {
 
             rutasDTO.add(RutaPlanificadaDTO.builder()
                     .idEnvio(envio.getIdEnvio())
+                    .numeroLote(envio.getNumeroLote())   // null si no fue dividido
                     .idCliente(envio.getIdCliente())
                     .origen(envio.getAeropuertoOrigen())
                     .destino(envio.getAeropuertoDestino())
@@ -819,7 +819,8 @@ public class SimulacionPeriodoController {
         for (Ruta r : res.getRutas()) {
             Envio env = r.getEnvio();
             if (r.getEstado() == EstadoRuta.INALCANZABLE) {
-                rc.topologico = true; rc.idEnvioCausante = env.getIdEnvio();
+                rc.topologico = true; 
+                rc.idEnvioCausante = env.getIdEnvio() + (env.getNumeroLote() != null ? " (lote " + env.getNumeroLote() + ")" : "");
                 rc.rutaCausante = env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino();
                 rc.maletasCausantes = env.getCantidadMaletas();
                 rc.detalle = "No existe conexión física o vuelos factibles para llegar de " + env.getAeropuertoOrigen() + " a " + env.getAeropuertoDestino();
@@ -827,7 +828,7 @@ public class SimulacionPeriodoController {
             } 
             else if (r.getEstado() == EstadoRuta.SIN_RUTA) {
                 rc.porRutaNoEncontrada = true; 
-                rc.idEnvioCausante = env.getIdEnvio();
+                rc.idEnvioCausante = env.getIdEnvio() + (env.getNumeroLote() != null ? " (lote " + env.getNumeroLote() + ")" : "");
                 rc.rutaCausante = env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino();
                 rc.maletasCausantes = env.getCantidadMaletas();
                 rc.detalle = "No se encontró una solución que respete los límites de tiempo y capacidad.";

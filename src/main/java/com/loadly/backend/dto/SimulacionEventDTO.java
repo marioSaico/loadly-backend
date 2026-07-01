@@ -28,6 +28,7 @@ public class SimulacionEventDTO {
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class EnvioAfectadoDTO {
         private String idEnvio;
+        private Integer numeroLote;
         private String idCliente;
         private String origen;
         private String destino;
@@ -37,6 +38,7 @@ public class SimulacionEventDTO {
     public static class RutaPlanificadaDTO {
         private String idEnvio;
         private String idCliente;
+        private Integer numeroLote; // null si no fue dividido, 0, 1, 2... si fue dividido
         private String origen;
         private String destino;
         private int maletas;
