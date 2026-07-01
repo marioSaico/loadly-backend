@@ -493,8 +493,7 @@ public class DataService {
             envio.setAeropuertoReplanificacionDesde(aeropuertoDesde);
             envio.setPlanificado(false);
 
-            String claveEnvio = envio.getIdEnvio() + "|" + envio.getIdCliente() + "|"
-                  + envio.getAeropuertoOrigen() + "|" + envio.getAeropuertoDestino();
+            String claveEnvio = envio.getClaveUnica(); // incluye el lote, evita colisiones entre pedazos
             indicesAfectados.put(claveEnvio, indiceAfectado);
             colaReplanificacion.add(envio);
             rutasAEliminarDelHistorico.add(ruta);
@@ -563,11 +562,13 @@ public class DataService {
                                                      String fechaHoraReloj) {
         LocalDateTime relojActual = LocalDateTime.parse(fechaHoraReloj, FORMATO_RELOJ);
         List<Envio> enviosPlanificadosEnEstaRonda = new ArrayList<>();
- 
+        Map<String, Integer> maletasCubiertasPorEnvio = new HashMap<>();
+        
         for (Ruta ruta : mejorPlan.getRutas()) {
             if (ruta.getEstado() != EstadoRuta.PLANIFICADA) continue;
  
             Envio envio = ruta.getEnvio();
+            maletasCubiertasPorEnvio.merge(envio.getClaveBase(), envio.getCantidadMaletas(), Integer::sum);
             enviosPlanificadosEnEstaRonda.add(envio);
             rutasPlanificadasHistorico.add(ruta);
  
@@ -685,9 +686,23 @@ public class DataService {
             }
         }
  
-        // Eliminar del backlog los envíos que consiguieron ruta
-        this.enviosEnEspera.removeIf(enviosPlanificadosEnEstaRonda::contains);
-        this.colaReplanificacion.removeIf(enviosPlanificadosEnEstaRonda::contains);
+        Set<String> clavesTocadas = new HashSet<>();
+        for (Ruta ruta : mejorPlan.getRutas()) clavesTocadas.add(ruta.getEnvio().getClaveBase());
+
+        for (String clave : clavesTocadas) {
+            Envio original = buscarPorClaveBase(clave); // en enviosEnEspera o colaReplanificacion
+            if (original == null) continue;
+
+            int cubiertas = maletasCubiertasPorEnvio.getOrDefault(clave, 0);
+            if (cubiertas >= original.getCantidadMaletas()) {
+                enviosEnEspera.remove(original);
+                colaReplanificacion.remove(original);
+            } else if (cubiertas > 0) {
+                // Cubierto a medias: se reduce lo pendiente y se reintenta el resto en la siguiente iteración
+                original.setCantidadMaletas(original.getCantidadMaletas() - cubiertas);
+            }
+            // si cubiertas == 0, el envío se queda igual en el backlog, como hoy
+        }
         
         logMemoria("Planificación Finalizada");
     }
@@ -845,6 +860,12 @@ public class DataService {
  
     private String claveVuelo(PlanVuelo vuelo) {
         return vuelo.getOrigen() + "-" + vuelo.getDestino() + "-" + vuelo.getHoraSalida();
+    }
+
+    private Envio buscarPorClaveBase(String clave) {
+        for (Envio e : enviosEnEspera) if (e.getClaveBase().equals(clave)) return e;
+        for (Envio e : colaReplanificacion) if (e.getClaveBase().equals(clave)) return e;
+        return null;
     }
  
     // =========================================================================

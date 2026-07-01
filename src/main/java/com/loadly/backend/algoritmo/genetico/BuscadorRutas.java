@@ -23,6 +23,7 @@ public class BuscadorRutas {
     private static final int  TIEMPO_MINIMO_ESCALA  = 10;  // minutos
     private static final int  TIEMPO_RECOJO_DESTINO = 15;  // minutos
     private static final long MARGEN_BEST_G_MINUTOS = 120; // margen de exploración
+    private static final int MAX_PROFUNDIDAD_DIVISION = 6; // tope de seguridad
 
     // =========================================================================
     // NODO INTERNO DEL A*
@@ -243,6 +244,101 @@ public class BuscadorRutas {
         ruta.setTiempoTotalMinutos(0);
         ruta.setEstado(EstadoRuta.INALCANZABLE);
         return ruta;
+    }
+
+    /**
+     * Intenta una ruta única con la cantidad completa (comportamiento actual).
+     * Si no cabe en ningún vuelo/ruta, divide el envío en lotes y busca ruta
+     * independiente para cada uno (pueden tomar caminos distintos).
+     */
+    public List<Ruta> buscarRutasConDivision(
+            Envio envio,
+            List<PlanVuelo>              vuelosDisponibles,
+            Map<String, List<PlanVuelo>> mapaVuelosPorOrigen,
+            Map<String, Aeropuerto>      mapaAeropuertos,
+            Map<String, Integer>         capVuelos,
+            Map<String, Integer>         capAlmacenes,
+            Random random,
+            double factorDiversidadMax) {
+
+        Ruta rutaCompleta = buscarRuta(envio, vuelosDisponibles, mapaVuelosPorOrigen,
+                mapaAeropuertos, capVuelos, capAlmacenes, random, factorDiversidadMax);
+
+        if (rutaCompleta.getEstado() == EstadoRuta.PLANIFICADA || rutaCompleta.getEstado() == EstadoRuta.SIN_RUTA) {
+            return new ArrayList<>(List.of(rutaCompleta)); // caso normal, sin dividir
+        }
+
+        // Una sola maleta no se puede dividir más: el intento ya falló arriba,
+        // no tiene sentido reintentarlo. Se queda como falló, SIN marcar numeroLote
+        // (no hubo división real, fue un intento único que no encontró ruta).
+        if (envio.getCantidadMaletas() <= 1) {
+            return new ArrayList<>(List.of(rutaCompleta));
+        }
+
+        List<Ruta> resultado = new ArrayList<>();
+        dividirYBuscar(envio, envio.getCantidadMaletas(), 0,
+                vuelosDisponibles, mapaVuelosPorOrigen, mapaAeropuertos,
+                capVuelos, capAlmacenes, random, factorDiversidadMax, resultado);
+
+        // Solo numerar si REALMENTE se partió en más de un pedazo.
+        if (resultado.size() > 1) {
+            for (int i = 0; i < resultado.size(); i++) {
+                resultado.get(i).getEnvio().setNumeroLote(i + 1);
+            }
+        }
+
+        return resultado;
+    }
+
+    private void dividirYBuscar(
+            Envio envioOriginal, int cantidad, int profundidad,
+            List<PlanVuelo> vuelosDisponibles, Map<String, List<PlanVuelo>> mapaVuelosPorOrigen,
+            Map<String, Aeropuerto> mapaAeropuertos,
+            Map<String, Integer> capVuelos, Map<String, Integer> capAlmacenes,
+            Random random, double factorDiversidadMax, List<Ruta> resultado) {
+
+        if (cantidad <= 0) return;
+
+        Envio lote = clonarComoLote(envioOriginal, cantidad);
+        Ruta ruta = buscarRuta(lote, vuelosDisponibles, mapaVuelosPorOrigen, mapaAeropuertos,
+                capVuelos, capAlmacenes, random, factorDiversidadMax);
+
+        // Cupo completo en este lote (o ya no se puede dividir más) → se acepta tal cual,
+        // aunque haya quedado SIN_RUTA/INALCANZABLE (el Fitness lo penalizará).
+        if (ruta.getEstado() == EstadoRuta.PLANIFICADA
+                || cantidad == 1
+                || profundidad >= MAX_PROFUNDIDAD_DIVISION) {
+            resultado.add(ruta);
+            return;
+        }
+
+        // No cupo entero → partir en 2 mitades y reintentar cada una por separado
+        int mitad1 = cantidad / 2;
+        int mitad2 = cantidad - mitad1;
+
+        dividirYBuscar(envioOriginal, mitad1, profundidad + 1,
+                vuelosDisponibles, mapaVuelosPorOrigen, mapaAeropuertos,
+                capVuelos, capAlmacenes, random, factorDiversidadMax, resultado);
+        dividirYBuscar(envioOriginal, mitad2, profundidad + 1,
+                vuelosDisponibles, mapaVuelosPorOrigen, mapaAeropuertos,
+                capVuelos, capAlmacenes, random, factorDiversidadMax, resultado);
+    }
+
+    private Envio clonarComoLote(Envio original, int cantidad) {
+        Envio lote = new Envio();
+        lote.setIdEnvio(original.getIdEnvio());
+        lote.setFechaRegistro(original.getFechaRegistro());
+        lote.setHoraRegistro(original.getHoraRegistro());
+        lote.setMinutoRegistro(original.getMinutoRegistro());
+        lote.setAeropuertoOrigen(original.getAeropuertoOrigen());
+        lote.setAeropuertoDestino(original.getAeropuertoDestino());
+        lote.setIdCliente(original.getIdCliente());
+        lote.setCantidadMaletas(cantidad);
+        lote.setTiempoRegistroGMT(original.getTiempoRegistroGMT());
+        lote.setSlaRestanteMinutos(original.getSlaRestanteMinutos());
+        lote.setAeropuertoReplanificacionDesde(original.getAeropuertoReplanificacionDesde());
+        lote.setHoraDisponibleReplanificacion(original.getHoraDisponibleReplanificacion());
+        return lote;
     }
 
     // =========================================================================

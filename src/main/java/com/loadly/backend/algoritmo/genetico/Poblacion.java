@@ -43,7 +43,7 @@ public class Poblacion {
 
             List<Ruta> rutas = new ArrayList<>();
             for (Envio envio : envios) {
-                Ruta ruta = buscadorRutas.buscarRuta(
+                List<Ruta> rutasEnvio = buscadorRutas.buscarRutasConDivision(
                     envio,
                     vuelos,          // Lista completa de vuelos (modo inicialización)
                     null,            // mapaVuelosPorOrigen no se usa aquí
@@ -53,7 +53,7 @@ public class Poblacion {
                     random,
                     FACTOR_DIVERSIDAD_INIT
                 );
-                rutas.add(ruta);
+                rutas.addAll(rutasEnvio);
             }
             individuos.add(new Individuo(rutas));
         }
