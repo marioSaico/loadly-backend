@@ -523,6 +523,18 @@ public class SimulacionPeriodoController {
         dataService.resetEstado();
         this.timelineAlmacenesGlobal.clear();
         this.ocupacionVuelosGlobal.clear();
+
+        if (this.ultimoResumen != null) {
+            SimulacionEventDTO eventoFinal = SimulacionEventDTO.builder()
+                    .tipo("RESUMEN_FINAL")
+                    .relojSimulado(relojSimulado.format(FMT_LOG))
+                    .resumenFinal(this.ultimoResumen)
+                    .build();
+            broadcast(eventoFinal);
+            // Pequeña pausa para asegurar entrega
+            try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+        }
+
         completeAllEmitters(); 
     }
 
