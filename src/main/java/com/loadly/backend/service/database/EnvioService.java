@@ -22,7 +22,7 @@ public class EnvioService {
      * Obtiene todos los envíos
      */
     public List<EnvioDTO> obtenerTodos() {
-        String sql = "SELECT idEnvio, fechaRegistro, fechaLimiteEntrega, idAeropuertoOrigen, idAeropuertoDestino, cantidadMaletas, cliente_idCliente, planificado FROM envio";
+        String sql = "SELECT idEnvio, fechaRegistro, fechaLimiteEntrega, idAeropuertoOrigen, idAeropuertoDestino, cantidadMaletas, cliente_idCliente, planificado, idArchivo FROM envio";
         
         return databaseManager.getPrimaryDb().query(sql, (rs, rowNum) -> new EnvioDTO(
             rs.getString("idEnvio"),
