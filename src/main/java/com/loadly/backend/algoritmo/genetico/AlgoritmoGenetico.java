@@ -152,14 +152,28 @@ public class AlgoritmoGenetico {
      * del padre1 o del padre2.
      */
     private Individuo cruzar(Individuo padre1, Individuo padre2, Random random) {
+        Map<String, List<Ruta>> gruposP1 = agruparPorEnvio(padre1);
+        Map<String, List<Ruta>> gruposP2 = agruparPorEnvio(padre2);
+
         List<Ruta> rutasHijo = new ArrayList<>();
-        for (int i = 0; i < padre1.getRutas().size(); i++) {
-            Ruta rutaElegida = random.nextBoolean()
-                    ? padre1.getRutas().get(i)
-                    : padre2.getRutas().get(i);
-            rutasHijo.add(copiarRuta(rutaElegida));
+        // Las claves (envíos base) son las mismas en ambos padres: provienen
+        // de la misma lista original de envíos, solo cambia cuántos lotes tiene cada uno.
+        for (String clave : gruposP1.keySet()) {
+            List<Ruta> grupoElegido = random.nextBoolean() ? gruposP1.get(clave) : gruposP2.get(clave);
+            for (Ruta r : grupoElegido) {
+                rutasHijo.add(copiarRuta(r));
+            }
         }
         return new Individuo(rutasHijo);
+    }
+
+    /** Agrupa las rutas de un individuo por envío original (ignora el lote). */
+    private Map<String, List<Ruta>> agruparPorEnvio(Individuo individuo) {
+        Map<String, List<Ruta>> grupos = new LinkedHashMap<>();
+        for (Ruta r : individuo.getRutas()) {
+            grupos.computeIfAbsent(r.getEnvio().getClaveBase(), k -> new ArrayList<>()).add(r);
+        }
+        return grupos;
     }
 
     // =========================================================================

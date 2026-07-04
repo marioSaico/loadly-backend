@@ -23,5 +23,17 @@ public class Envio {
     private Integer slaRestanteMinutos;            // SLA que le queda al momento de replanificar
     private String aeropuertoReplanificacionDesde; // null = desde origen, valor = desde escala intermedia
     private LocalDateTime horaDisponibleReplanificacion;// momento GMT en que el envío estará disponible en aeropuertoReplanificacionDesde | null para envíos normales
+    // Identifica el lote cuando un envío se divide por falta de capacidad en un solo vuelo/ruta.
+    // null = envío completo (no dividido). 0, 1, 2... = número de lote dentro del envío padre.
+    private Integer numeroLote;
 
+    /** Clave única real (incluye el lote) — usar para cancelación/replanificación de UN pedazo. */
+    public String getClaveUnica() {
+        return getClaveBase() + (numeroLote != null ? "|L" + numeroLote : "");
+    }
+
+    /** Clave del envío ORIGINAL, ignorando el lote — usar para reagrupar los pedazos. */
+    public String getClaveBase() {
+        return idEnvio + "|" + idCliente + "|" + aeropuertoOrigen + "|" + aeropuertoDestino;
+    }
 }
