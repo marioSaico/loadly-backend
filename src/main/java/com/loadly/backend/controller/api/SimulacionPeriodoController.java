@@ -682,7 +682,7 @@ public class SimulacionPeriodoController {
                     .ocupacionAlmacenRecojo(ocupadoRecojo)
                     .capacidadAlmacenRecojo(destino != null ? destino.getCapacidad() : 0)
                     .duracion(String.format("%02dh %02dm", horasTotales, minutosRestantes))
-                    .sla(slaHoras + "h")
+                    .sla(minutosDuracion <= slaHoras * 60 ? "Cumplido" : "No cumplido")
                     .esReplanificacion(envio.getAeropuertoReplanificacionDesde() != null)
                     .replanificadoDesde(envio.getAeropuertoReplanificacionDesde())
                     .tramos(tramosDTO)
