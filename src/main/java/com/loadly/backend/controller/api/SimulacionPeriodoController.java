@@ -707,7 +707,7 @@ public class SimulacionPeriodoController {
                 .maletasCausantes(colapso.maletasCausantes)
                 .ubicacionConflicto(colapso.ubicacionConflicto)
                 .detalle(colapso.detalle)
-                .relojColapso(relojSimulado.format(FMT_LOG))
+                .relojColapso(limiteLecturaDatos.format(FMT_LOG))
                 .build();
 
         broadcast(SimulacionEventDTO.builder()
@@ -835,7 +835,7 @@ public class SimulacionPeriodoController {
                 rc.idEnvioCausante = env.getIdEnvio() + (env.getNumeroLote() != null ? " (lote " + env.getNumeroLote() + ")" : "");
                 rc.rutaCausante = env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino();
                 rc.maletasCausantes = env.getCantidadMaletas();
-                rc.detalle = "No existe conexión física o vuelos factibles para llegar de " + env.getAeropuertoOrigen() + " a " + env.getAeropuertoDestino();
+                rc.detalle = "No existe vuelos factibles para llegar de " + env.getAeropuertoOrigen() + " a " + env.getAeropuertoDestino();
                 return rc;
             } 
             else if (r.getEstado() == EstadoRuta.SIN_RUTA) {
@@ -843,7 +843,7 @@ public class SimulacionPeriodoController {
                 rc.idEnvioCausante = env.getIdEnvio() + (env.getNumeroLote() != null ? " (lote " + env.getNumeroLote() + ")" : "");
                 rc.rutaCausante = env.getAeropuertoOrigen() + "->" + env.getAeropuertoDestino();
                 rc.maletasCausantes = env.getCantidadMaletas();
-                rc.detalle = "No se encontró una solución que respete los límites de tiempo y capacidad.";
+                rc.detalle = "El almacen de origen no tiene capacidad suficiente." + " Alamacen origen: " + env.getAeropuertoOrigen();
                 return rc;
             }
             /*else if (r.getEstado() == EstadoRuta.PLANIFICADA) {
