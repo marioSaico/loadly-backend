@@ -339,7 +339,7 @@ public class DataService {
             .filter(v -> claveVuelo(v).contains("OPKC") || claveVuelo(v).contains("EDDI"))
             .map(this::claveVuelo)
             .collect(java.util.stream.Collectors.toList());
-        System.out.println("[CANCELACION DEBUG] Vuelos con OPKC o EDDI: " + vuelosCoincidentes);
+        //System.out.println("[CANCELACION DEBUG] Vuelos con OPKC o EDDI: " + vuelosCoincidentes);
 
         // 1. Encontrar el PlanVuelo correspondiente a la clave
         PlanVuelo vueloCancelado = null;
@@ -395,7 +395,10 @@ public class DataService {
             int indiceAfectado = -1;
             for (int i = 0; i < vuelosRuta.size(); i++) {
                 boolean esElVuelo = claveVuelo(vuelosRuta.get(i)).equals(claveVuelo);
+                //System.out.printf(claveVuelo + " vs " + claveVuelo(vuelosRuta.get(i)) + " -> esElVuelo: " + esElVuelo + "\n");
                 boolean aunNoDespego = despegues[i].isAfter(relojSimuladoActual);
+                //System.out.printf("Tramo %d: despegue=%s, relojActual=%s, aunNoDespego=%b%n",
+                //        i, despegues[i], relojSimuladoActual, aunNoDespego);
 
                 // Si el vuelo de hoy ya despegó, solo nos interesan los usos en días futuros
                 if (esElVuelo && aunNoDespego) {
@@ -517,16 +520,29 @@ public class DataService {
         LocalDateTime[] despegues = new LocalDateTime[n];
         LocalDateTime[] llegadas  = new LocalDateTime[n];
 
-        LocalDateTime fechaLlegadaPaquete = LocalDateTime.of(
-            LocalDate.parse(envio.getFechaRegistro(), DateTimeFormatter.ofPattern("yyyyMMdd")),
-            LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro())
-        );
+        if (envio.getHoraDisponibleReplanificacion() != null) {
+            // Ya está en GMT (así se guarda siempre este campo)
+            LocalDateTime cursorGMT = envio.getHoraDisponibleReplanificacion();
+            long espera = calcularEsperaEnEscala(cursorGMT, vuelosRuta.get(0).getHoraSalida());
+            despegues[0] = cursorGMT.plusMinutes(espera);
+        } else {
+            String origenReal = (envio.getAeropuertoReplanificacionDesde() != null)
+                ? envio.getAeropuertoReplanificacionDesde()
+                : envio.getAeropuertoOrigen();
+            Aeropuerto aeroOrigen = mapaAeropuertos.get(origenReal);
+            int gmtOrigen = (aeroOrigen != null) ? aeroOrigen.getGmt() : 0;
 
-        long esperaPrimero = calcularMinutosHastaVuelo(
-            envio.getHoraRegistro(), envio.getMinutoRegistro(),
-            vuelosRuta.get(0).getHoraSalida()
-        );
-        despegues[0] = fechaLlegadaPaquete.plusMinutes(esperaPrimero);
+            LocalDateTime fechaRegistroGMT = LocalDateTime.of(
+                LocalDate.parse(envio.getFechaRegistro(), DateTimeFormatter.ofPattern("yyyyMMdd")),
+                LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro())
+            ).minusHours(gmtOrigen); // ← el fix
+
+            long esperaPrimero = calcularMinutosHastaVuelo(
+                envio.getHoraRegistro(), envio.getMinutoRegistro(),
+                vuelosRuta.get(0).getHoraSalida()
+            );
+            despegues[0] = fechaRegistroGMT.plusMinutes(esperaPrimero);
+        }
         llegadas[0]  = despegues[0].plusMinutes(calcularDuracionVueloGMT(vuelosRuta.get(0)));
 
         for (int i = 1; i < n; i++) {
@@ -590,10 +606,17 @@ public class DataService {
                 despegues[0] = fechaDisponible.plusMinutes(espera);
             } else {
                 // Envío normal o replanificación desde origen original
+                String origenReal = (envio.getAeropuertoReplanificacionDesde() != null)
+                        ? envio.getAeropuertoReplanificacionDesde()
+                        : envio.getAeropuertoOrigen();
+                Aeropuerto aeroOrigen = mapaAeropuertos.get(origenReal);
+                int gmtOrigen = (aeroOrigen != null) ? aeroOrigen.getGmt() : 0;
+
                 fechaDisponible = LocalDateTime.of(
                     LocalDate.parse(envio.getFechaRegistro(), DateTimeFormatter.ofPattern("yyyyMMdd")),
                     LocalTime.of(envio.getHoraRegistro(), envio.getMinutoRegistro())
-                );
+                ).minusHours(gmtOrigen); // ← el fix
+
                 esperaPrimero = calcularMinutosHastaVuelo(
                     envio.getHoraRegistro(), envio.getMinutoRegistro(),
                     vuelosRuta.get(0).getHoraSalida());
