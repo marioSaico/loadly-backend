@@ -360,7 +360,7 @@ public class DataService {
         int gmtOrigen = mapaAeropuertos.get(vueloCancelado.getOrigen()) != null
             ? mapaAeropuertos.get(vueloCancelado.getOrigen()).getGmt() : 0;
         int minSalidaLocal = convertirAMinutos(vueloCancelado.getHoraSalida());
-        int minSalidaGMT = minSalidaLocal - (gmtOrigen * 60);
+        int minSalidaGMT = ((minSalidaLocal - (gmtOrigen * 60)) % 1440 + 1440) % 1440;
         // Normalizar a minutos del día
         int minRelojActualGMT = relojSimuladoActual.getHour() * 60 + relojSimuladoActual.getMinute();
         // La ocurrencia de hoy ya despegó si el reloj actual (en minutos del día) supera la salida GMT
