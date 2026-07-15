@@ -15,6 +15,9 @@ public class SimulacionEventDTO {
     private String relojSimulado; // El reloj base (Sa)
     private String limiteLectura; // Hasta donde leyó el algoritmo (Sc)
     
+    // Marca temporal del servidor para sincronizar el reloj visual entre clientes.
+    private Long inicioVisualEpochMs;
+
     private List<RutaPlanificadaDTO> rutasPlanificadas;
     private ColapsoDTO colapso;
     private ResumenFinalDTO resumenFinal;

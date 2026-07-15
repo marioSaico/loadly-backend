@@ -60,6 +60,7 @@ public class SimulacionPeriodoController {
     private final List<SimulacionEventDTO> sharedEventHistory = new ArrayList<>();
     private String sharedScenarioKey;
     private boolean sharedSimulationActive;
+    private long sharedVisualStartEpochMs;
     
     private ResumenFinalDTO ultimoResumen = null;
 
@@ -187,6 +188,7 @@ public class SimulacionPeriodoController {
                 sharedScenarioKey = scenarioKey;
                 sharedEventHistory.clear();
                 sharedSimulationActive = true;
+                sharedVisualStartEpochMs = 0L;
                 simulacionDetenida = false;
                 simulacionPausada = false;
                 iniciarNuevaSimulacion = true;
@@ -217,6 +219,12 @@ public class SimulacionPeriodoController {
     private void broadcast(SimulacionEventDTO event) {
         synchronized (sharedStreamLock) {
             if (sharedSimulationActive) {
+                if (sharedVisualStartEpochMs == 0L && "ITERACION".equalsIgnoreCase(event.getTipo())) {
+                    sharedVisualStartEpochMs = System.currentTimeMillis();
+                }
+                if (sharedVisualStartEpochMs > 0L) {
+                    event.setInicioVisualEpochMs(sharedVisualStartEpochMs);
+                }
                 sharedEventHistory.add(event);
             }
             List<SseEmitter> deadEmitters = new ArrayList<>();
