@@ -50,6 +50,16 @@ public class SimulacionPeriodoController {
     private final PlanVueloService planVueloService;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private volatile boolean simulationStarted = false;
+
+    /**
+     * Estado de difusión de la simulación compartida. No interviene en el
+     * algoritmo: solamente conserva los eventos SSE para que una nueva ventana
+     * pueda ver exactamente la misma ejecución sin volver a iniciarla.
+     */
+    private final Object sharedStreamLock = new Object();
+    private final List<SimulacionEventDTO> sharedEventHistory = new ArrayList<>();
+    private String sharedScenarioKey;
+    private boolean sharedSimulationActive;
     
     private ResumenFinalDTO ultimoResumen = null;
 
@@ -121,17 +131,105 @@ public class SimulacionPeriodoController {
         return emitter;
     }
 
-    private void broadcast(SimulacionEventDTO event) {
-        List<SseEmitter> deadEmitters = new ArrayList<>();
-        for (SseEmitter emitter : emitters) {
+    /**
+     * Canal SSE de solo lectura para la simulación de período compartida.
+     * Suscribirse nunca inicia un algoritmo: así una reconexión automática del
+     * navegador no puede ejecutar otra planificación.
+     */
+    @GetMapping(value = "/periodo/compartida", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter suscribirseASimulacionCompartida() {
+
+        SseEmitter emitter = new SseEmitter(0L);
+        emitter.onCompletion(() -> emitters.remove(emitter));
+        emitter.onTimeout(() -> emitters.remove(emitter));
+        emitter.onError(e -> emitters.remove(emitter));
+
+        synchronized (sharedStreamLock) {
+            emitters.add(emitter);
             try {
-                emitter.send(event);
+                for (SimulacionEventDTO event : sharedEventHistory) {
+                    emitter.send(event);
+                }
             } catch (Exception e) {
-                deadEmitters.add(emitter);
+                emitters.remove(emitter);
+                emitter.completeWithError(e);
             }
         }
-        if (!deadEmitters.isEmpty()) {
-            emitters.removeAll(deadEmitters);
+
+        return emitter;
+    }
+
+    /**
+     * Crea la ejecución compartida. Si ya existe una para los mismos parámetros,
+     * no la reinicia; los clientes solamente se suscriben al canal SSE.
+     */
+    @PostMapping("/periodo/compartida/iniciar")
+    public ResponseEntity<String> iniciarSimulacionCompartida(
+            @RequestParam(required = false) String inicioStr,
+            @RequestParam(required = false) String finStr,
+            @RequestParam(defaultValue = "60") int taSegundos,
+            @RequestParam(defaultValue = "2") int sa,
+            @RequestParam(defaultValue = "120") int k,
+            @RequestParam(defaultValue = "10") int tamano) {
+
+        String scenarioKey = String.join("|",
+                Objects.toString(inicioStr, ""), Objects.toString(finStr, ""),
+                String.valueOf(taSegundos), String.valueOf(sa),
+                String.valueOf(k), String.valueOf(tamano));
+        boolean iniciarNuevaSimulacion = false;
+
+        synchronized (sharedStreamLock) {
+            boolean mismoEscenario = scenarioKey.equals(sharedScenarioKey);
+            if (!mismoEscenario && sharedSimulationActive) {
+                return ResponseEntity.status(409)
+                        .body("Ya existe una simulación compartida en ejecución");
+            } else if (!mismoEscenario || sharedEventHistory.isEmpty()) {
+                sharedScenarioKey = scenarioKey;
+                sharedEventHistory.clear();
+                sharedSimulationActive = true;
+                simulacionDetenida = false;
+                simulacionPausada = false;
+                iniciarNuevaSimulacion = true;
+            }
+        }
+
+        if (iniciarNuevaSimulacion) {
+            simulationStarted = true;
+            executor.execute(() -> {
+                try {
+                    ejecutarEscenario(inicioStr, finStr, taSegundos, sa, k, tamano);
+                } catch (Exception e) {
+                    completeAllEmittersWithError(e);
+                } finally {
+                    simulationStarted = false;
+                    synchronized (sharedStreamLock) {
+                        sharedSimulationActive = false;
+                    }
+                }
+            });
+        }
+
+        return ResponseEntity.ok(iniciarNuevaSimulacion
+                ? "Simulación compartida iniciada"
+                : "Simulación compartida ya existente");
+    }
+
+    private void broadcast(SimulacionEventDTO event) {
+        synchronized (sharedStreamLock) {
+            if (sharedSimulationActive) {
+                sharedEventHistory.add(event);
+            }
+            List<SseEmitter> deadEmitters = new ArrayList<>();
+            for (SseEmitter emitter : emitters) {
+                try {
+                    emitter.send(event);
+                } catch (Exception e) {
+                    deadEmitters.add(emitter);
+                }
+            }
+            if (!deadEmitters.isEmpty()) {
+                emitters.removeAll(deadEmitters);
+            }
         }
     }
 

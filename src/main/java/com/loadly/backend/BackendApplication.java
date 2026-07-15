@@ -97,7 +97,7 @@ public class BackendApplication {
         // PERÍODO 5 DÍAS — ~60 min de ejecución real
         //   Ta=10s | Sa=3min | K=120 | Sc=360min | 20 iter | 60min real
         //Primera fecha 
-        ejecutarEscenario("PERIODO", "20260720-08-15", "20260725-08-15", 60, 3, 120, 10, nombreAlg, planFunc, dataService);
+        // ejecutarEscenario("PERIODO", "20260720-08-15", "20260725-08-15", 60, 3, 120, 10, nombreAlg, planFunc, dataService);
         //Segunda fecha 
         //ejecutarEscenario("PERIODO", "20260815-13-32", "20260820-13-32", 60, 3, 120, 10, nombreAlg, planFunc, dataService);
         //Tercera fecha 
