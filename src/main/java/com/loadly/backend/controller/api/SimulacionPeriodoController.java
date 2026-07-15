@@ -270,6 +270,13 @@ public class SimulacionPeriodoController {
     public ResponseEntity<String> detenerSimulacion() {
         simulacionDetenida = true;
         simulacionPausada  = false;
+        broadcast(SimulacionEventDTO.builder().tipo("DETENIDA").build());
+        synchronized (sharedStreamLock) {
+            sharedSimulationActive = false;
+            sharedScenarioKey = null;
+            sharedVisualStartEpochMs = 0L;
+            sharedEventHistory.clear();
+        }
         dataService.resetEstado();
         completeAllEmitters();
         simulationStarted = false;
