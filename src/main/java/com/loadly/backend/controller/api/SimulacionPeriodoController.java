@@ -57,7 +57,14 @@ public class SimulacionPeriodoController {
      * pueda ver exactamente la misma ejecución sin volver a iniciarla.
      */
     private final Object sharedStreamLock = new Object();
-    private final List<SimulacionEventDTO> sharedEventHistory = new ArrayList<>();
+    private final List<SharedSimulationEvent> sharedEventHistory = new ArrayList<>();
+    private long sharedEventSequence;
+    /**
+     * La reproducción del historial debe ocurrir después de que Spring haya
+     * abierto la respuesta SSE. Enviarla dentro del método GET puede cerrar la
+     * conexión de un observador antes de que reciba los primeros vuelos.
+     */
+    private final ExecutorService sharedReplayExecutor = Executors.newCachedThreadPool();
     private String sharedScenarioKey;
     private boolean sharedSimulationActive;
     private long sharedVisualStartEpochMs;
@@ -138,26 +145,94 @@ public class SimulacionPeriodoController {
      * navegador no puede ejecutar otra planificación.
      */
     @GetMapping(value = "/periodo/compartida", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter suscribirseASimulacionCompartida() {
+    public SseEmitter suscribirseASimulacionCompartida(
+            @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId) {
 
         SseEmitter emitter = new SseEmitter(0L);
         emitter.onCompletion(() -> emitters.remove(emitter));
         emitter.onTimeout(() -> emitters.remove(emitter));
         emitter.onError(e -> emitters.remove(emitter));
 
+        long lastReceivedSequence = parseSharedEventSequence(lastEventId);
+        List<SharedSimulationEvent> historySnapshot;
         synchronized (sharedStreamLock) {
-            emitters.add(emitter);
-            try {
-                for (SimulacionEventDTO event : sharedEventHistory) {
-                    emitter.send(event);
-                }
-            } catch (Exception e) {
-                emitters.remove(emitter);
-                emitter.completeWithError(e);
-            }
+            historySnapshot = sharedEventHistory.stream()
+                    .filter(event -> event.sequence > lastReceivedSequence)
+                    .collect(Collectors.toList());
         }
 
+        // No bloquear la apertura del EventSource con un historial potencialmente
+        // grande. Al finalizar se agregan los eventos surgidos durante el replay
+        // y recién entonces el emisor pasa al canal en vivo.
+        sharedReplayExecutor.execute(() -> reproducirHistorialYRegistrar(
+                emitter, historySnapshot, lastReceivedSequence));
+
         return emitter;
+    }
+
+    private long parseSharedEventSequence(String lastEventId) {
+        if (lastEventId == null || lastEventId.isBlank()) return 0L;
+        try {
+            return Long.parseLong(lastEventId);
+        } catch (NumberFormatException ignored) {
+            return 0L;
+        }
+    }
+
+    private void reproducirHistorialYRegistrar(
+            SseEmitter emitter, List<SharedSimulationEvent> historySnapshot,
+            long lastReceivedSequence) {
+        try {
+            Thread.sleep(25);
+            long lastSentSequence = lastReceivedSequence;
+            for (SharedSimulationEvent event : historySnapshot) {
+                sendSharedEvent(emitter, event);
+                lastSentSequence = event.sequence;
+            }
+
+            synchronized (sharedStreamLock) {
+                // Los eventos publicados entre la copia y este punto se envían
+                // antes de registrar el emisor, evitando huecos y desorden.
+                for (SharedSimulationEvent event : sharedEventHistory) {
+                    if (event.sequence > lastSentSequence) {
+                        sendSharedEvent(emitter, event);
+                        lastSentSequence = event.sequence;
+                    }
+                }
+                emitter.send(SseEmitter.event().data(
+                        SimulacionEventDTO.builder()
+                                .tipo("REPLAY_COMPLETA")
+                                .inicioVisualEpochMs(sharedVisualStartEpochMs > 0L
+                                        ? sharedVisualStartEpochMs : null)
+                                .build()));
+                emitters.add(emitter);
+            }
+        } catch (Exception ignored) {
+            // Es normal que un navegador cierre o recargue el EventSource. Se
+            // descarta solamente ese observador; la simulación continúa.
+            emitters.remove(emitter);
+            try {
+                emitter.complete();
+            } catch (Exception completionError) {
+                // La conexión ya estaba cerrada.
+            }
+        }
+    }
+
+    private void sendSharedEvent(SseEmitter emitter, SharedSimulationEvent event) throws Exception {
+        emitter.send(SseEmitter.event()
+                .id(String.valueOf(event.sequence))
+                .data(event.payload));
+    }
+
+    private static final class SharedSimulationEvent {
+        private final long sequence;
+        private final SimulacionEventDTO payload;
+
+        private SharedSimulationEvent(long sequence, SimulacionEventDTO payload) {
+            this.sequence = sequence;
+            this.payload = payload;
+        }
     }
 
     /**
@@ -187,6 +262,7 @@ public class SimulacionPeriodoController {
             } else if (!mismoEscenario || sharedEventHistory.isEmpty()) {
                 sharedScenarioKey = scenarioKey;
                 sharedEventHistory.clear();
+                sharedEventSequence = 0L;
                 sharedSimulationActive = true;
                 sharedVisualStartEpochMs = 0L;
                 simulacionDetenida = false;
@@ -218,6 +294,7 @@ public class SimulacionPeriodoController {
 
     private void broadcast(SimulacionEventDTO event) {
         synchronized (sharedStreamLock) {
+            SharedSimulationEvent sharedEvent = null;
             if (sharedSimulationActive) {
                 if (sharedVisualStartEpochMs == 0L && "ITERACION".equalsIgnoreCase(event.getTipo())) {
                     sharedVisualStartEpochMs = System.currentTimeMillis();
@@ -225,14 +302,20 @@ public class SimulacionPeriodoController {
                 if (sharedVisualStartEpochMs > 0L) {
                     event.setInicioVisualEpochMs(sharedVisualStartEpochMs);
                 }
-                sharedEventHistory.add(event);
+                sharedEvent = new SharedSimulationEvent(++sharedEventSequence, event);
+                sharedEventHistory.add(sharedEvent);
             }
             List<SseEmitter> deadEmitters = new ArrayList<>();
             for (SseEmitter emitter : emitters) {
                 try {
-                    emitter.send(event);
+                    if (sharedEvent != null) {
+                        sendSharedEvent(emitter, sharedEvent);
+                    } else {
+                        emitter.send(event);
+                    }
                 } catch (Exception e) {
                     deadEmitters.add(emitter);
+                    try { emitter.complete(); } catch (Exception ignored) { }
                 }
             }
             if (!deadEmitters.isEmpty()) {
