@@ -41,8 +41,8 @@ public class DataService {
     private Map<String, List<PlanVuelo>> mapaVuelosPorOrigen;
  
     // Controladores de Capacidad Dinámica
-    private Map<String, Integer> capacidadDinamicaAlmacenes;
-    private Map<String, Integer> capacidadDinamicaVuelos;
+    private Map<String, Integer> capacidadDinamicaAlmacenes = new HashMap<>();
+    private Map<String, Integer> capacidadDinamicaVuelos = new HashMap<>();
  
     // Solo guarda los envíos que AÚN NO TIENEN RUTA (Backlog)
     private List<Envio> enviosEnEspera = new ArrayList<>();
@@ -782,8 +782,8 @@ public class DataService {
     // =========================================================================
  
     public void resetEstado() {
-        this.capacidadDinamicaAlmacenes.clear();
-        this.capacidadDinamicaVuelos.clear();
+        if (this.capacidadDinamicaAlmacenes != null) this.capacidadDinamicaAlmacenes.clear();
+        if (this.capacidadDinamicaVuelos != null) this.capacidadDinamicaVuelos.clear();
         this.enviosEnEspera.clear();
         this.rutasPlanificadasHistorico.clear();
         this.agendaEventos.clear();
