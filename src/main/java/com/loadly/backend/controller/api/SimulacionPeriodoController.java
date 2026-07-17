@@ -41,6 +41,7 @@ public class SimulacionPeriodoController {
     private volatile boolean InicioConDia_Dia  = false;
 
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
+    private final List<SimulacionEventDTO> eventHistory = new ArrayList<>();
     private final Map<String, List<long[]>> timelineAlmacenesGlobal = new HashMap<>();
     private final Map<String, Integer> ocupacionVuelosGlobal = new HashMap<>();
 
@@ -123,7 +124,22 @@ public class SimulacionPeriodoController {
 
         emitters.add(emitter);
 
-        if (!simulationStarted) {
+        if (simulationStarted) {
+            // Reconexión — reenviar historial de eventos al nuevo emitter (en hilo separado)
+            sharedReplayExecutor.execute(() -> {
+                synchronized (sharedStreamLock) {
+                    for (SimulacionEventDTO evt : eventHistory) {
+                        try {
+                            emitter.send(evt);
+                        } catch (Exception e) {
+                            emitters.remove(emitter);
+                            try { emitter.complete(); } catch (Exception ignored) { }
+                            break;
+                        }
+                    }
+                }
+            });
+        } else {
             simulationStarted = true;
             executor.execute(() -> {
                 try {
@@ -304,6 +320,9 @@ public class SimulacionPeriodoController {
                 }
                 sharedEvent = new SharedSimulationEvent(++sharedEventSequence, event);
                 sharedEventHistory.add(sharedEvent);
+            } else {
+                // Guardar en historial para reconexión (modo no-compartido)
+                eventHistory.add(event);
             }
             List<SseEmitter> deadEmitters = new ArrayList<>();
             for (SseEmitter emitter : emitters) {
@@ -359,6 +378,7 @@ public class SimulacionPeriodoController {
             sharedScenarioKey = null;
             sharedVisualStartEpochMs = 0L;
             sharedEventHistory.clear();
+            eventHistory.clear();
         }
         dataService.resetEstado();
         completeAllEmitters();
@@ -719,6 +739,7 @@ public class SimulacionPeriodoController {
         dataService.resetEstado();
         this.timelineAlmacenesGlobal.clear();
         this.ocupacionVuelosGlobal.clear();
+        this.eventHistory.clear();
 
         if (this.ultimoResumen != null) {
             SimulacionEventDTO eventoFinal = SimulacionEventDTO.builder()

@@ -63,6 +63,7 @@ public class Planificador {
             if (k==1) {
                 dataService.confirmarPlanYActualizarCapacidades(mejorPlan, fechaHoraActual);
                 dataService.marcarEnviosPlanificadosEnBD(mejorPlan);
+                dataService.persistirResultadosDiaDia(mejorPlan, fechaHoraActual);
             }
             else{
                 dataService.confirmarPlanYActualizarCapacidades(mejorPlan, fechaHoraLimite);

@@ -30,6 +30,11 @@ public class AsignacionService {
         ));
     }
 
+    public void insertar(Integer planVueloId, String envioIdEnvio, Integer ordenRuta) {
+        String sql = "INSERT INTO asignacion (plan_vuelo_id_plan_vuelo, envio_idEnvio, ordenRuta) VALUES (?, ?, ?)";
+        databaseManager.getPrimaryDb().update(sql, planVueloId, envioIdEnvio, ordenRuta);
+    }
+
     /**
      * Obtiene una asignación por ID
      */

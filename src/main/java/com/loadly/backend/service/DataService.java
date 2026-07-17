@@ -7,8 +7,10 @@ import com.loadly.backend.dto.PlanVueloDTO;
 import com.loadly.backend.loader.*;
 import com.loadly.backend.model.*;
 import com.loadly.backend.service.database.AeropuertoService;
+import com.loadly.backend.service.database.AsignacionService;
 import com.loadly.backend.service.database.EnvioService;
 import com.loadly.backend.service.database.PlanVueloService;
+import com.loadly.backend.service.database.RegistroMonitoreoService;
 import lombok.Data;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,6 +35,8 @@ public class DataService {
     private final AeropuertoService aeropuertoService;
     private final PlanVueloService planVueloService;
     private final EnvioService envioService;
+    private final RegistroMonitoreoService registroMonitoreoService;
+    private final AsignacionService asignacionService;
  
     private List<Aeropuerto> aeropuertos;
     private List<PlanVuelo> vuelos;
@@ -62,11 +66,15 @@ public class DataService {
     public DataService(EnvioLoader envioLoader,
                        AeropuertoService aeropuertoService,
                        PlanVueloService planVueloService,
-                       EnvioService envioService) {
+                       EnvioService envioService,
+                       RegistroMonitoreoService registroMonitoreoService,
+                       AsignacionService asignacionService) {
         this.envioLoader      = envioLoader;
         this.aeropuertoService = aeropuertoService;
         this.planVueloService = planVueloService;
         this.envioService = envioService;
+        this.registroMonitoreoService = registroMonitoreoService;
+        this.asignacionService = asignacionService;
     }
  
     public void inicializar() {
@@ -159,6 +167,7 @@ public class DataService {
         if (dto == null) return null;
         PlanVuelo model = new PlanVuelo();
         
+        model.setId(dto.getIdPlanVuelo());
         model.setOrigen(mapaIdACodigo.getOrDefault(dto.getIdAeropuertoOrigen(), "UNKNOWN"));
         model.setDestino(mapaIdACodigo.getOrDefault(dto.getIdAeropuertoDestino(), "UNKNOWN"));
         
@@ -731,7 +740,76 @@ public class DataService {
     }
  
     // =========================================================================
-    // 3. LA AGENDA DE EVENTOS (Control del Tiempo)
+    // 3. PERSISTENCIA EN BD (Operación Día a Día)
+    // =========================================================================
+
+    public void persistirResultadosDiaDia(Individuo plan, String relojStr) {
+        if (plan == null || plan.getRutas() == null) return;
+        LocalDateTime ahora = LocalDateTime.parse(relojStr, FORMATO_RELOJ);
+        int persistidos = 0;
+
+        for (Ruta ruta : plan.getRutas()) {
+            if (ruta.getEstado() != EstadoRuta.PLANIFICADA) continue;
+            Envio envio = ruta.getEnvio();
+            List<PlanVuelo> vuelosRuta = ruta.getVuelos();
+            if (vuelosRuta == null || vuelosRuta.isEmpty()) continue;
+
+            try {
+                // Persistir registro de monitoreo en origen
+                Aeropuerto aOrig = mapaAeropuertos.get(envio.getAeropuertoOrigen());
+                if (aOrig != null) {
+                    registroMonitoreoService.registrar(
+                        envio.getIdEnvio(), aOrig.getId(),
+                        "EN_ALMACEN_ORIGEN", ahora);
+                }
+
+                // Persistir asignaciones y monitoreo por cada tramo
+                for (int i = 0; i < vuelosRuta.size(); i++) {
+                    PlanVuelo v = vuelosRuta.get(i);
+
+                    // Asignación en tabla asignacion
+                    if (v.getId() != null) {
+                        asignacionService.insertar(v.getId(), envio.getIdEnvio(), i + 1);
+                    }
+
+                    // Monitoreo: salida desde origen del tramo
+                    Aeropuerto aVueloOrig = mapaAeropuertos.get(v.getOrigen());
+                    if (aVueloOrig != null) {
+                        registroMonitoreoService.registrar(
+                            envio.getIdEnvio(), aVueloOrig.getId(),
+                            "EN_VUELO", ahora);
+                    }
+
+                    // Monitoreo: llegada a destino del tramo
+                    Aeropuerto aVueloDest = mapaAeropuertos.get(v.getDestino());
+                    if (aVueloDest != null) {
+                        String estado = (i < vuelosRuta.size() - 1)
+                            ? "EN_ALMACEN_INTERMEDIO" : "EN_ALMACEN_DESTINO";
+                        registroMonitoreoService.registrar(
+                            envio.getIdEnvio(), aVueloDest.getId(),
+                            estado, ahora);
+                    }
+                }
+
+                // Entrega final
+                Aeropuerto aDest = mapaAeropuertos.get(envio.getAeropuertoDestino());
+                if (aDest != null) {
+                    registroMonitoreoService.registrar(
+                        envio.getIdEnvio(), aDest.getId(),
+                        "ENTREGADO", ahora.plusMinutes(15));
+                }
+                persistidos++;
+            } catch (Exception e) {
+                System.err.printf("[BD] Error persistiendo envío %s: %s%n",
+                    envio.getIdEnvio(), e.getMessage());
+            }
+        }
+        System.out.printf("[BD] Persistidos %d resultados de Día a Día (intentados: %d)%n",
+            persistidos, plan.getRutas().size());
+    }
+
+    // =========================================================================
+    // 4. LA AGENDA DE EVENTOS (Control del Tiempo)
     // =========================================================================
  
     /**

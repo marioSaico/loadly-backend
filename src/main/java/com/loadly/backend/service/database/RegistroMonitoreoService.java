@@ -5,6 +5,7 @@ import com.loadly.backend.dto.RegistroMonitoreoDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -29,6 +30,11 @@ public class RegistroMonitoreoService {
             rs.getString("estado"),
             rs.getTimestamp("fechaHora") != null ? rs.getTimestamp("fechaHora").toLocalDateTime() : null
         ));
+    }
+
+    public void registrar(String envioIdEnvio, Integer aeropuertoId, String estado, LocalDateTime fechaHora) {
+        String sql = "INSERT INTO registro_monitoreo (envio_idEnvio, aeropuerto_IdAeropuerto, estado, fechaHora) VALUES (?, ?, ?, ?)";
+        databaseManager.getPrimaryDb().update(sql, envioIdEnvio, aeropuertoId, estado, java.sql.Timestamp.valueOf(fechaHora));
     }
 
     /**

@@ -5,6 +5,7 @@ import lombok.Data;
 @Data
 public class PlanVuelo {
 
+    private Integer id;
     private String origen;
     private String destino;
     private String horaSalida;
