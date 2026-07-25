@@ -273,7 +273,11 @@ public class DataService {
         
         List<Envio> enviosRecienLlegados;
         if (k == 1) {
-            enviosRecienLlegados = envioLoader.obtenerEnviosPendientesDesdeBD(fechaHoraActual, this.aeropuertos);
+            Set<String> idsYaEnMemoria = new HashSet<>();
+            for (Envio e : enviosEnEspera) idsYaEnMemoria.add(e.getIdEnvio());
+            for (Envio e : colaReplanificacion) idsYaEnMemoria.add(e.getIdEnvio());
+
+            enviosRecienLlegados = envioLoader.obtenerEnviosPendientesDesdeBD(fechaHoraActual, this.aeropuertos, idsYaEnMemoria);
         } else {
             String directorioUsuario = System.getProperty("user.home");
             String rutaCarpetaArchivos = java.nio.file.Paths.get(directorioUsuario, "simulador_envios").toString();

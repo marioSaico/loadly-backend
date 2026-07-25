@@ -140,7 +140,8 @@ public class EnvioLoader {
         cursorLineasPorArchivo.clear();
     }
 
-    public List<Envio> obtenerEnviosPendientesDesdeBD(String fechaHoraActual, List<Aeropuerto> aeropuertos) {
+    public List<Envio> obtenerEnviosPendientesDesdeBD(String fechaHoraActual, List<Aeropuerto> aeropuertos,
+                                                    Set<String> idsYaEnMemoria) {
         List<Envio> enviosEnEspera = new ArrayList<>();
         LocalDateTime hasta = LocalDateTime.parse(fechaHoraActual, FORMATO_RELOJ);
         List<EnvioDTO> enviosNuevos = envioService.obtenerNoPlanificadosHasta(hasta);
@@ -149,6 +150,8 @@ public class EnvioLoader {
                 .collect(Collectors.toMap(Aeropuerto::getId, aeropuerto -> aeropuerto));
 
         for (EnvioDTO dto : enviosNuevos) {
+            String idEnvio = String.valueOf(dto.getIdArchivo());
+            if (idsYaEnMemoria.contains(idEnvio)) continue;   // ← evita duplicar un envío ya en cola
 
             Envio envio = convertirEnvioDesdeBD(dto, aeropuertosPorId);
             if (envio != null) {
