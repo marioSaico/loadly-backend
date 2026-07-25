@@ -43,6 +43,7 @@ public class SimulacionPeriodoController {
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
     private final List<SimulacionEventDTO> eventHistory = new ArrayList<>();
     private final Map<String, List<long[]>> timelineAlmacenesGlobal = new HashMap<>();
+    private final Map<String, List<long[]>> timelineVuelosGlobal = new HashMap<>();
     private final Map<String, Integer> ocupacionVuelosGlobal = new HashMap<>();
 
     private final Planificador planificador;
@@ -556,6 +557,7 @@ public class SimulacionPeriodoController {
         boolean colapsoDetectado = false;
         ResultadoColapso colapsoFinal = null;
         this.timelineAlmacenesGlobal.clear();
+        this.timelineVuelosGlobal.clear();
         this.ocupacionVuelosGlobal.clear();
 
         long inicioEscenarioMs = System.currentTimeMillis();
@@ -738,6 +740,7 @@ public class SimulacionPeriodoController {
         
         dataService.resetEstado();
         this.timelineAlmacenesGlobal.clear();
+        this.timelineVuelosGlobal.clear();
         this.ocupacionVuelosGlobal.clear();
         this.eventHistory.clear();
 
@@ -811,6 +814,9 @@ public class SimulacionPeriodoController {
                 agregarEventoTimeline(timelineAlmacenesGlobal, v.getOrigen(), despegue, -envio.getCantidadMaletas());
                 agregarEventoTimeline(timelineAlmacenesGlobal, v.getDestino(), llegada, +envio.getCantidadMaletas());
 
+                agregarEventoTimeline(timelineVuelosGlobal, clave, despegue, +envio.getCantidadMaletas());
+                agregarEventoTimeline(timelineVuelosGlobal, clave, despegue.plusHours(24), -envio.getCantidadMaletas());
+
                 cursor = llegada;
             }
             
@@ -863,7 +869,7 @@ public class SimulacionPeriodoController {
                         .destino(v.getDestino())
                         .sale(despegue.format(FMT_DISPLAY))
                         .llega(llegada.format(FMT_DISPLAY))
-                        .maletasVuelo(ocupacionVuelosGlobal.getOrDefault(clave, 0))
+                        .maletasVuelo(getOcupacionAlmacen(timelineVuelosGlobal, clave, despegue))
                         .capacidadVuelo(v.getCapacidad())
                         .ocupacionAlmacenOrigen(ocupadoAlmOrig)
                         .capacidadAlmacenOrigen(ao.getCapacidad())
